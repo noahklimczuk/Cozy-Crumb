@@ -11,39 +11,41 @@
 //  listed in the spec (Title lands at 28 rather than 24, Body at 17 rather
 //  than 16, Caption at 12 rather than 13).
 //
+//  `nonisolated` for the same reason as Theme — see the note there.
+//
 
 import SwiftUI
 
 enum CozyFont {
     /// 34pt Bold — screen titles, the mascot's big moments.
-    static let display = Font.system(.largeTitle, design: .rounded, weight: .bold)
+    nonisolated static let display = Font.system(.largeTitle, design: .rounded, weight: .bold)
 
     /// Section headers, recipe titles on detail screens.
-    static let title = Font.system(.title, design: .rounded, weight: .bold)
+    nonisolated static let title = Font.system(.title, design: .rounded, weight: .bold)
 
     /// Card titles.
-    static let title2 = Font.system(.title2, design: .rounded, weight: .bold)
+    nonisolated static let title2 = Font.system(.title2, design: .rounded, weight: .bold)
 
     /// Emphasis within body copy, list row titles.
-    static let headline = Font.system(.headline, design: .rounded, weight: .semibold)
+    nonisolated static let headline = Font.system(.headline, design: .rounded, weight: .semibold)
 
     /// Default reading text.
-    static let body = Font.system(.body, design: .rounded)
+    nonisolated static let body = Font.system(.body, design: .rounded)
 
     /// Body with emphasis.
-    static let bodyEmphasis = Font.system(.body, design: .rounded, weight: .semibold)
+    nonisolated static let bodyEmphasis = Font.system(.body, design: .rounded, weight: .semibold)
 
     /// Supporting text under a title.
-    static let subheadline = Font.system(.subheadline, design: .rounded)
+    nonisolated static let subheadline = Font.system(.subheadline, design: .rounded)
 
     /// Pills, tags, metadata.
-    static let caption = Font.system(.caption, design: .rounded, weight: .medium)
+    nonisolated static let caption = Font.system(.caption, design: .rounded, weight: .medium)
 
     /// Smallest supporting text — source attributions.
-    static let caption2 = Font.system(.caption2, design: .rounded)
+    nonisolated static let caption2 = Font.system(.caption2, design: .rounded)
 
     /// Cook Mode step text. Deliberately huge and readable across a kitchen.
-    static let cookStep = Font.system(size: 28, weight: .semibold, design: .rounded)
+    nonisolated static let cookStep = Font.system(size: 28, weight: .semibold, design: .rounded)
 }
 
 extension View {

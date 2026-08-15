@@ -8,34 +8,36 @@
 //  .cozyAnimation(_:value:) or read \.cozyMotion, and the swap to a plain fade
 //  happens in exactly one place.
 //
+//  `nonisolated` for the same reason as Theme — see the note there.
+//
 
 import SwiftUI
 
 enum Motion {
     /// Default for anything playful — card entrances, hearts, checkmarks.
-    static let bouncy = Animation.spring(response: 0.38, dampingFraction: 0.62)
+    nonisolated static let bouncy = Animation.spring(response: 0.38, dampingFraction: 0.62)
 
     /// Press-down and other immediate responses.
-    static let snappy = Animation.spring(response: 0.28, dampingFraction: 0.78)
+    nonisolated static let snappy = Animation.spring(response: 0.28, dampingFraction: 0.78)
 
     /// Large or slow movement — sheets, drawers, background drift.
-    static let gentle = Animation.spring(response: 0.55, dampingFraction: 0.85)
+    nonisolated static let gentle = Animation.spring(response: 0.55, dampingFraction: 0.85)
 
     /// Substituted for every spring above when Reduce Motion is on.
-    static let reduced = Animation.easeInOut(duration: 0.15)
+    nonisolated static let reduced = Animation.easeInOut(duration: 0.15)
 }
 
 /// Resolves a requested animation against the user's Reduce Motion setting.
 struct MotionResolver: Sendable {
     let prefersReducedMotion: Bool
 
-    func callAsFunction(_ animation: Animation) -> Animation {
+    nonisolated func callAsFunction(_ animation: Animation) -> Animation {
         prefersReducedMotion ? Motion.reduced : animation
     }
 
     /// Springs that overshoot are pointless under Reduce Motion; use this for
     /// scale/overshoot effects that should simply not happen.
-    func scale(_ pressed: CGFloat, resting: CGFloat = 1.0, isActive: Bool) -> CGFloat {
+    nonisolated func scale(_ pressed: CGFloat, resting: CGFloat = 1.0, isActive: Bool) -> CGFloat {
         guard !prefersReducedMotion else { return resting }
         return isActive ? pressed : resting
     }
