@@ -33,7 +33,7 @@ enum CozyColor {
     static let peach = Color(light: Color(hex: "FFD9C4"), dark: Color(hex: "A3785F"))
     static let sage = Color(light: Color(hex: "D9E4C8"), dark: Color(hex: "7E8C68"))
 
-    static let accentRotation: [Color] = [mint, butter, sky, lavender, peach, sage]
+    nonisolated static let accentRotation: [Color] = [mint, butter, sky, lavender, peach, sage]
 
     /// Deterministic accent for a name, so a given collection or category keeps
     /// the same colour across launches.
@@ -41,7 +41,12 @@ enum CozyColor {
     /// Uses djb2 rather than `hashValue`: Swift seeds its hasher randomly per
     /// process, so `hashValue` would hand out a different colour on every
     /// launch. `&*` and `&+` wrap instead of trapping on overflow.
-    static func rotatedAccent(for key: String) -> Color {
+    ///
+    /// `nonisolated` because the target defaults actor isolation to MainActor,
+    /// which would otherwise make this unreachable from @Model types — they are
+    /// nonisolated. This is pure computation over immutable Sendable values,
+    /// so it never needed isolation.
+    nonisolated static func rotatedAccent(for key: String) -> Color {
         var hash: UInt64 = 5381
         for byte in key.utf8 {
             hash = (hash &* 33) &+ UInt64(byte)

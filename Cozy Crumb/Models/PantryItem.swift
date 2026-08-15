@@ -15,7 +15,7 @@ enum PantryItemSource: String, Codable, CaseIterable, Sendable {
     case fridgePhoto
     case groceryCheckoff
 
-    var displayName: String {
+    nonisolated var displayName: String {
         switch self {
         case .manual: "Added by hand"
         case .fridgePhoto: "Spotted in a photo"
