@@ -13,7 +13,7 @@ import Foundation
 
 // MARK: - Values
 
-struct ImportedIngredient: Sendable, Equatable, Identifiable {
+nonisolated struct ImportedIngredient: Sendable, Equatable, Identifiable {
     let id: UUID
     /// The source line, verbatim. Always preserved.
     var rawText: String
@@ -45,7 +45,7 @@ struct ImportedIngredient: Sendable, Equatable, Identifiable {
     }
 }
 
-struct ImportedStep: Sendable, Equatable, Identifiable {
+nonisolated struct ImportedStep: Sendable, Equatable, Identifiable {
     let id: UUID
     var text: String
     var durationSeconds: Int?
