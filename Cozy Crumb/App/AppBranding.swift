@@ -16,7 +16,9 @@ enum AppBranding {
     static let tagline = "Your cookbook, cozied up."
 
     /// Must match PRODUCT_BUNDLE_IDENTIFIER in the target's build settings.
-    static let bundleIdentifier = "ca.klimczuk.cozycrumb"
+    // This immutable literal is also used to initialize loggers from
+    // background actors, so it must not inherit the target's MainActor default.
+    nonisolated static let bundleIdentifier = "ca.klimczuk.cozycrumb"
 
     /// Custom scheme used by the Share Extension to hand a URL to the main app.
     /// (A free Apple ID cannot use App Groups, so the extension cannot write to
