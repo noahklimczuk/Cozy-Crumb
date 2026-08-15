@@ -8,7 +8,8 @@
 
 import os
 
-enum Log {
+// Logging is safe to use from background actors as well as UI code.
+nonisolated enum Log {
     static let app = Logger(subsystem: AppBranding.bundleIdentifier, category: "app")
     static let data = Logger(subsystem: AppBranding.bundleIdentifier, category: "data")
     static let importer = Logger(subsystem: AppBranding.bundleIdentifier, category: "import")
