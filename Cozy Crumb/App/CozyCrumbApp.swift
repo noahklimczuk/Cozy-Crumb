@@ -5,8 +5,10 @@
 //  Created by Noah Klimczuk on 2026-08-15.
 //
 
+import Foundation
 import SwiftData
 import SwiftUI
+import os
 
 @main
 struct CozyCrumbApp: App {
