@@ -7,6 +7,7 @@
 //  accent and haptics preferences down through the environment.
 //
 
+import SwiftData
 import SwiftUI
 
 enum CozyTab: Hashable {
@@ -70,6 +71,8 @@ enum CozyTab: Hashable {
 }
 
 struct RootTabView: View {
+    @Environment(\.modelContext) private var modelContext
+
     @AppStorage(CozyDefaultsKey.accentPalette) private var accentRaw = AccentPalette.blush.rawValue
     @AppStorage(CozyDefaultsKey.hapticsEnabled) private var hapticsEnabled = true
 
@@ -89,7 +92,7 @@ struct RootTabView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab(CozyTab.library.title, systemImage: CozyTab.library.symbol, value: .library) {
-                PlaceholderScreen(tab: .library)
+                LibraryView()
             }
             Tab(CozyTab.groceries.title, systemImage: CozyTab.groceries.symbol, value: .groceries) {
                 PlaceholderScreen(tab: .groceries)
@@ -107,6 +110,9 @@ struct RootTabView: View {
         .tint(accent.deep)
         .environment(\.accentPalette, accent)
         .environment(\.hapticsEnabled, hapticsEnabled)
+        .task {
+            SeedData.installIfNeeded(in: modelContext)
+        }
     }
 }
 
@@ -202,9 +208,11 @@ private struct SettingsPlaceholderScreen: View {
 
 #Preview("Tabs") {
     RootTabView()
+        .modelContainer(PreviewData.container)
 }
 
 #Preview("Tabs — dark") {
     RootTabView()
+        .modelContainer(PreviewData.container)
         .preferredColorScheme(.dark)
 }
