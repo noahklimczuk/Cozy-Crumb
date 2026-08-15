@@ -57,7 +57,10 @@ struct ImportedStep: Sendable, Equatable, Identifiable {
     }
 }
 
-struct ImportedRecipe: Sendable, Equatable {
+// Import parsing runs off the main actor. Keep this value type and its
+// synthesized protocol conformances usable from the coordinator's
+// `nonisolated` parsing path even though the app target defaults to MainActor.
+nonisolated struct ImportedRecipe: Sendable, Equatable {
     var title: String
     var summary: String?
     var imageURL: URL?
