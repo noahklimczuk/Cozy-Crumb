@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		4FA9ECBA3030384700F91901 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 4FA9ECB93030384700F91901 /* .gitignore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		4FA9ECAB3030335000F91901 /* Cozy Crumb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cozy Crumb.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4FA9ECB93030384700F91901 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -32,6 +37,7 @@
 		4FA9ECA23030334F00F91901 = {
 			isa = PBXGroup;
 			children = (
+				4FA9ECB93030384700F91901 /* .gitignore */,
 				4FA9ECAD3030335000F91901 /* Cozy Crumb */,
 				4FA9ECAC3030335000F91901 /* Products */,
 			);
@@ -109,6 +115,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4FA9ECBA3030384700F91901 /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,6 +263,8 @@
 				DEVELOPMENT_TEAM = G7QJ43W8M3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Cozy Crumb";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -288,6 +297,8 @@
 				DEVELOPMENT_TEAM = G7QJ43W8M3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Cozy Crumb";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
