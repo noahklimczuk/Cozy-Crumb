@@ -2,14 +2,13 @@
 //  CozyCrumbSchema.swift
 //  Cozy Crumb
 //
-//  Versioned schema and migration plan. Established in Phase 0 with only V1 so
-//  that adding V2 later is a additive change rather than a retrofit.
+//  Versioned schema and migration plan, established in Phase 0 so that adding
+//  V2 later is additive rather than a retrofit.
 //
-//  Phase 2 expands V1 in place (adding the full Recipe fields plus Ingredient,
-//  RecipeStep, Collection, GroceryList, GroceryItem, PantryItem, CookLog).
-//  That is safe precisely because nothing has shipped yet — once the app is on
-//  a device with real data, changes require a new VersionedSchema and a
-//  MigrationStage instead.
+//  Phase 2 filled V1 out in place with the complete model set. That was safe
+//  only because nothing had shipped. From here on, changing any @Model means a
+//  new VersionedSchema plus a MigrationStage — editing V1 would corrupt an
+//  existing install.
 //
 
 import SwiftData
@@ -20,7 +19,16 @@ enum CozyCrumbSchemaV1: VersionedSchema {
     }
 
     static var models: [any PersistentModel.Type] {
-        [Recipe.self]
+        [
+            Recipe.self,
+            Ingredient.self,
+            RecipeStep.self,
+            RecipeCollection.self,
+            CookLog.self,
+            GroceryList.self,
+            GroceryItem.self,
+            PantryItem.self
+        ]
     }
 }
 
