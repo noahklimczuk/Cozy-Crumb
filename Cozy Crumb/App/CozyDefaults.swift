@@ -11,4 +11,5 @@ import Foundation
 enum CozyDefaultsKey {
     static let accentPalette = "settings.accentPalette"
     static let hapticsEnabled = "settings.hapticsEnabled"
+    static let measurementSystem = "settings.measurementSystem"
 }
