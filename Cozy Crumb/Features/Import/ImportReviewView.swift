@@ -14,7 +14,7 @@ import Foundation
 import PhotosUI
 import SwiftUI
 import UIKit
-
+import SwiftData
 // This screen owns SwiftUI bindings and mutable view-model state. Keep its
 // helper views on the UI actor rather than relying on inferred isolation.
 @MainActor
