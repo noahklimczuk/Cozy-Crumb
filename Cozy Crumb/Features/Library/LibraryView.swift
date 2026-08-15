@@ -20,6 +20,8 @@ struct LibraryView: View {
     @State private var pendingDeletion: Recipe?
     @State private var isNamingCollection = false
     @State private var newCollectionName = ""
+    @State private var isImporting = false
+    @State private var isEnteringManually = false
 
     private let columns = [
         GridItem(.flexible(), spacing: CozySpacing.m),
@@ -38,7 +40,16 @@ struct LibraryView: View {
             }
             .background { BlobBackground() }
             .navigationTitle("Library")
-            .toolbar { sortMenu }
+            .toolbar {
+                sortMenu
+                addMenu
+            }
+            .sheet(isPresented: $isImporting) {
+                ImportFlowView()
+            }
+            .sheet(isPresented: $isEnteringManually) {
+                ImportFlowView(startsInManualEntry: true)
+            }
             .confirmationDialog(
                 "Delete this recipe?",
                 isPresented: .init(
@@ -113,6 +124,27 @@ struct LibraryView: View {
     }
 
     @ToolbarContentBuilder
+    private var addMenu: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Button {
+                    isImporting = true
+                } label: {
+                    Label("Paste a link", systemImage: "link")
+                }
+                Button {
+                    isEnteringManually = true
+                } label: {
+                    Label("Type one in", systemImage: "square.and.pencil")
+                }
+            } label: {
+                Image(systemName: "plus.circle.fill")
+            }
+            .accessibilityLabel("Add a recipe")
+        }
+    }
+
+    @ToolbarContentBuilder
     private var sortMenu: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
@@ -136,7 +168,9 @@ struct LibraryView: View {
             EmptyStateView(
                 title: "Your cookbook's a blank page.",
                 message: "Paste a link to get started — I'll do the tidying up.",
-                pose: .sleeping
+                pose: .sleeping,
+                actionTitle: "Paste a link",
+                action: { isImporting = true }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if visibleRecipes.isEmpty {
