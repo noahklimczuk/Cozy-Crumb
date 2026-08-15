@@ -5,6 +5,13 @@
 //  Hex parsing and light/dark pairing. Colors are defined in code rather than
 //  an asset catalog so the accent picker can re-tint the app at runtime.
 //
+//  Both initialisers are `nonisolated`. The target sets
+//  SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor, which would otherwise isolate
+//  them — and every token in Theme.swift is a nonisolated static let whose
+//  default value calls them, which is illegal from a nonisolated context.
+//  They are pure value construction with no shared state, so isolation was
+//  never meaningful here.
+//
 
 import Foundation
 import SwiftUI
@@ -14,7 +21,7 @@ extension Color {
     /// Accepts "RRGGBB" or "AARRGGBB", with or without a leading "#".
     /// Falls back to clear on malformed input rather than trapping — a wrong
     /// colour is a visible bug, a crashed app is a worse one.
-    init(hex: String) {
+    nonisolated init(hex: String) {
         let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
 
         var value: UInt64 = 0
@@ -45,7 +52,7 @@ extension Color {
 
     /// Pairs two colours into one that resolves against the active interface
     /// style. SwiftUI has no native equivalent outside an asset catalog.
-    init(light: Color, dark: Color) {
+    nonisolated init(light: Color, dark: Color) {
         self.init(uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
         })
