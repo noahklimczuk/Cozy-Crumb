@@ -32,8 +32,8 @@ struct LibraryView: View {
     @State private var collectionBeingRenamed: RecipeCollection?
     @State private var renamedCollectionName = ""
     @State private var isImporting = false
-    @State private var quickPasted: QuickPastedLink?
     @State private var clipboardHadNoLink = false
+    @State private var pasteLinkText = ""
 
     private let columns = [
         GridItem(.flexible(), spacing: CozySpacing.m),
@@ -53,20 +53,16 @@ struct LibraryView: View {
             .background { BlobBackground() }
             .navigationTitle("Cookbook")
             .toolbar {
-                quickPasteButton
                 addButton
             }
             .sheet(isPresented: $isImporting) {
-                ImportFlowView()
-            }
-            .sheet(item: $quickPasted) { pasted in
-                ImportFlowView(initialURL: pasted.url)
+                importSheet
             }
             .alert("No link on the clipboard", isPresented: $clipboardHadNoLink) {
-                Button("Paste one in") { isImporting = true }
+                Button("Try again") { }
                 Button("Never mind", role: .cancel) {}
             } message: {
-                Text("Copy a recipe link first, then tap this again.")
+                Text("Copy a recipe link first, then tap Add to paste it.")
             }
             .confirmationDialog(
                 "Delete this recipe?",
@@ -133,14 +129,14 @@ struct LibraryView: View {
         .background(.ultraThinMaterial)
     }
 
-    /// The main call to action: straight to the paste screen, no menu in the
-    /// way. Adding a recipe is the thing people come here to do, so it should
-    /// take one tap rather than two.
+    /// The main call to action: single big button to paste a link.
+    /// The paste button now lives inside the sheet with the text field.
     @ToolbarContentBuilder
     private var addButton: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 isImporting = true
+                pasteLinkText = ""
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 18, weight: .bold))
@@ -158,30 +154,10 @@ struct LibraryView: View {
         }
     }
 
-    /// Skips the paste screen entirely: takes the link already on the clipboard
-    /// and starts importing it.
-    ///
-    /// Uses PasteButton rather than reading UIPasteboard ourselves, so iOS
-    /// hands over the contents on an explicit tap with no permission banner
-    /// and nothing is read behind the user's back.
-    @ToolbarContentBuilder
-    private var quickPasteButton: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            PasteButton(payloadType: String.self) { strings in
-                let text = strings.first ?? ""
-                Task { @MainActor in
-                    guard let url = ImportViewModel.firstURL(in: text) else {
-                        clipboardHadNoLink = true
-                        return
-                    }
-                    quickPasted = QuickPastedLink(url: url)
-                }
-            }
-            .labelStyle(.iconOnly)
-            .buttonBorderShape(.circle)
-            .tint(CozyColor.creamDeep)
-            .accessibilityLabel("Import the link on my clipboard")
-        }
+    /// Sheet for importing a recipe with inline paste button
+    @ViewBuilder
+    private var importSheet: some View {
+        ImportFlowView(pasteLinkText: $pasteLinkText)
     }
 
     /// Sort lives beside a heading rather than in the toolbar now, so the
