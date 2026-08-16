@@ -75,7 +75,7 @@ private struct AppLaunchView<Content: View>: View {
             }
         }
         .task {
-            try? await Task.sleep(for: .seconds(2.5))
+            try? await Task.sleep(for: .seconds(4))
             withAnimation(.easeOut(duration: 0.28)) {
                 isShowingSplash = false
             }
@@ -86,7 +86,9 @@ private struct AppLaunchView<Content: View>: View {
 private struct CupcakeSplashView: View {
     var body: some View {
         ZStack {
-            CozyColor.blush
+            // Sampled from the supplied icon's pink edge so the artwork
+            // appears to melt directly into the launch background.
+            Color(red: 254 / 255, green: 193 / 255, blue: 190 / 255)
                 .ignoresSafeArea()
 
             VStack(spacing: CozySpacing.l) {
