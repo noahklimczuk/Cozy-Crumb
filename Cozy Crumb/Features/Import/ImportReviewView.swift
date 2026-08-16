@@ -26,6 +26,7 @@ struct ImportReviewView: View {
 
     @State private var pickedPhoto: PhotosPickerItem?
 
+    @MainActor
     var body: some View {
         List {
             bannerSection
@@ -49,6 +50,7 @@ struct ImportReviewView: View {
 
     // MARK: - Banners
 
+    @MainActor
     @ViewBuilder
     private var bannerSection: some View {
         if viewModel.duplicate != nil {
@@ -79,6 +81,7 @@ struct ImportReviewView: View {
         }
     }
 
+    @MainActor
     private func banner(text: String, tint: Color) -> some View {
         HStack(alignment: .top, spacing: CozySpacing.s) {
             MascotView(pose: .idle, size: 34)
@@ -93,6 +96,7 @@ struct ImportReviewView: View {
 
     // MARK: - Hero
 
+    @MainActor
     private var heroSection: some View {
         Section {
             PhotosPicker(selection: $pickedPhoto, matching: .images) {
@@ -127,6 +131,7 @@ struct ImportReviewView: View {
         .listRowInsets(EdgeInsets(top: CozySpacing.s, leading: 0, bottom: CozySpacing.s, trailing: 0))
     }
 
+    @MainActor
     private func loadPhoto(_ item: PhotosPickerItem?) async {
         guard let item,
               let data = try? await item.loadTransferable(type: Data.self) else { return }
@@ -136,6 +141,7 @@ struct ImportReviewView: View {
 
     // MARK: - Details
 
+    @MainActor
     private var detailsSection: some View {
         Section("The basics") {
             TextField("Recipe name", text: $viewModel.draft.title)
@@ -167,6 +173,7 @@ struct ImportReviewView: View {
         .foregroundStyle(CozyColor.inkPrimary)
     }
 
+    @MainActor
     private func minutesField(binding: Binding<String>) -> some View {
         HStack(spacing: 4) {
             TextField("–", text: binding)
@@ -180,6 +187,7 @@ struct ImportReviewView: View {
 
     // MARK: - Ingredients
 
+    @MainActor
     private var ingredientsSection: some View {
         Section {
             ForEach($viewModel.draft.ingredients) { $ingredient in
@@ -209,6 +217,7 @@ struct ImportReviewView: View {
 
     // MARK: - Steps
 
+    @MainActor
     private var stepsSection: some View {
         Section {
             // Enumerating a binding collection does not give a usable id, so
@@ -250,6 +259,7 @@ struct ImportReviewView: View {
 
     // MARK: - Save
 
+    @MainActor
     private var saveSection: some View {
         Section {
             if viewModel.duplicate != nil {
@@ -279,6 +289,7 @@ struct ImportReviewView: View {
 
     // MARK: - Bindings
 
+    @MainActor
     private var summaryBinding: Binding<String> {
         Binding(
             get: { viewModel.draft.summary ?? "" },
@@ -286,6 +297,7 @@ struct ImportReviewView: View {
         )
     }
 
+    @MainActor
     private var servingsBinding: Binding<Int> {
         Binding(
             get: { viewModel.draft.servings ?? 4 },
@@ -293,14 +305,17 @@ struct ImportReviewView: View {
         )
     }
 
+    @MainActor
     private var prepBinding: Binding<String> {
         minutesBinding(\.prepMinutes)
     }
 
+    @MainActor
     private var cookBinding: Binding<String> {
         minutesBinding(\.cookMinutes)
     }
 
+    @MainActor
     private func minutesBinding(_ keyPath: WritableKeyPath<ImportedRecipe, Int?>) -> Binding<String> {
         Binding(
             get: { viewModel.draft[keyPath: keyPath].map(String.init) ?? "" },
