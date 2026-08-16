@@ -75,7 +75,7 @@ private struct AppLaunchView<Content: View>: View {
             }
         }
         .task {
-            try? await Task.sleep(for: .milliseconds(850))
+            try? await Task.sleep(for: .seconds(2.5))
             withAnimation(.easeOut(duration: 0.28)) {
                 isShowingSplash = false
             }
@@ -90,7 +90,11 @@ private struct CupcakeSplashView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: CozySpacing.l) {
-                CupcakeMark(size: 168)
+                Image("CupcakeLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 210, height: 210)
+                    .clipShape(RoundedRectangle(cornerRadius: 44, style: .continuous))
                 Text(AppBranding.appName)
                     .font(.system(.title, design: .rounded, weight: .bold))
                     .foregroundStyle(CozyColor.inkPrimary)
@@ -100,95 +104,5 @@ private struct CupcakeSplashView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Cozy Crumb is loading")
-    }
-}
-
-/// The in-app counterpart to the app-icon cupcake: intentionally drawn from
-/// simple shapes so it stays crisp at every launch-screen size.
-private struct CupcakeMark: View {
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(CozyColor.blushSoft)
-
-            VStack(spacing: -size * 0.12) {
-                frosting
-                wrapper
-            }
-            .padding(size * 0.12)
-        }
-        .frame(width: size, height: size)
-    }
-
-    private var frosting: some View {
-        ZStack {
-            HStack(spacing: -size * 0.12) {
-                Circle().fill(CozyColor.creamDeep)
-                Circle().fill(CozyColor.creamDeep)
-                Circle().fill(CozyColor.creamDeep)
-            }
-            .frame(width: size * 0.72, height: size * 0.32)
-
-            VStack(spacing: size * 0.05) {
-                HStack(spacing: size * 0.18) {
-                    Capsule().fill(CozyColor.inkPrimary).frame(width: size * 0.035, height: size * 0.065)
-                    Capsule().fill(CozyColor.inkPrimary).frame(width: size * 0.035, height: size * 0.065)
-                }
-                SplashSmileShape()
-                    .stroke(CozyColor.inkPrimary, style: StrokeStyle(lineWidth: size * 0.025, lineCap: .round))
-                    .frame(width: size * 0.17, height: size * 0.075)
-            }
-            .offset(y: size * 0.03)
-
-            Circle()
-                .fill(CozyColor.danger)
-                .frame(width: size * 0.12, height: size * 0.12)
-                .offset(y: -size * 0.22)
-        }
-        .frame(height: size * 0.42)
-    }
-
-    private var wrapper: some View {
-        CupcakeWrapperShape()
-            .fill(CozyColor.blushDeep.opacity(0.82))
-            .overlay {
-                CupcakeWrapperShape()
-                    .stroke(CozyColor.outlineStrong, lineWidth: size * 0.018)
-            }
-            .overlay {
-                HStack(spacing: size * 0.10) {
-                    Capsule().fill(CozyColor.blushDeep.opacity(0.7))
-                    Capsule().fill(CozyColor.blushDeep.opacity(0.7))
-                    Capsule().fill(CozyColor.blushDeep.opacity(0.7))
-                }
-                .padding(.vertical, size * 0.10)
-            }
-            .frame(width: size * 0.48, height: size * 0.32)
-    }
-}
-
-private struct CupcakeWrapperShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { path in
-            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-            path.addLine(to: CGPoint(x: rect.maxX - rect.width * 0.12, y: rect.maxY))
-            path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.12, y: rect.maxY))
-            path.closeSubpath()
-        }
-    }
-}
-
-private struct SplashSmileShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { path in
-            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-            path.addQuadCurve(
-                to: CGPoint(x: rect.maxX, y: rect.minY),
-                control: CGPoint(x: rect.midX, y: rect.maxY * 1.8)
-            )
-        }
     }
 }
