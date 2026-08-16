@@ -24,6 +24,7 @@
 
 import Foundation
 import SwiftData
+import UIKit
 import os
 
 // MARK: - Declarations
