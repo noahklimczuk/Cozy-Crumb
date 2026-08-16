@@ -9,7 +9,6 @@ import Foundation
 import PhotosUI
 import SwiftData
 import SwiftUI
-import UIKit
 
 struct ImportFlowView: View {
     @Environment(\.dismiss) private var dismiss
@@ -141,41 +140,38 @@ struct ImportFlowView: View {
         }
     }
 
+    /// The system paste control, not a button that reads the pasteboard itself.
+    ///
+    /// Reading `UIPasteboard` in code is what puts up "Allow Paste?" — iOS asks
+    /// every time, because the app is helping itself. A `PasteButton` *is* the
+    /// permission: the tap that asks for the link is the tap that hands it
+    /// over, so the link lands in the field and nothing interrupts.
+    ///
+    /// The trade is that the control belongs to the system. The word "Paste"
+    /// and the clipboard glyph are fixed; the shape and tint are ours. iOS also
+    /// greys it out by itself when there's nothing to paste, which is why
+    /// there's no empty-clipboard case to handle any more.
     private var quickPasteButton: some View {
-        Button {
-            quickPaste()
-        } label: {
-            HStack(spacing: CozySpacing.xs) {
-                Image(systemName: "doc.on.clipboard")
-                    .font(.body.weight(.semibold))
-                Text("Paste")
-                    .font(CozyFont.headline)
-            }
-            .foregroundStyle(CozyColor.inkPrimary)
-            .padding(.horizontal, CozySpacing.m)
-            .frame(minHeight: CozyMetrics.minimumTouchTarget + 6)
-            .background(accent.color, in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: CozyRadius.button, style: .continuous)
-                    .strokeBorder(accent.deep, lineWidth: 1.5)
-            }
-            .cozyLiftShadow()
+        PasteButton(payloadType: String.self) { items in
+            paste(items.first)
         }
-        .buttonStyle(.squishy)
-        .accessibilityLabel("Quick paste from clipboard")
+        .labelStyle(.titleAndIcon)
+        .buttonBorderShape(.roundedRectangle(radius: CozyRadius.button))
+        .tint(accent.color)
+        .frame(minHeight: CozyMetrics.minimumTouchTarget + 6)
+        .accessibilityLabel("Paste a link from the clipboard")
     }
 
-    private func quickPaste() {
-        let pasted = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines)
-            ?? UIPasteboard.general.url?.absoluteString.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if let pasted, !pasted.isEmpty {
-            viewModel.urlText = pasted
-            pasteLinkText?.wrappedValue = pasted
-            Haptics.soft()
-        } else {
+    private func paste(_ text: String?) {
+        let pasted = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !pasted.isEmpty else {
             Haptics.notify(.warning)
+            return
         }
+
+        viewModel.urlText = pasted
+        pasteLinkText?.wrappedValue = pasted
+        Haptics.soft()
     }
 
     // MARK: - Working
