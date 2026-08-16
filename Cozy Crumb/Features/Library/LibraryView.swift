@@ -618,15 +618,18 @@ private struct CollectionFolderView: View {
 #Preview("Library") {
     LibraryView()
         .modelContainer(PreviewData.container)
+        .environment(KitchenTimers(usesNotifications: false))
 }
 
 #Preview("Library — dark") {
     LibraryView()
         .modelContainer(PreviewData.container)
+        .environment(KitchenTimers(usesNotifications: false))
         .preferredColorScheme(.dark)
 }
 
 #Preview("Library — empty") {
     LibraryView()
         .modelContainer(PreviewData.emptyContainer)
+        .environment(KitchenTimers(usesNotifications: false))
 }

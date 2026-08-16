@@ -399,9 +399,11 @@ private struct RecipePickerSheet: View {
 #Preview("Week") {
     NavigationStack { MealPlanView() }
         .modelContainer(PreviewData.plannerContainer)
+        .environment(KitchenTimers(usesNotifications: false))
 }
 
 #Preview("Week — empty") {
     NavigationStack { MealPlanView() }
         .modelContainer(PreviewData.emptyContainer)
+        .environment(KitchenTimers(usesNotifications: false))
 }
