@@ -18,6 +18,8 @@ final class ImportViewModel {
     enum Stage: Equatable {
         case entry
         case working
+        /// The platform gave us nothing readable — ask the user to paste it.
+        case needsCaption
         case review
         case failed(CozyError)
     }
@@ -38,12 +40,36 @@ final class ImportViewModel {
     /// An existing recipe with the same source URL (§8.6).
     var duplicate: Recipe?
 
+    /// What we managed to gather from a social post, if this is one.
+    var socialPost: SocialPost?
+    /// Caption the user pasted by hand when the platform would not share it.
+    var pastedCaption = ""
+    /// Describes what happened on a social import, for the review banner.
+    var socialNote: String?
+
     private let coordinator: ImportCoordinator
     private let imageFetcher: ImageFetcher
+    private let socialImporter: SocialImporter
+    private let parser: AIRecipeParser
+    private let keychain: KeychainStore
 
-    init(coordinator: ImportCoordinator = ImportCoordinator(), imageFetcher: ImageFetcher = ImageFetcher()) {
+    init(
+        coordinator: ImportCoordinator = ImportCoordinator(),
+        imageFetcher: ImageFetcher = ImageFetcher(),
+        socialImporter: SocialImporter = SocialImporter(),
+        parser: AIRecipeParser = AIRecipeParser(),
+        keychain: KeychainStore = .shared
+    ) {
         self.coordinator = coordinator
         self.imageFetcher = imageFetcher
+        self.socialImporter = socialImporter
+        self.parser = parser
+        self.keychain = keychain
+    }
+
+    /// Whether the Sous Chef is awake. Everything social depends on it.
+    var isAIAvailable: Bool {
+        keychain.hasValue(for: .geminiAPIKey)
     }
 
     // MARK: - Entry points
@@ -71,6 +97,14 @@ final class ImportViewModel {
 
     func runImport(from url: URL, existingRecipes: [Recipe] = []) async {
         stage = .working
+
+        // Social posts never serve recipe markup, so the scraping cascade is
+        // skipped entirely rather than being run and failing.
+        if let platform = SocialPlatform.detect(from: url) {
+            await runSocialImport(from: url, platform: platform, existingRecipes: existingRecipes)
+            return
+        }
+
         duplicate = existingRecipes.first { $0.sourceURL == url }
 
         let outcome = await coordinator.importRecipe(from: url)
@@ -109,6 +143,133 @@ final class ImportViewModel {
     private func loadHeroImage() async {
         guard let imageURL = draft.imageURL else { return }
         heroImageData = await imageFetcher.downscaledImage(from: imageURL)
+    }
+
+    // MARK: - Social
+
+    /// YouTube gets the video read. TikTok gets its caption. Instagram and
+    /// Facebook get whatever Open Graph they will serve, and the paste box
+    /// when they serve nothing.
+    private func runSocialImport(
+        from url: URL,
+        platform: SocialPlatform,
+        existingRecipes: [Recipe]
+    ) async {
+        let post = await socialImporter.fetch(url: url, platform: platform)
+        socialPost = post
+        isSocialSource = true
+
+        // Match duplicates on the canonical URL, so the same post shared two
+        // different ways is recognised as one recipe.
+        duplicate = existingRecipes.first { $0.sourceURL == post.url }
+
+        if let thumbnail = post.thumbnailURL {
+            heroImageData = await imageFetcher.downscaledImage(from: thumbnail)
+        }
+
+        guard isAIAvailable else {
+            // Without a key there is nothing that can read a caption, so hand
+            // over what we have and say why.
+            fallBackToManual(
+                post: post,
+                note: "Add your Gemini key in Settings and I'll read \(platform.displayName) posts for you. For now, here's what I could get."
+            )
+            return
+        }
+
+        if platform.supportsVideoAnalysis {
+            switch await parser.parseVideo(post: post) {
+            case .success(let recipe):
+                accept(recipe, post: post, note: "I watched the video for this one — worth a check.")
+                return
+            case .failure(let error):
+                Log.importer.info("Video parse failed: \(String(describing: error), privacy: .public)")
+                // Fall through to the caption, which often still works.
+            }
+        }
+
+        if post.hasUsableText, let caption = post.caption {
+            switch await parser.parse(caption: caption, post: post) {
+            case .success(let recipe):
+                accept(recipe, post: post, note: "Read from the caption — worth a check.")
+                return
+            case .failure(let error):
+                Log.importer.info("Caption parse failed: \(String(describing: error), privacy: .public)")
+            }
+        }
+
+        // Nothing readable came back. Ask for the caption rather than saving
+        // a hollow recipe.
+        prefillFromPost(post)
+        stage = .needsCaption
+    }
+
+    /// Parses a caption the user pasted in themselves. This path always works,
+    /// whatever the platform decided to serve us.
+    func parsePastedCaption() async {
+        let caption = pastedCaption.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard caption.count >= 40 else {
+            stage = .failed(.captionTooShort)
+            return
+        }
+
+        guard isAIAvailable else {
+            stage = .failed(.missingAPIKey)
+            return
+        }
+
+        guard let post = socialPost
+            ?? draft.sourceURL.map({ SocialPost(platform: .instagram, url: $0) }) else {
+            stage = .failed(.badURL)
+            return
+        }
+
+        stage = .working
+
+        switch await parser.parse(caption: caption, post: post, wasPastedByUser: true) {
+        case .success(let recipe):
+            accept(recipe, post: post, note: "Read from the caption you pasted — worth a check.")
+        case .failure(let error):
+            if error == .noRecipeFound {
+                prefillFromPost(post)
+                didFallBackToManual = true
+                socialNote = "I couldn't find a recipe in that text. Fill in what you know?"
+                stage = .review
+            } else {
+                stage = .failed(error)
+            }
+        }
+    }
+
+    private func accept(_ recipe: ImportedRecipe, post: SocialPost, note: String?) {
+        draft = recipe
+        draft.sourceURL = post.url
+        draft.sourceName = recipe.sourceName ?? post.author ?? post.platform.displayName
+        didFallBackToManual = false
+        socialNote = note
+        stage = .review
+    }
+
+    private func fallBackToManual(post: SocialPost, note: String) {
+        prefillFromPost(post)
+        didFallBackToManual = true
+        socialNote = note
+        stage = .review
+    }
+
+    /// Seeds the draft with the metadata we have, so manual entry starts from
+    /// something rather than a blank form.
+    private func prefillFromPost(_ post: SocialPost) {
+        draft = ImportedRecipe(
+            title: post.title ?? "",
+            summary: nil,
+            imageURL: post.thumbnailURL,
+            servings: 4,
+            sourceName: post.author ?? post.platform.displayName,
+            sourceURL: post.url,
+            confidence: 0
+        )
     }
 
     // MARK: - Editing

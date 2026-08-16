@@ -183,6 +183,30 @@ private struct SettingsPlaceholderScreen: View {
                     }
 
                     CrumbCard {
+                        VStack(alignment: .leading, spacing: CozySpacing.m) {
+                            Text("Sous Chef")
+                                .cozyText(CozyFont.title2)
+                            Text("Add a Gemini key to import from Instagram, TikTok, YouTube and Facebook.")
+                                .cozyText(CozyFont.subheadline, color: CozyColor.inkSecondary)
+                            NavigationLink {
+                                AIKeySettingsView()
+                            } label: {
+                                HStack {
+                                    Text("Set up the Sous Chef")
+                                        .cozyText(CozyFont.bodyEmphasis)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(CozyColor.inkSecondary)
+                                }
+                                .frame(minHeight: CozyMetrics.minimumTouchTarget)
+                                .contentShape(.rect)
+                            }
+                            .buttonStyle(.squishy)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    CrumbCard {
                         Toggle(isOn: $hapticsEnabled) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Haptics")

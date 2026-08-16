@@ -13,4 +13,5 @@ enum CozyDefaultsKey {
     static let hapticsEnabled = "settings.hapticsEnabled"
     static let darkModeEnabled = "settings.darkModeEnabled"
     static let measurementSystem = "settings.measurementSystem"
+    static let geminiModel = "settings.geminiModel"
 }
