@@ -286,3 +286,64 @@ struct CaptionIngredientTests {
         #expect(IngredientLineParser.parse("• For the sauce:", order: 0).isSectionHeader)
     }
 }
+
+@Suite("Numbers jammed against units")
+struct JammedQuantityTests {
+
+    @Test("Number and unit written together still parse")
+    func jammedUnits() {
+        // Recipe sites write "100 g butter"; captions write "100g butter".
+        // Splitting on spaces alone missed every one of the latter, which is
+        // why scaling worked on web imports and only half-worked on social.
+        let grams = IngredientLineParser.parse("100g butter", order: 0)
+        #expect(grams.quantity == 100)
+        #expect(grams.unit == "g")
+        #expect(grams.name == "butter")
+
+        let spoons = IngredientLineParser.parse("2tbsp olive oil", order: 0)
+        #expect(spoons.quantity == 2)
+        #expect(spoons.unit == "tbsp")
+
+        let millilitres = IngredientLineParser.parse("500ml stock", order: 0)
+        #expect(millilitres.quantity == 500)
+        #expect(millilitres.unit == "ml")
+    }
+
+    @Test("Jammed units survive decoration too")
+    func jammedAndDecorated() {
+        let result = IngredientLineParser.parse("• 250g plain flour", order: 0)
+        #expect(result.quantity == 250)
+        #expect(result.unit == "g")
+    }
+
+    @Test("Splitting only happens where there is something to split")
+    func splitBoundaries() {
+        #expect(QuantityParser.splitLeadingNumber("100") == nil)
+        #expect(QuantityParser.splitLeadingNumber("butter") == nil)
+        #expect(QuantityParser.splitLeadingNumber("") == nil)
+
+        let split = QuantityParser.splitLeadingNumber("100g")
+        #expect(split?.number == "100")
+        #expect(split?.rest == "g")
+    }
+
+    @Test("A word that merely starts with a digit is not mangled")
+    func doesNotMangleWords() {
+        // "7Up" should not become 7 of unit "Up" and lose the drink.
+        let result = IngredientLineParser.parse("2 cans 7Up", order: 0)
+        #expect(result.quantity == 2)
+        #expect(result.unit == "can")
+    }
+
+    @Test("Decimals and fractions jammed to units")
+    func jammedFractions() throws {
+        let decimal = IngredientLineParser.parse("1.5kg beef", order: 0)
+        #expect(decimal.quantity == 1.5)
+        #expect(decimal.unit == "kg")
+
+        let fraction = IngredientLineParser.parse("½cup sugar", order: 0)
+        let quantity = try #require(fraction.quantity)
+        #expect(abs(quantity - 0.5) < 0.0001)
+        #expect(fraction.unit == "cup")
+    }
+}
