@@ -50,7 +50,7 @@ enum CozyFont {
 
 extension View {
     /// Applies a font and the matching ink colour in one step.
-    func cozyText(_ font: Font, color: Color = CozyColor.inkPrimary) -> some View {
+    nonisolated func cozyText(_ font: Font, color: Color = CozyColor.inkPrimary) -> some View {
         self.font(font).foregroundStyle(color)
     }
 }

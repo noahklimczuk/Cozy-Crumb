@@ -1,0 +1,20 @@
+name: iOS build
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: >-
+          xcodebuild
+          -project "Cozy Crumb.xcodeproj"
+          -scheme "Cozy Crumb"
+          -sdk iphonesimulator
+          -destination "generic/platform=iOS Simulator"
+          clean build
