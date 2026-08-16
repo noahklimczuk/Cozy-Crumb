@@ -16,7 +16,7 @@ import SwiftUI
 @MainActor
 final class RecipeDetailViewModel {
     /// What the recipe was written for. Scaling is always relative to this.
-    let originalServings: Int
+    private(set) var originalServings: Int
 
     var servings: Int
     var checkedIngredientIDs: Set<UUID> = []
@@ -27,6 +27,18 @@ final class RecipeDetailViewModel {
         let original = max(1, recipe.servings)
         self.originalServings = original
         self.servings = original
+    }
+
+    /// Re-reads the recipe after it has been edited. Without this, changing
+    /// the servings in the editor would leave scaling measured against the
+    /// old number, and every quantity on screen would be silently wrong.
+    func resync(with recipe: Recipe) {
+        let updated = max(1, recipe.servings)
+        guard updated != originalServings else { return }
+
+        originalServings = updated
+        servings = updated
+        checkedIngredientIDs.removeAll()
     }
 
     var isScaled: Bool {

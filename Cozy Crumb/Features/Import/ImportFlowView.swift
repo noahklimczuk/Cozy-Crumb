@@ -21,6 +21,8 @@ struct ImportFlowView: View {
     var initialURL: URL?
     /// Skips straight to a blank draft.
     var startsInManualEntry = false
+    /// Opens an already-saved recipe in the editor instead of importing.
+    var editingRecipe: Recipe?
 
     var body: some View {
         NavigationStack {
@@ -43,7 +45,9 @@ struct ImportFlowView: View {
             }
         }
         .task {
-            if startsInManualEntry {
+            if let editingRecipe {
+                viewModel.startEditing(editingRecipe)
+            } else if startsInManualEntry {
                 viewModel.startManualEntry()
             } else if let initialURL {
                 await viewModel.runImport(from: initialURL, existingRecipes: existingRecipes)
@@ -56,6 +60,7 @@ struct ImportFlowView: View {
         case .entry: "Add a recipe"
         case .working: "Reading…"
         case .needsCaption: "One more thing"
+        case .review where viewModel.isEditingExisting: "Edit recipe"
         case .review: viewModel.duplicate == nil ? "Check it over" : "Already saved"
         case .failed: "Hmm"
         }
