@@ -288,8 +288,13 @@ final class ImportViewModel {
         // Gemini fetches YouTube itself, and has already had its go by here.
         guard post.platform != .youtube else { return false }
 
-        let media = await mediaResolver.resolve(post: post)
+        var media = await mediaResolver.resolve(post: post)
         guard !media.isEmpty else { return false }
+
+        // Instagram wraps a caption in engagement noise wherever it serves one.
+        media.caption = media.caption.map {
+            SocialImporter.cleanCaption($0, platform: post.platform)
+        }
 
         if heroImageData == nil, let cover = media.imageURLs.first {
             heroImageData = await imageFetcher.downscaledImage(from: cover)
