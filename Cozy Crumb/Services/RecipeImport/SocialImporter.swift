@@ -30,6 +30,11 @@ enum SocialPlatform: String, Sendable, CaseIterable {
     case tiktok
     case instagram
     case facebook
+    case pinterest
+    case x
+    case threads
+    case reddit
+    case vimeo
 
     nonisolated var displayName: String {
         switch self {
@@ -37,11 +42,16 @@ enum SocialPlatform: String, Sendable, CaseIterable {
         case .tiktok: "TikTok"
         case .instagram: "Instagram"
         case .facebook: "Facebook"
+        case .pinterest: "Pinterest"
+        case .x: "X (Twitter)"
+        case .threads: "Threads"
+        case .reddit: "Reddit"
+        case .vimeo: "Vimeo"
         }
     }
 
-    /// Only YouTube can have its video read, because Gemini accepts a YouTube
-    /// URL directly. Nothing equivalent exists for the others.
+    /// Only YouTube can have its video read directly, because Gemini accepts a YouTube
+    /// URL directly.
     nonisolated var supportsVideoAnalysis: Bool {
         self == .youtube
     }
@@ -57,8 +67,8 @@ enum SocialPlatform: String, Sendable, CaseIterable {
             "I'll watch the video and write the recipe down."
         case .tiktok:
             "TikTok shares the caption but not the video, so I'll work from that."
-        case .instagram, .facebook:
-            "Instagram and Facebook keep posts behind a login, so I may need you to paste the caption."
+        case .instagram, .facebook, .pinterest, .x, .threads, .reddit, .vimeo:
+            "Social platforms keep posts behind a login or custom structure, so I may need you to paste the caption."
         }
     }
 
@@ -71,6 +81,11 @@ enum SocialPlatform: String, Sendable, CaseIterable {
         case "tiktok.com", "vm.tiktok.com", "vt.tiktok.com", "m.tiktok.com": .tiktok
         case "instagram.com", "instagr.am": .instagram
         case "facebook.com", "fb.com", "fb.watch", "m.facebook.com": .facebook
+        case "pinterest.com", "pin.it", "m.pinterest.com": .pinterest
+        case "x.com", "twitter.com": .x
+        case "threads.net": .threads
+        case "reddit.com", "redd.it": .reddit
+        case "vimeo.com": .vimeo
         default: nil
         }
     }
@@ -218,6 +233,17 @@ actor SocialImporter {
             let id = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             if !id.isEmpty, let rebuilt = URL(string: "https://www.youtube.com/watch?v=\(id)") {
                 return rebuilt
+            }
+        }
+
+        // youtube.com/shorts/ID -> youtube.com/watch?v=ID
+        if platform == .youtube, url.path.lowercased().contains("/shorts/") {
+            let parts = url.path.components(separatedBy: "/shorts/")
+            if let id = parts.last?.trimmingCharacters(in: CharacterSet(charactersIn: "/")), !id.isEmpty {
+                let cleanID = id.components(separatedBy: "?").first ?? id
+                if let rebuilt = URL(string: "https://www.youtube.com/watch?v=\(cleanID)") {
+                    return rebuilt
+                }
             }
         }
 

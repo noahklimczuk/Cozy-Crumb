@@ -347,3 +347,63 @@ struct JammedQuantityTests {
         #expect(fraction.unit == "cup")
     }
 }
+
+@Suite("Link Parsing and Normalization")
+struct LinkParsingTests {
+
+    @Test("URLs with explicit scheme")
+    func explicitScheme() throws {
+        let url = try #require(ImportViewModel.firstURL(in: "https://www.allrecipes.com/recipe/123/brownies/"))
+        #expect(url.host() == "www.allrecipes.com")
+        #expect(url.scheme == "https")
+    }
+
+    @Test("URLs missing scheme gain https")
+    func missingScheme() throws {
+        let url = try #require(ImportViewModel.firstURL(in: "www.allrecipes.com/recipe/123/brownies/"))
+        #expect(url.host() == "www.allrecipes.com")
+        #expect(url.scheme == "https")
+
+        let bareDomain = try #require(ImportViewModel.firstURL(in: "allrecipes.com/recipe/123"))
+        #expect(url.scheme == "https")
+    }
+
+    @Test("Wrapped URLs and share messages")
+    func wrappedAndShareMessages() throws {
+        let wrapped = try #require(ImportViewModel.firstURL(in: "<https://instagram.com/p/12345/>"))
+        #expect(wrapped.host() == "instagram.com")
+
+        let text = try #require(ImportViewModel.firstURL(in: "Check out this recipe! https://www.tiktok.com/@user/video/1234567890"))
+        #expect(text.host() == "www.tiktok.com")
+    }
+}
+
+@Suite("Social Platform Detection")
+struct SocialPlatformTests {
+
+    @Test("Social platform detection for all supported sites")
+    func platformDetection() throws {
+        let yt = try #require(URL(string: "https://www.youtube.com/watch?v=abcdef"))
+        #expect(SocialPlatform.detect(from: yt) == .youtube)
+
+        let pin = try #require(URL(string: "https://www.pinterest.com/pin/123456/"))
+        #expect(SocialPlatform.detect(from: pin) == .pinterest)
+
+        let pinShort = try #require(URL(string: "https://pin.it/789xyz"))
+        #expect(SocialPlatform.detect(from: pinShort) == .pinterest)
+
+        let tiktok = try #require(URL(string: "https://vm.tiktok.com/ZMeXXXX/"))
+        #expect(SocialPlatform.detect(from: tiktok) == .tiktok)
+
+        let x = try #require(URL(string: "https://x.com/chef/status/123456"))
+        #expect(SocialPlatform.detect(from: x) == .x)
+    }
+
+    @Test("YouTube Shorts canonicalization")
+    func shortsCanonical() throws {
+        let shortsURL = try #require(URL(string: "https://www.youtube.com/shorts/123456789"))
+        let canonical = SocialImporter.canonical(shortsURL, platform: .youtube)
+        #expect(canonical.absoluteString == "https://www.youtube.com/watch?v=123456789")
+    }
+}
+

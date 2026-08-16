@@ -116,10 +116,13 @@ final class ImportViewModel {
         stage = .review
     }
 
-    func importFromPastedText() async {
-        let trimmed = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
+    func importFromPastedText(overrideText: String? = nil) async {
+        let raw = (overrideText ?? urlText).trimmingCharacters(in: .whitespacesAndNewlines)
+        if !raw.isEmpty {
+            urlText = raw
+        }
 
-        guard let url = Self.firstURL(in: trimmed) else {
+        guard let url = Self.firstURL(in: raw) else {
             stage = .failed(.badURL)
             return
         }
@@ -152,9 +155,26 @@ final class ImportViewModel {
             if let recipe = result.recipe {
                 draft = recipe
                 didFallBackToManual = false
+            } else if isAIAvailable, let html = result.rawHTML, html.count >= 40 {
+                // Tier 3: structured scrapers found no recipe schema, so try AI text extraction on the page HTML.
+                switch await parser.parse(text: html, sourceURL: url, sourceName: result.metadata.siteName) {
+                case .success(let aiRecipe):
+                    draft = aiRecipe
+                    didFallBackToManual = false
+                case .failure:
+                    draft = ImportedRecipe(
+                        title: result.metadata.title ?? "",
+                        summary: result.metadata.description,
+                        imageURL: result.metadata.imageURL,
+                        servings: 4,
+                        sourceName: result.metadata.siteName,
+                        sourceURL: url,
+                        confidence: 0
+                    )
+                    didFallBackToManual = true
+                }
             } else {
-                // Never save a broken parse. Pre-fill what we recovered and let
-                // the user finish it by hand.
+                // Pre-fill what we recovered and let the user finish it by hand.
                 draft = ImportedRecipe(
                     title: result.metadata.title ?? "",
                     summary: result.metadata.description,
@@ -489,18 +509,49 @@ final class ImportViewModel {
 
     // MARK: - Helpers
 
-    /// Pulls the first URL out of pasted text, which is often a whole share
-    /// message rather than a bare link.
+    /// Pulls and normalises the first URL out of pasted text (which may be wrapped
+    /// in quotes, brackets, missing http/https, or surrounded by share text).
     nonisolated static func firstURL(in text: String) -> URL? {
-        if let direct = URL(string: text), direct.scheme != nil, direct.host() != nil {
+        var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Strip markdown fences, quotes, parens or angle brackets wrapping the URL
+        if (cleaned.hasPrefix("<") && cleaned.hasSuffix(">")) || (cleaned.hasPrefix("(") && cleaned.hasSuffix(")")) {
+            cleaned = String(cleaned.dropFirst().dropLast()).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        cleaned = cleaned.trimmingCharacters(in: CharacterSet(charactersIn: "\"'`"))
+
+        // Try direct URL initialization first if scheme is specified
+        if let direct = URL(string: cleaned), direct.scheme != nil, direct.host() != nil {
             return direct
         }
 
+        // Try prepending https:// if missing scheme (e.g. www.allrecipes.com/recipe/123 or tiktok.com/@user/video/123)
+        if !cleaned.contains("://") {
+            let candidate = "https://" + cleaned
+            if let directWithScheme = URL(string: candidate), let host = directWithScheme.host(), host.contains(".") {
+                return directWithScheme
+            }
+        }
+
+        // Use NSDataDetector for URLs embedded in share text messages
         guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
             return nil
         }
 
-        let range = NSRange(text.startIndex..., in: text)
-        return detector.firstMatch(in: text, range: range)?.url
+        let range = NSRange(cleaned.startIndex..., in: cleaned)
+        if let match = detector.firstMatch(in: cleaned, range: range), let matchURL = match.url {
+            return matchURL
+        }
+
+        // Fallback for single host tokens missing scheme
+        let firstWord = cleaned.components(separatedBy: .whitespacesAndNewlines).first ?? cleaned
+        if !firstWord.contains("://") {
+            let candidate = "https://" + firstWord
+            if let url = URL(string: candidate), let host = url.host(), host.contains(".") {
+                return url
+            }
+        }
+
+        return nil
     }
 }

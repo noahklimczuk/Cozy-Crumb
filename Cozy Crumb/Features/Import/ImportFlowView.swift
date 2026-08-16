@@ -96,7 +96,7 @@ struct ImportFlowView: View {
                         systemImage: "link",
                         submitLabel: .go
                     ) {
-                        Task { await viewModel.importFromPastedText() }
+                        Task { await viewModel.importFromPastedText(overrideText: pasteLinkText.wrappedValue) }
                     }
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -114,7 +114,10 @@ struct ImportFlowView: View {
                 }
 
                 SquishyButton(title: "Get the recipe", systemImage: "sparkles") {
-                    Task { await viewModel.importFromPastedText() }
+                    Task {
+                        let targetText = pasteLinkText?.wrappedValue.isEmpty == false ? pasteLinkText!.wrappedValue : viewModel.urlText
+                        await viewModel.importFromPastedText(overrideText: targetText)
+                    }
                 }
                 .disabled(pasteLinkText?.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty ?? viewModel.urlText.trimmingCharacters(in: .whitespaces).isEmpty)
 
@@ -201,7 +204,7 @@ struct ImportFlowView: View {
         }
 
         return switch platform {
-        case .instagram, .facebook:
+        case .instagram, .facebook, .pinterest, .x, .threads, .reddit, .vimeo:
             "\(platform.displayName) keeps posts behind a login, so I can't read that one myself. Paste the caption and I'll do the rest."
         case .tiktok:
             "TikTok didn't share the caption for that one. Paste it and I'll do the rest."
