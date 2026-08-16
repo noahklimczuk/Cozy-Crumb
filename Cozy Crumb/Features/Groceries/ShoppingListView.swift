@@ -107,12 +107,34 @@ struct ShoppingListView: View {
                             row(for: item)
                         }
                     } header: {
-                        Text("Got it")
-                            .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                        HStack(spacing: CozySpacing.xs) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.caption.weight(.semibold))
+                            Text("Got it")
+                                .font(CozyFont.caption.weight(.semibold))
+                            Spacer()
+                            Text("\(list.completedItems.count)")
+                                .font(CozyFont.caption2)
+                        }
+                        .foregroundStyle(CozyColor.inkSecondary)
+                        .padding(.horizontal, CozySpacing.m)
+                        .padding(.vertical, CozySpacing.s)
+                        .background(CozyColor.creamDeep, in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+                        .textCase(nil)
+                        .listRowInsets(EdgeInsets(
+                            top: CozySpacing.xl,
+                            leading: CozySpacing.l,
+                            bottom: CozySpacing.xs,
+                            trailing: CozySpacing.l
+                        ))
                     }
                 }
             }
-            .listStyle(.insetGrouped)
+            // Plain, with each row carrying its own card: inset-grouped
+            // brings iOS's grey chrome with it, which fights the warm
+            // background every other screen sits on.
+            .listStyle(.plain)
+            .listRowSpacing(CozySpacing.xs)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
         } else {
@@ -123,6 +145,17 @@ struct ShoppingListView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    /// Each row is a little card rather than a slab of system list. Same
+    /// corners and outline as everything else in the app.
+    private var rowBackground: some View {
+        RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
+            .fill(CozyColor.card)
+            .overlay {
+                RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
+                    .strokeBorder(CozyColor.outline, lineWidth: 1)
+            }
     }
 
     private func categoryHeader(_ category: GroceryCategory, count: Int) -> some View {
@@ -136,11 +169,16 @@ struct ShoppingListView: View {
                 .font(CozyFont.caption2)
         }
         .foregroundStyle(CozyColor.inkPrimary)
-        .padding(.horizontal, CozySpacing.s)
-        .padding(.vertical, 6)
+        .padding(.horizontal, CozySpacing.m)
+        .padding(.vertical, CozySpacing.s)
         .background(category.tint.opacity(0.55), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
         .textCase(nil)
-        .listRowInsets(EdgeInsets(top: CozySpacing.s, leading: 0, bottom: CozySpacing.xs, trailing: 0))
+        .listRowInsets(EdgeInsets(
+            top: CozySpacing.m,
+            leading: CozySpacing.l,
+            bottom: CozySpacing.xs,
+            trailing: CozySpacing.l
+        ))
     }
 
     private func row(for item: GroceryItem) -> some View {
@@ -151,7 +189,14 @@ struct ShoppingListView: View {
         ) {
             toggle(item)
         }
-        .listRowBackground(CozyColor.cream)
+        .listRowBackground(rowBackground)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(
+            top: 2,
+            leading: CozySpacing.l,
+            bottom: 2,
+            trailing: CozySpacing.l
+        ))
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
                 withAnimation(motion(Motion.gentle)) {
