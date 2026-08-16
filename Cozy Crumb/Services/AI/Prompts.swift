@@ -104,6 +104,100 @@ enum Prompts {
         """
     }
 
+    /// The kind of media we managed to get hold of, which changes what the
+    /// model can be expected to notice.
+    enum MediaKind: Sendable {
+        case video
+        case frames
+        case images
+
+        nonisolated var description: String {
+            switch self {
+            case .video:
+                "the video from the post"
+            case .frames:
+                "still frames taken at intervals through the post's video"
+            case .images:
+                "the images from the post"
+            }
+        }
+    }
+
+    /// A TikTok or Reel whose caption never contained the recipe, sent as media
+    /// rather than text. This is the common case for short-form cooking video:
+    /// the caption is a hook, and the recipe is spoken aloud or burned into the
+    /// frames as an ingredient list.
+    nonisolated static func extractionFromMedia(
+        kind: MediaKind,
+        platform: String,
+        title: String?,
+        author: String?,
+        caption: String?
+    ) -> String {
+        var context = "Attached is \(kind.description), from \(platform)."
+
+        if let author, !author.isEmpty {
+            context += "\nPosted by: \(author)"
+        }
+        if let title, !title.isEmpty {
+            context += "\nTitled: \(title)"
+        }
+        if let caption, !caption.isEmpty {
+            context += "\n\nThe caption reads:\n\(caption)"
+        } else {
+            context += "\n\nThe post has no useful caption — everything you need is in the media."
+        }
+
+        var instructions = """
+        \(context)
+
+        The recipe was never written out in the caption, so read it off the
+        media itself:
+
+        1. Read every piece of on-screen text: ingredient overlays, quantity
+           captions, step titles, the recipe card some posters put at the end.
+        2. Watch what the cook actually does, in order, and write the method
+           from it.
+        3. Where a quantity is only ever shown on screen, use it. Where it is
+           genuinely never given, leave quantity null rather than inventing a
+           number.
+        4. Ignore the hook, the intro, the outro, and anything about following
+           or commenting.
+        """
+
+        switch kind {
+        case .video:
+            instructions += """
+
+
+            5. Listen to the audio as well as watching. Narrated measurements
+               ("about half a cup of cream") count, and are often the only
+               place a quantity is given.
+            """
+
+        case .frames:
+            instructions += """
+
+
+            5. These are stills, so the method between them is missing. Write
+               the steps you can actually see, and don't pad the gaps with
+               invented ones.
+            """
+
+        case .images:
+            break
+        }
+
+        instructions += """
+
+
+        If the media turns out not to show a recipe being made, return found
+        false rather than assembling a plausible one.
+        """
+
+        return instructions
+    }
+
     /// Shown to the model when the user pastes a caption by hand.
     nonisolated static let pastedCaptionHint = """
     The user copied this text themselves from a post the app could not read.

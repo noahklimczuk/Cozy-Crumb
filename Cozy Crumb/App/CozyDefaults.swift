@@ -18,4 +18,6 @@ enum CozyDefaultsKey {
     static let checkOffAddsToPantry = "settings.checkOffAddsToPantry"
     /// Show grocery amounts as the sizes shops actually sell.
     static let roundUpShoppingAmounts = "settings.roundUpShoppingAmounts"
+    /// How the Cookbook's recipe grids are ordered.
+    static let librarySort = "library.sort"
 }

@@ -63,9 +63,22 @@ nonisolated struct GeminiPart: Encodable, Sendable {
         ))
     }
 
+    /// Base64 video bytes. Gemini reads the frames *and* listens to the audio,
+    /// which is the only way to get at a Reel whose recipe is narrated rather
+    /// than written down.
+    ///
+    /// Inline media has to fit inside the request, so the caller is responsible
+    /// for keeping the clip small enough (see `SocialMediaResolver`).
+    nonisolated static func video(_ data: Data, mimeType: String = "video/mp4") -> GeminiPart {
+        GeminiPart(inlineData: GeminiInlineData(
+            mimeType: mimeType,
+            data: data.base64EncodedString()
+        ))
+    }
+
     /// A YouTube URL that Gemini fetches and watches server-side. This is the
-    /// only platform where the video itself can be analysed — there is no
-    /// equivalent for TikTok, Instagram or Facebook.
+    /// only platform whose video Gemini will go and get for itself — for
+    /// TikTok and Instagram we have to fetch the media and send it inline.
     nonisolated static func youTube(_ url: URL) -> GeminiPart {
         GeminiPart(fileData: GeminiFileData(fileUri: url.absoluteString))
     }

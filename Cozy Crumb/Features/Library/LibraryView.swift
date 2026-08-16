@@ -20,6 +20,7 @@ private struct QuickPastedLink: Identifiable {
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accentPalette) private var accent
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @Query private var recipes: [Recipe]
     @Query(sort: \RecipeCollection.createdAt) private var collections: [RecipeCollection]
@@ -35,10 +36,9 @@ struct LibraryView: View {
     @State private var clipboardHadNoLink = false
     @State private var pasteLinkText = ""
 
-    private let columns = [
-        GridItem(.flexible(), spacing: CozySpacing.m),
-        GridItem(.flexible(), spacing: CozySpacing.m)
-    ]
+    private var columns: [GridItem] {
+        CozyGrid.recipeColumns(for: horizontalSizeClass)
+    }
 
     private var visibleRecipes: [Recipe] {
         viewModel.visibleRecipes(from: recipes)
@@ -52,9 +52,6 @@ struct LibraryView: View {
             }
             .background { BlobBackground() }
             .navigationTitle("Cookbook")
-            .toolbar {
-                addButton
-            }
             .sheet(isPresented: $isImporting) {
                 importSheet
             }
@@ -115,43 +112,45 @@ struct LibraryView: View {
     // MARK: - Header
 
     private var header: some View {
-        VStack(spacing: CozySpacing.m) {
+        HStack(spacing: CozySpacing.m) {
             CozyTextField(
                 placeholder: "Search recipes and ingredients",
                 text: $viewModel.searchText,
                 systemImage: "magnifyingglass",
                 submitLabel: .search
             )
-            .padding(.horizontal, CozySpacing.l)
 
+            addButton
         }
+        .padding(.horizontal, CozySpacing.l)
         .padding(.vertical, CozySpacing.m)
         .background(.ultraThinMaterial)
     }
 
-    /// The main call to action: single big button to paste a link.
-    /// The paste button now lives inside the sheet with the text field.
-    @ToolbarContentBuilder
-    private var addButton: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                isImporting = true
-                pasteLinkText = ""
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(CozyColor.inkPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(accent.color, in: .circle)
-                    .overlay {
-                        Circle().strokeBorder(accent.deep, lineWidth: 1.5)
-                    }
-                    .cozyLiftShadow()
-            }
-            .buttonStyle(.squishy)
-            .accessibilityLabel("Add a recipe")
-            .accessibilityHint("Opens the paste-a-link screen")
+    /// The main call to action: one big button to paste a link.
+    ///
+    /// It sits beside the search field rather than in the toolbar because a
+    /// navigation bar clips anything taller than it is, and this button is
+    /// meant to be unmissable.
+    private var addButton: some View {
+        Button {
+            isImporting = true
+            pasteLinkText = ""
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 26, weight: .bold))
+                .foregroundStyle(CozyColor.inkPrimary)
+                .frame(width: CozyMetrics.addButtonDiameter,
+                       height: CozyMetrics.addButtonDiameter)
+                .background(accent.color, in: .circle)
+                .overlay {
+                    Circle().strokeBorder(accent.deep, lineWidth: 2)
+                }
+                .cozyLiftShadow()
         }
+        .buttonStyle(.squishy)
+        .accessibilityLabel("Add a recipe")
+        .accessibilityHint("Opens the paste-a-link screen")
     }
 
     /// Sheet for importing a recipe with inline paste button
@@ -160,25 +159,52 @@ struct LibraryView: View {
         ImportFlowView(pasteLinkText: $pasteLinkText)
     }
 
-    /// Sort lives beside a heading rather than in the toolbar now, so the
-    /// toolbar belongs to adding recipes.
+    /// Sort lives beside a heading rather than in the toolbar, so the toolbar
+    /// belongs to adding recipes.
+    ///
+    /// Plain buttons rather than a `Picker`: a picker inside a menu is rendered
+    /// as a nested submenu, so the options sat a tap further in than the icon
+    /// suggested and the control read as doing nothing at all. The label now
+    /// names the sort in force, so a change is visible even before the grid
+    /// re-orders.
     private var sortControl: some View {
         Menu {
-            Picker("Sort", selection: $viewModel.sort) {
-                ForEach(LibrarySort.allCases) { option in
-                    Label(option.displayName, systemImage: option.symbol).tag(option)
+            ForEach(LibrarySort.allCases) { option in
+                Button {
+                    guard option != viewModel.sort else { return }
+                    viewModel.sort = option
+                    Haptics.soft()
+                } label: {
+                    Label(
+                        option.displayName,
+                        systemImage: option == viewModel.sort ? "checkmark" : option.symbol
+                    )
                 }
             }
         } label: {
-            Image(systemName: "arrow.up.arrow.down.circle")
-                .font(.body)
-                .foregroundStyle(CozyColor.inkSecondary)
-                .frame(width: CozyMetrics.minimumTouchTarget,
-                       height: CozyMetrics.minimumTouchTarget,
-                       alignment: .trailing)
-                .contentShape(.rect)
+            HStack(spacing: CozySpacing.xs) {
+                Image(systemName: "arrow.up.arrow.down")
+                    .font(.footnote.weight(.semibold))
+                Text(viewModel.sort.displayName)
+                    .lineLimit(1)
+            }
+            .font(CozyFont.subheadline)
+            .foregroundStyle(CozyColor.inkSecondary)
+            .padding(.horizontal, CozySpacing.m)
+            .frame(minHeight: CozyMetrics.minimumTouchTarget)
+            .background(
+                CozyColor.card.opacity(0.9),
+                in: .rect(cornerRadius: CozyRadius.chip, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
+                    .strokeBorder(CozyColor.outline, lineWidth: CozyBorder.card)
+            }
+            .contentShape(.rect)
         }
+        .menuOrder(.fixed)
         .accessibilityLabel("Sort recipes")
+        .accessibilityValue(viewModel.sort.displayName)
     }
 
     // MARK: - Content
@@ -457,6 +483,8 @@ private struct CollectionFolderView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
     @Bindable var collection: RecipeCollection
     let sort: LibrarySort
 
@@ -464,10 +492,9 @@ private struct CollectionFolderView: View {
     @State private var name = ""
     @State private var isConfirmingDeletion = false
 
-    private let columns = [
-        GridItem(.flexible(), spacing: CozySpacing.m),
-        GridItem(.flexible(), spacing: CozySpacing.m)
-    ]
+    private var columns: [GridItem] {
+        CozyGrid.recipeColumns(for: horizontalSizeClass)
+    }
 
     private var sortedRecipes: [Recipe] {
         switch sort {

@@ -14,17 +14,24 @@ struct RecipeHeroView: View {
     var cornerRadius: CGFloat = 0
 
     var body: some View {
-        Group {
-            if let data = recipe.heroImageData, let image = UIImage(data: data) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                placeholder
+        // The image is drawn as an overlay on a zero-weight shape rather than
+        // being laid out itself: `scaledToFill` reports the *filled* size, so a
+        // portrait photo in a landscape box used to hand its oversize back to
+        // the parent and bleed past the corners it was meant to be clipped by.
+        // Laying out the box first means the clip always matches the frame it
+        // was given, at any card width.
+        Color.clear
+            .overlay {
+                if let data = recipe.heroImageData, let image = UIImage(data: data) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    placeholder
+                }
             }
-        }
-        .clipShape(.rect(cornerRadius: cornerRadius, style: .continuous))
-        .accessibilityHidden(true)
+            .clipShape(.rect(cornerRadius: cornerRadius, style: .continuous))
+            .accessibilityHidden(true)
     }
 
     private var placeholder: some View {

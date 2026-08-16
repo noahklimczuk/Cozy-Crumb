@@ -48,8 +48,28 @@ enum LibrarySort: String, CaseIterable, Identifiable, Sendable {
 @MainActor
 final class LibraryViewModel {
     var searchText = ""
-    var sort: LibrarySort = .recentlyAdded
+
+    /// Remembered between launches — a cookbook someone sorted A–Z once
+    /// shouldn't quietly go back to newest-first the next morning.
+    var sort: LibrarySort = .recentlyAdded {
+        didSet {
+            guard sort != oldValue else { return }
+            defaults.set(sort.rawValue, forKey: CozyDefaultsKey.librarySort)
+        }
+    }
+
     var hasSearch: Bool { !trimmedSearch.isEmpty }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+
+        if let stored = defaults.string(forKey: CozyDefaultsKey.librarySort),
+           let restored = LibrarySort(rawValue: stored) {
+            sort = restored
+        }
+    }
 
     private var trimmedSearch: String {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)

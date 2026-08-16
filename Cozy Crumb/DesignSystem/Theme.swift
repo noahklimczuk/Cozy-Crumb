@@ -163,6 +163,27 @@ enum CozySpacing {
 /// Minimum tappable area (§7.6). Cute little chips still need real hit boxes.
 enum CozyMetrics {
     nonisolated static let minimumTouchTarget: CGFloat = 44
+
+    /// The Cookbook's add button. Deliberately bigger than a toolbar glyph —
+    /// it's the one control the whole app is built around.
+    nonisolated static let addButtonDiameter: CGFloat = 56
+}
+
+// MARK: - Grids
+
+enum CozyGrid {
+    /// Recipe grids: two columns on a phone, and as many comfortable columns as
+    /// fit on an iPad or in landscape, rather than two very wide ones.
+    nonisolated static func recipeColumns(for sizeClass: UserInterfaceSizeClass?) -> [GridItem] {
+        guard sizeClass == .regular else {
+            return [
+                GridItem(.flexible(), spacing: CozySpacing.m),
+                GridItem(.flexible(), spacing: CozySpacing.m)
+            ]
+        }
+
+        return [GridItem(.adaptive(minimum: 200, maximum: 280), spacing: CozySpacing.m)]
+    }
 }
 
 // MARK: - Elevation
