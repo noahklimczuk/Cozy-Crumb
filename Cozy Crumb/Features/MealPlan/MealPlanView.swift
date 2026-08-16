@@ -8,6 +8,10 @@
 //  The week follows the user's own calendar, so the first column is whatever
 //  day their locale starts on.
 //
+//  Planned meals are shown as recipe cards rather than list rows, here and in
+//  the picker. A plan is something you look at to decide whether you fancy it,
+//  and a line of text can't do that — the picture is the point.
+//
 
 import Foundation
 import SwiftData
@@ -28,6 +32,13 @@ struct MealPlanView: View {
     @State private var isPresentingAddReview = false
 
     private var days: [Date] { MealPlanService.days(ofWeekContaining: anchor) }
+
+    /// Two cards to a row: a day rarely holds more than three meals, and any
+    /// wider and the pictures stop being worth showing.
+    private let mealColumns = [
+        GridItem(.flexible(), spacing: CozySpacing.m),
+        GridItem(.flexible(), spacing: CozySpacing.m)
+    ]
 
     private var weekMeals: [PlannedMeal] {
         MealPlanService.meals(inWeekContaining: anchor, from: plannedMeals)
@@ -138,8 +149,10 @@ struct MealPlanView: View {
         let meals = MealPlanService.meals(on: day, from: plannedMeals)
         let isToday = Calendar.current.isDateInToday(day)
 
-        return CrumbCard(fill: isToday ? accent.soft : CozyColor.card) {
-            VStack(alignment: .leading, spacing: CozySpacing.s) {
+        // The day is a tinted tray now rather than a white card, so the recipe
+        // cards sitting in it have something to stand against.
+        return CrumbCard(fill: isToday ? accent.soft : CozyColor.creamDeep) {
+            VStack(alignment: .leading, spacing: CozySpacing.m) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(day.formatted(.dateTime.weekday(.wide)))
                         .cozyText(CozyFont.bodyEmphasis)
@@ -166,8 +179,10 @@ struct MealPlanView: View {
                     Text("Nothing planned.")
                         .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
                 } else {
-                    ForEach(meals) { meal in
-                        mealRow(meal)
+                    LazyVGrid(columns: mealColumns, spacing: CozySpacing.m) {
+                        ForEach(meals) { meal in
+                            mealCard(meal)
+                        }
                     }
                 }
             }
@@ -182,34 +197,12 @@ struct MealPlanView: View {
     }
 
     @ViewBuilder
-    private func mealRow(_ meal: PlannedMeal) -> some View {
+    private func mealCard(_ meal: PlannedMeal) -> some View {
         if let recipe = meal.recipe {
             NavigationLink {
                 RecipeDetailView(recipe: recipe)
             } label: {
-                HStack(spacing: CozySpacing.s) {
-                    Image(systemName: meal.slot.symbol)
-                        .font(.caption)
-                        .foregroundStyle(CozyColor.inkSecondary)
-                        .frame(width: 18)
-
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(recipe.title)
-                            .cozyText(CozyFont.body)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                        Text("\(meal.slot.displayName) · serves \(meal.servings)")
-                            .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
-                    }
-
-                    Spacer(minLength: 0)
-
-                    Image(systemName: "chevron.right")
-                        .font(.caption2)
-                        .foregroundStyle(CozyColor.inkSecondary)
-                }
-                .frame(minHeight: CozyMetrics.minimumTouchTarget)
-                .contentShape(.rect)
+                PlannedMealCard(recipe: recipe, slot: meal.slot, servings: meal.servings)
             }
             .buttonStyle(.plain)
             .contextMenu {
@@ -323,6 +316,11 @@ private struct RecipePickerSheet: View {
     @State private var search = ""
     @State private var chosenSlot: MealSlot
 
+    private let columns = [
+        GridItem(.flexible(), spacing: CozySpacing.m),
+        GridItem(.flexible(), spacing: CozySpacing.m)
+    ]
+
     init(day: Date, slot: MealSlot, onPick: @escaping (Recipe, MealSlot, Int) -> Void) {
         self.day = day
         self.slot = slot
@@ -351,38 +349,36 @@ private struct RecipePickerSheet: View {
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List {
-                        Section {
+                    ScrollView {
+                        VStack(spacing: CozySpacing.l) {
                             Picker("Meal", selection: $chosenSlot) {
                                 ForEach(MealSlot.allCases) { slot in
                                     Text(slot.displayName).tag(slot)
                                 }
                             }
                             .pickerStyle(.segmented)
-                        }
-                        .listRowBackground(Color.clear)
 
-                        ForEach(matches) { recipe in
-                            Button {
-                                onPick(recipe, chosenSlot, max(1, recipe.servings))
-                                dismiss()
-                            } label: {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(recipe.title)
-                                        .cozyText(CozyFont.body)
-                                    Text("Serves \(recipe.servings)")
-                                        .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
+                            if matches.isEmpty {
+                                Text("Nothing matches “\(search)”.")
+                                    .cozyText(CozyFont.subheadline, color: CozyColor.inkSecondary)
+                                    .padding(.top, CozySpacing.xl)
+                            } else {
+                                LazyVGrid(columns: columns, spacing: CozySpacing.m) {
+                                    ForEach(matches) { recipe in
+                                        Button {
+                                            onPick(recipe, chosenSlot, max(1, recipe.servings))
+                                            dismiss()
+                                        } label: {
+                                            PlannedMealCard(recipe: recipe)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .accessibilityHint("Adds it to \(chosenSlot.displayName.lowercased())")
+                                    }
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .frame(minHeight: CozyMetrics.minimumTouchTarget)
-                                .contentShape(.rect)
                             }
-                            .buttonStyle(.plain)
-                            .listRowBackground(CozyColor.cream)
                         }
+                        .padding(CozySpacing.l)
                     }
-                    .listStyle(.insetGrouped)
-                    .scrollContentBackground(.hidden)
                     .searchable(text: $search, prompt: "Find a recipe")
                 }
             }
