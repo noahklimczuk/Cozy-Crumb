@@ -10,6 +10,16 @@ import Foundation
 import SwiftData
 import SwiftUI
 
+/// A wrapper for GroceryLineItem to provide an identifiable ID for the review list
+private struct GroceryLineEntry: Identifiable {
+    let id = UUID()
+    let line: GroceryLineItem
+    
+    init(line: GroceryLineItem) {
+        self.line = line
+    }
+}
+
 struct GroceryAddReviewView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accentPalette) private var accent
@@ -19,17 +29,36 @@ struct GroceryAddReviewView: View {
     let lines: [GroceryLineItem]
     let sourceTitle: String
 
-    @State private var selectedItems: Set<UUID> = []
+    @State private var selectedEntries: Set<UUID> = []
+    
+    private let entries: [GroceryLineEntry]
+
+    init(lines: [GroceryLineItem], sourceTitle: String) {
+        self.lines = lines
+        self.sourceTitle = sourceTitle
+        self.entries = lines.map(GroceryLineEntry.init)
+    }
 
     private var selectedItemLines: [GroceryLineItem] {
-        lines.filter { selectedItems.contains($0.id) }
+        entries.filter { selectedEntries.contains($0.id) }.map { $0.line }
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                content
+            List {
+                Section {
+                    ForEach(entries) { entry in
+                        listRow(for: entry)
+                    }
+                } header: {
+                    Text("Items from \(sourceTitle)")
+                        .cozyText(CozyFont.body, color: CozyColor.inkSecondary)
+                        .padding(.horizontal, CozySpacing.s)
+                        .padding(.vertical, 6)
+                }
             }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
             .background { BlobBackground() }
             .navigationTitle("Add to list")
             .navigationBarTitleDisplayMode(.inline)
@@ -51,48 +80,21 @@ struct GroceryAddReviewView: View {
         }
     }
 
-    @ViewBuilder
-    private var content: some View {
-        if lines.isEmpty {
-            EmptyStateView(
-                title: "Nothing to add",
-                message: "There are no items from \(sourceTitle) to add to the list.",
-                pose: .idle
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            List {
-                Section {
-                    ForEach(lines) { line in
-                        listRow(for: line)
-                    }
-                } header: {
-                    Text("Items from \(sourceTitle)")
-                        .cozyText(CozyFont.body, color: CozyColor.inkSecondary)
-                        .padding(.horizontal, CozySpacing.s)
-                        .padding(.vertical, 6)
-                }
-            }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-        }
-    }
-
-    private func listRow(for line: GroceryLineItem) -> some View {
+    private func listRow(for entry: GroceryLineEntry) -> some View {
         Button {
-            toggleSelection(for: line)
+            toggleSelection(for: entry)
         } label: {
             HStack(spacing: CozySpacing.m) {
-                Image(systemName: selectedItems.contains(line.id) ? "checkmark.circle.fill" : "circle")
+                Image(systemName: selectedEntries.contains(entry.id) ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(selectedItems.contains(line.id) ? accent.color : CozyColor.inkSecondary)
+                    .foregroundStyle(selectedEntries.contains(entry.id) ? accent.color : CozyColor.inkSecondary)
                     .contentTransition(.symbolEffect(.replace))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(line.name)
+                    Text(entry.line.name)
                         .cozyText(CozyFont.body)
 
-                    if let quantity = line.quantity, let unit = line.unit {
+                    if let quantity = entry.line.quantity, let unit = entry.line.unit {
                         Text(FractionFormatter.quantityString(quantity: quantity, unit: unit))
                             .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
                     }
@@ -100,9 +102,9 @@ struct GroceryAddReviewView: View {
 
                 Spacer()
 
-                if let quantity = line.quantity {
-                    if let unit = line.unit, let dimension = GroceryMerge.dimension(of: unit) {
-                        let existing = findExistingItem(name: line.name, dimension: dimension)
+                if let quantity = entry.line.quantity {
+                    if let unit = entry.line.unit, let dimension = GroceryMerge.dimension(of: unit) {
+                        let existing = findExistingItem(name: entry.line.name, dimension: dimension)
                         if existing != nil {
                             HStack(spacing: 2) {
                                 Image(systemName: "plus.circle")
@@ -132,12 +134,12 @@ struct GroceryAddReviewView: View {
         }
     }
 
-    private func toggleSelection(for line: GroceryLineItem) {
-        let id = line.id
-        if selectedItems.contains(id) {
-            selectedItems.remove(id)
+    private func toggleSelection(for entry: GroceryLineEntry) {
+        let id = entry.id
+        if selectedEntries.contains(id) {
+            selectedEntries.remove(id)
         } else {
-            selectedItems.insert(id)
+            selectedEntries.insert(id)
         }
     }
 
@@ -162,7 +164,7 @@ struct GroceryAddReviewView: View {
     }
 
     private func selectAll() {
-        selectedItems = Set(lines.map { $0.id })
+        selectedEntries = Set(entries.map { $0.id })
     }
 
     private func addSelectedItems() {
