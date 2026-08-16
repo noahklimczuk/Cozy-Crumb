@@ -11,6 +11,7 @@
 //  old switch is read once on the way past so nobody's choice is lost.
 //
 
+import Foundation
 import SwiftUI
 
 enum AppAppearance: String, CaseIterable, Identifiable, Sendable {
