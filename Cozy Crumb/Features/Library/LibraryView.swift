@@ -139,9 +139,9 @@ struct LibraryView: View {
                 pasteLinkText = ""
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(CozyColor.inkPrimary)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 44, height: 44)
                     .background(accent.color, in: .circle)
                     .overlay {
                         Circle().strokeBorder(accent.deep, lineWidth: 1.5)
