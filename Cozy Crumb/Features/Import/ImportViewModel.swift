@@ -304,25 +304,49 @@ final class ImportViewModel {
         }
     }
 
+    /// Merges the line parser's reading with what is already there, rather
+    /// than replacing it.
+    ///
+    /// This used to overwrite unconditionally, which quietly broke servings
+    /// scaling and unit conversion for every social import. A web page gives
+    /// clean lines ("115 g unsalted butter") that reparse identically, so the
+    /// damage was invisible there. A caption gives the poster's phrasing
+    /// ("• 2 eggs", "🧈 a knob of butter"), which the line parser reads as
+    /// having no quantity — so a perfectly good AI parse was replaced with
+    /// nothing to scale.
+    ///
+    /// The line parser wins only where it actually found something. That keeps
+    /// hand-edits authoritative without throwing away a better reading.
     func reparseIngredient(at index: Int) {
         guard draft.ingredients.indices.contains(index) else { return }
 
-        let edited = draft.ingredients[index]
-        guard !edited.rawText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let existing = draft.ingredients[index]
+        guard !existing.rawText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
-        var reparsed = IngredientLineParser.parse(edited.rawText, order: index)
-        reparsed = ImportedIngredient(
-            id: edited.id,
-            rawText: reparsed.rawText,
-            quantity: reparsed.quantity,
-            unit: reparsed.unit,
-            name: reparsed.name,
-            note: reparsed.note,
-            isSectionHeader: reparsed.isSectionHeader,
-            groceryCategory: reparsed.groceryCategory
+        let reparsed = IngredientLineParser.parse(existing.rawText, order: index)
+
+        // A quantity means the line decomposed cleanly, so the rest of that
+        // reading can be trusted too.
+        let decomposed = reparsed.quantity != nil
+
+        let name: String = if decomposed, !reparsed.name.isEmpty {
+            reparsed.name
+        } else if !existing.name.isEmpty {
+            existing.name
+        } else {
+            reparsed.name
+        }
+
+        draft.ingredients[index] = ImportedIngredient(
+            id: existing.id,
+            rawText: existing.rawText,
+            quantity: decomposed ? reparsed.quantity : existing.quantity,
+            unit: decomposed ? reparsed.unit : existing.unit,
+            name: name,
+            note: reparsed.note ?? existing.note,
+            isSectionHeader: reparsed.isSectionHeader || existing.isSectionHeader,
+            groceryCategory: GroceryCategoryGuesser.category(for: name)
         )
-
-        draft.ingredients[index] = reparsed
     }
 
     func reparseStepDuration(at index: Int) {
