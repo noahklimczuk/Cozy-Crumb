@@ -25,6 +25,7 @@ struct MealPlanView: View {
     @State private var addingTo: DaySlot?
     @State private var isConfirmingClearWeek = false
     @State private var toast: String?
+    @State private var isPresentingAddReview = false
 
     private var days: [Date] { MealPlanService.days(ofWeekContaining: anchor) }
 
@@ -50,6 +51,10 @@ struct MealPlanView: View {
                     )
                 }
             }
+        }
+        .sheet(isPresented: $isPresentingAddReview) {
+            let lines = MealPlanService.groceryLines(for: weekMeals)
+            GroceryAddReviewView(lines: lines, sourceTitle: "This week's meals")
         }
         .confirmationDialog(
             "Clear this week's plan?",
@@ -280,11 +285,8 @@ struct MealPlanView: View {
             return
         }
 
-        let list = GroceryService.activeList(in: modelContext)
-        let outcome = GroceryService.add(lines, to: list, in: modelContext)
-
-        Haptics.notify(.success)
-        show(toast: outcome.summary ?? "That's all on the list already.")
+        // Present review sheet with the lines
+        isPresentingAddReview = true
     }
 
     private func show(toast message: String) {

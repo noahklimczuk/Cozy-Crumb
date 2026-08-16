@@ -255,7 +255,16 @@ struct ShoppingListView: View {
 
     @ToolbarContentBuilder
     private var clearMenu: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            if let list, !list.items.isEmpty {
+                Button(role: .destructive) {
+                    isConfirmingClearAll = true
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .accessibilityLabel("Clear list")
+            }
+
             Menu {
                 Toggle("Round up to shop sizes", isOn: $roundUpAmounts)
                 Toggle("Ticking adds to Pantry", isOn: $checkOffAddsToPantry)
@@ -268,13 +277,6 @@ struct ShoppingListView: View {
                     Label("Clear ticked-off", systemImage: "checkmark.circle")
                 }
                 .disabled(list?.completedItems.isEmpty ?? true)
-
-                Button(role: .destructive) {
-                    isConfirmingClearAll = true
-                } label: {
-                    Label("Clear everything", systemImage: "trash")
-                }
-                .disabled(list?.items.isEmpty ?? true)
             } label: {
                 Image(systemName: "ellipsis.circle")
             }

@@ -23,6 +23,8 @@ struct ImportFlowView: View {
     var startsInManualEntry = false
     /// Opens an already-saved recipe in the editor instead of importing.
     var editingRecipe: Recipe?
+    /// External binding for paste link text from LibraryView
+    var pasteLinkText: Binding<String>?
 
     var body: some View {
         NavigationStack {
@@ -51,6 +53,11 @@ struct ImportFlowView: View {
                 viewModel.startManualEntry()
             } else if let initialURL {
                 await viewModel.runImport(from: initialURL, existingRecipes: existingRecipes)
+            } else if let pasteLinkText {
+                // Copy pasteLinkText to viewModel.urlText when starting entry
+                if !pasteLinkText.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                    viewModel.urlText = pasteLinkText.wrappedValue
+                }
             }
         }
     }
@@ -82,21 +89,34 @@ struct ImportFlowView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                CozyTextField(
-                    placeholder: "https://…",
-                    text: $viewModel.urlText,
-                    systemImage: "link",
-                    submitLabel: .go
-                ) {
-                    Task { await viewModel.importFromPastedText() }
+                if let pasteLinkText {
+                    CozyTextField(
+                        placeholder: "https://…",
+                        text: pasteLinkText,
+                        systemImage: "link",
+                        submitLabel: .go
+                    ) {
+                        Task { await viewModel.importFromPastedText() }
+                    }
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                } else {
+                    CozyTextField(
+                        placeholder: "https://…",
+                        text: $viewModel.urlText,
+                        systemImage: "link",
+                        submitLabel: .go
+                    ) {
+                        Task { await viewModel.importFromPastedText() }
+                    }
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
                 }
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
 
                 SquishyButton(title: "Get the recipe", systemImage: "sparkles") {
                     Task { await viewModel.importFromPastedText() }
                 }
-                .disabled(viewModel.urlText.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(pasteLinkText?.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty ?? viewModel.urlText.trimmingCharacters(in: .whitespaces).isEmpty)
 
                 Button("Or type one in by hand") {
                     viewModel.startManualEntry()

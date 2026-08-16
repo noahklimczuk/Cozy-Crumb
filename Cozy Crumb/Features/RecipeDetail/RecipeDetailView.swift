@@ -23,6 +23,7 @@ struct RecipeDetailView: View {
     @State private var viewModel: RecipeDetailViewModel
     @State private var isEditing = false
     @State private var groceryToast: String?
+    @State private var isPresentingAddReview = false
 
     private static let scrollSpace = "recipeScroll"
     private static let heroHeight: CGFloat = 260
@@ -72,6 +73,10 @@ struct RecipeDetailView: View {
                 logCook(rating: rating, notes: notes)
             }
         }
+        .sheet(isPresented: $isPresentingAddReview) {
+            let lines = GroceryService.lineItems(from: recipe, servings: viewModel.servings)
+            GroceryAddReviewView(lines: lines, sourceTitle: recipe.title)
+        }
         .overlay(alignment: .bottom) { groceryToastBanner }
     }
 
@@ -102,19 +107,23 @@ struct RecipeDetailView: View {
     }
 
     private func addToGroceries() {
-        let list = GroceryService.activeList(in: modelContext)
         let lines = GroceryService.lineItems(from: recipe, servings: viewModel.servings)
-        let outcome = GroceryService.add(lines, to: list, in: modelContext)
+        
+        // Show review view if there are items to add
+        if !lines.isEmpty {
+            // Present review sheet with the lines
+            isPresentingAddReview = true
+        } else {
+            // Show toast for no items needed
+            Haptics.notify(.success)
+            withAnimation(motion(Motion.snappy)) {
+                groceryToast = "Nothing on this one needs buying."
+            }
 
-        Haptics.notify(.success)
-
-        withAnimation(motion(Motion.snappy)) {
-            groceryToast = outcome.summary ?? "Nothing on this one needs buying."
-        }
-
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2.2))
-            withAnimation(motion(Motion.gentle)) { groceryToast = nil }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2.2))
+                withAnimation(motion(Motion.gentle)) { groceryToast = nil }
+            }
         }
     }
 
