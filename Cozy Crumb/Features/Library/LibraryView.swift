@@ -12,7 +12,6 @@ import os
 
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.accentPalette) private var accent
 
     @Query private var recipes: [Recipe]
     @Query(sort: \RecipeCollection.createdAt) private var collections: [RecipeCollection]
@@ -207,14 +206,8 @@ struct LibraryView: View {
 
     private var collectionFolders: some View {
         VStack(alignment: .leading, spacing: CozySpacing.m) {
-            HStack {
-                Text("Collections")
-                    .cozyText(CozyFont.title2)
-                Spacer()
-                Button("New") { isNamingCollection = true }
-                    .font(CozyFont.caption.weight(.semibold))
-                    .foregroundStyle(accent.deep)
-            }
+            Text("Collections")
+                .cozyText(CozyFont.title2)
 
             LazyVGrid(columns: columns, spacing: CozySpacing.m) {
                 ForEach(collections) { collection in
