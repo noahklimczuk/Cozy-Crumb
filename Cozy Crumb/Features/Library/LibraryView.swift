@@ -39,7 +39,7 @@ struct LibraryView: View {
                 content
             }
             .background { BlobBackground() }
-            .navigationTitle("Library")
+            .navigationTitle("Cookbook")
             .toolbar {
                 sortMenu
                 addMenu
