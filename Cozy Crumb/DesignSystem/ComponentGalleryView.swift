@@ -223,7 +223,7 @@ struct ComponentGalleryView: View {
     }
 
     private var mascotSection: some View {
-        GallerySection("Mascot", note: "Pure shapes — tints with the accent, blinks on a timer.") {
+        GallerySection("Mascot", note: "The cupcake mascot breathes gently, blinks, and winks.") {
             ScrollView(.horizontal) {
                 HStack(spacing: CozySpacing.l) {
                     ForEach(MascotView.Pose.allCases) { pose in
