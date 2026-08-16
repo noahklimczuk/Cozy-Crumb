@@ -19,7 +19,7 @@ enum CozyTab: Hashable {
 
     var title: String {
         switch self {
-        case .library: "Library"
+        case .library: "Cookbook"
         case .groceries: "Groceries"
         case .sousChef: "Sous Chef"
         case .pantry: "Pantry"
