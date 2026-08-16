@@ -20,6 +20,7 @@ struct RecipeDetailView: View {
     let recipe: Recipe
 
     @State private var viewModel: RecipeDetailViewModel
+    @State private var isEditing = false
 
     private static let scrollSpace = "recipeScroll"
     private static let heroHeight: CGFloat = 260
@@ -54,7 +55,15 @@ struct RecipeDetailView: View {
         .ignoresSafeArea(edges: .top)
         .navigationTitle(recipe.title)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { favoriteButton }
+        .toolbar {
+            favoriteButton
+            editButton
+        }
+        .sheet(isPresented: $isEditing) {
+            viewModel.resync(with: recipe)
+        } content: {
+            ImportFlowView(editingRecipe: recipe)
+        }
         .sheet(isPresented: $viewModel.isLoggingCook) {
             CookLogSheet(recipeTitle: recipe.title) { rating, notes in
                 logCook(rating: rating, notes: notes)
@@ -311,6 +320,19 @@ struct RecipeDetailView: View {
     }
 
     // MARK: - Toolbar
+
+    @ToolbarContentBuilder
+    private var editButton: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                isEditing = true
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .foregroundStyle(CozyColor.inkSecondary)
+            }
+            .accessibilityLabel("Edit this recipe")
+        }
+    }
 
     @ToolbarContentBuilder
     private var favoriteButton: some ToolbarContent {

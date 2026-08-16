@@ -274,7 +274,12 @@ struct ImportReviewView: View {
     @MainActor
     private var saveSection: some View {
         Section {
-            if viewModel.duplicate != nil {
+            if viewModel.isEditingExisting {
+                SquishyButton(title: "Save changes", systemImage: "checkmark") {
+                    onUpdate()
+                }
+                .disabled(!viewModel.canSave)
+            } else if viewModel.duplicate != nil {
                 SquishyButton(title: "Update the saved one", systemImage: "arrow.triangle.2.circlepath") {
                     onUpdate()
                 }

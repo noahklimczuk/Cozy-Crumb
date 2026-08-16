@@ -37,8 +37,21 @@ final class ImportViewModel {
     /// Set when the source is a site that never serves recipe markup.
     var isSocialSource = false
 
-    /// An existing recipe with the same source URL (§8.6).
-    var duplicate: Recipe?
+    /// The recipe a save would overwrite: either a duplicate found on import
+    /// (§8.6) or the recipe currently being edited.
+    var existing: Recipe?
+
+    /// True when the editor was opened from a saved recipe rather than an
+    /// import, which changes the buttons and keeps the original source kind.
+    var isEditingExisting = false
+
+    private var editingSourceKind: SourceKind?
+
+    /// Kept for the import flow's duplicate prompt, which only applies when we
+    /// arrived here from a link.
+    var duplicate: Recipe? {
+        isEditingExisting ? nil : existing
+    }
 
     /// What we managed to gather from a social post, if this is one.
     var socialPost: SocialPost?
@@ -74,13 +87,32 @@ final class ImportViewModel {
 
     // MARK: - Entry points
 
+    /// Opens an existing recipe in the editor.
+    ///
+    /// Editing reuses the review screen and the update-in-place save path, so
+    /// there is one editor rather than two that drift apart. The recipe is put
+    /// in `existing` so saving overwrites it instead of creating a copy.
+    func startEditing(_ recipe: Recipe) {
+        draft = ImportedRecipe(editing: recipe)
+        heroImageData = recipe.heroImageData
+        existing = recipe
+        isEditingExisting = true
+        editingSourceKind = recipe.sourceKind
+        didFallBackToManual = false
+        socialNote = nil
+        isSocialSource = recipe.sourceKind == .social
+        stage = .review
+    }
+
     /// Starts a blank manual entry.
     func startManualEntry() {
         draft = ImportedRecipe(title: "", servings: 4, confidence: 1)
         heroImageData = nil
         didFallBackToManual = false
         isSocialSource = false
-        duplicate = nil
+        existing = nil
+        isEditingExisting = false
+        editingSourceKind = nil
         stage = .review
     }
 
@@ -105,7 +137,7 @@ final class ImportViewModel {
             return
         }
 
-        duplicate = existingRecipes.first { $0.sourceURL == url }
+        existing = existingRecipes.first { $0.sourceURL == url }
 
         let outcome = await coordinator.importRecipe(from: url)
 
@@ -161,7 +193,7 @@ final class ImportViewModel {
 
         // Match duplicates on the canonical URL, so the same post shared two
         // different ways is recognised as one recipe.
-        duplicate = existingRecipes.first { $0.sourceURL == post.url }
+        existing = existingRecipes.first { $0.sourceURL == post.url }
 
         if let thumbnail = post.thumbnailURL {
             heroImageData = await imageFetcher.downscaledImage(from: thumbnail)
@@ -377,14 +409,14 @@ final class ImportViewModel {
 
         let target: Recipe
 
-        if updatingExisting, let duplicate {
+        if updatingExisting, let existing {
             // Replace the children rather than merging — the user has just
             // reviewed the new version, so it wins.
-            for ingredient in duplicate.ingredients { context.delete(ingredient) }
-            for step in duplicate.steps { context.delete(step) }
-            duplicate.ingredients = []
-            duplicate.steps = []
-            target = duplicate
+            for ingredient in existing.ingredients { context.delete(ingredient) }
+            for step in existing.steps { context.delete(step) }
+            existing.ingredients = []
+            existing.steps = []
+            target = existing
         } else {
             let recipe = Recipe(title: draft.title, sourceKind: sourceKind)
             context.insert(recipe)
@@ -403,6 +435,8 @@ final class ImportViewModel {
     }
 
     private var sourceKind: SourceKind {
+        // An edit never changes where the recipe came from.
+        if let editingSourceKind { return editingSourceKind }
         if isSocialSource { return .social }
         if draft.sourceURL != nil { return .web }
         return .manual

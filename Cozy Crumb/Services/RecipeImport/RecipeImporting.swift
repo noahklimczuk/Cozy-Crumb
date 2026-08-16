@@ -115,6 +115,51 @@ nonisolated struct ImportedRecipe: Sendable, Equatable {
     }
 }
 
+// MARK: - Editing an existing recipe
+
+extension ImportedRecipe {
+    /// Seeds an editable draft from a recipe already in the library, so the
+    /// review screen doubles as the editor. One editor, one set of rules.
+    nonisolated init(editing recipe: Recipe) {
+        self.init(
+            title: recipe.title,
+            summary: recipe.summary,
+            // The hero already lives on the recipe as data; there is nothing
+            // to re-download.
+            imageURL: nil,
+            servings: recipe.servings,
+            prepMinutes: recipe.prepMinutes,
+            cookMinutes: recipe.cookMinutes,
+            ingredients: recipe.orderedIngredients.map(ImportedIngredient.init(editing:)),
+            steps: recipe.orderedSteps.map(ImportedStep.init(editing:)),
+            tags: recipe.tags,
+            sourceName: recipe.sourceName,
+            sourceURL: recipe.sourceURL,
+            confidence: recipe.importConfidence ?? 1
+        )
+    }
+}
+
+extension ImportedIngredient {
+    nonisolated init(editing ingredient: Ingredient) {
+        self.init(
+            rawText: ingredient.rawText,
+            quantity: ingredient.quantity,
+            unit: ingredient.unit,
+            name: ingredient.name,
+            note: ingredient.note,
+            isSectionHeader: ingredient.isSectionHeader,
+            groceryCategory: ingredient.groceryCategory
+        )
+    }
+}
+
+extension ImportedStep {
+    nonisolated init(editing step: RecipeStep) {
+        self.init(text: step.text, durationSeconds: step.durationSeconds)
+    }
+}
+
 // MARK: - Protocol
 
 /// One tier of the import cascade. Extractors are pure: they take HTML in and
