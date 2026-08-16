@@ -158,6 +158,7 @@ private struct SettingsPlaceholderScreen: View {
     @Binding var darkModeEnabled: Bool
 
     @AppStorage(CozyDefaultsKey.checkOffAddsToPantry) private var checkOffAddsToPantry = false
+    @AppStorage(CozyDefaultsKey.roundUpShoppingAmounts) private var roundUpShoppingAmounts = true
 
     var body: some View {
         NavigationStack {
@@ -217,6 +218,18 @@ private struct SettingsPlaceholderScreen: View {
                                 Text("Haptics")
                                     .cozyText(CozyFont.bodyEmphasis)
                                 Text("A soft tap on every press.")
+                                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                            }
+                        }
+                        .tint(accent.deep)
+                    }
+
+                    CrumbCard {
+                        Toggle(isOn: $roundUpShoppingAmounts) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Round up to shop sizes")
+                                    .cozyText(CozyFont.bodyEmphasis)
+                                Text("375 g of flour becomes the 400 g you'd actually buy.")
                                     .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
                             }
                         }

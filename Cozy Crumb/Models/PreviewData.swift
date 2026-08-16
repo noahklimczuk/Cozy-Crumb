@@ -68,8 +68,45 @@ enum PreviewData {
         return container
     }()
 
+    /// A part-planned week, so the planner preview shows both filled and
+    /// empty days.
+    static let plannerContainer: ModelContainer = {
+        let container = makeContainer()
+        let context = container.mainContext
+
+        let recipes = [
+            SeedData.misoSalmon(),
+            SeedData.cacioEPepe(),
+            SeedData.chickpeaCurry(),
+            SeedData.roastChicken()
+        ]
+
+        for recipe in recipes {
+            context.insert(recipe)
+        }
+
+        let days = MealPlanService.days(ofWeekContaining: .now)
+        let plan: [(offset: Int, slot: MealSlot, recipe: Recipe)] = [
+            (0, .dinner, recipes[0]),
+            (1, .dinner, recipes[1]),
+            (1, .lunch, recipes[2]),
+            (3, .dinner, recipes[3])
+        ]
+
+        for entry in plan where entry.offset < days.count {
+            MealPlanService.add(
+                entry.recipe,
+                on: days[entry.offset],
+                slot: entry.slot,
+                in: context
+            )
+        }
+
+        return container
+    }()
+
     private static func makeContainer() -> ModelContainer {
-        let schema = Schema(versionedSchema: CozyCrumbSchemaV1.self)
+        let schema = Schema(versionedSchema: CozyCrumbCurrentSchema.self)
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
 
         do {
