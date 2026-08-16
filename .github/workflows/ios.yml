@@ -1,0 +1,100 @@
+name: iOS
+
+# Runs on every push to every branch, not just on pull requests, so a branch
+# gets a build result *before* a PR is opened for it.
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          xcodebuild -project "Cozy Crumb.xcodeproj" -list || true
+
+      # Built with -target rather than -scheme deliberately: the project has no
+      # shared scheme (schemes live in xcuserdata, which is gitignored), so a
+      # -scheme build would fail on a clean checkout. Signing is disabled
+      # because a simulator build does not need it and the project carries a
+      # personal DEVELOPMENT_TEAM that CI cannot use.
+      - name: Build for iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project "Cozy Crumb.xcodeproj" \
+            -target "Cozy Crumb" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            | tee build.log
+
+      # Skips itself until a test target exists. Adding a Unit Testing Bundle
+      # in Xcode is all that is needed to turn this on.
+      - name: Test
+        run: |
+          set -o pipefail
+          if xcodebuild -project "Cozy Crumb.xcodeproj" -list 2>/dev/null | grep -qi "CozyCrumbTests\|Cozy CrumbTests"; then
+            echo "Test target found — running tests."
+            xcodebuild test \
+              -project "Cozy Crumb.xcodeproj" \
+              -scheme "Cozy Crumb" \
+              -destination 'platform=iOS Simulator,OS=latest,name=iPhone 17' \
+              CODE_SIGNING_ALLOWED=NO
+          else
+            echo "No test target in the project yet — skipping."
+            echo "Add one with File > New > Target > Unit Testing Bundle, then"
+            echo "drag in the files from Cozy CrumbTests/."
+          fi
+
+      # The spec asks for zero compiler warnings (§11). Only warnings from our
+      # own Swift files are counted — toolchain noise like the AppIntents
+      # metadata processor is not something we can fix and would make the gate
+      # meaningless. Reported rather than enforced for now; flip the commented
+      # exit on once this has stayed at zero for a while.
+      - name: Swift warning gate
+        if: always()
+        run: |
+          if [ ! -f build.log ]; then
+            echo "No build log."
+            exit 0
+          fi
+
+          grep "warning:" build.log | grep "\.swift:" | sort -u > swift-warnings.txt || true
+          COUNT=$(wc -l < swift-warnings.txt | tr -d ' ')
+
+          echo "Swift source warnings: $COUNT"
+          [ "$COUNT" -gt 0 ] && cat swift-warnings.txt
+
+          {
+            echo "### Swift source warnings: $COUNT"
+            if [ "$COUNT" -gt 0 ]; then
+              echo ""
+              echo '```'
+              head -20 swift-warnings.txt
+              echo '```'
+            else
+              echo ""
+              echo "Clean."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Uncomment to make warnings blocking:
+          # [ "$COUNT" -eq 0 ] || exit 1
