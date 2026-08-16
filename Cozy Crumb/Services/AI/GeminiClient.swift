@@ -96,6 +96,21 @@ nonisolated struct GeminiGenerationConfig: Encodable, Sendable {
     var maxOutputTokens: Int? = nil
     var responseMimeType: String? = nil
     var responseSchema: GeminiSchema? = nil
+    var thinkingConfig: GeminiThinkingConfig? = nil
+}
+
+/// Gemini 3 models think before they answer, and — this is the part that
+/// bites — thinking tokens come out of the same maxOutputTokens budget as the
+/// visible answer. At the default HIGH level, reasoning expands to fill
+/// whatever budget it is given, so a small cap returns MAX_TOKENS and no text
+/// at all.
+///
+/// Recipe extraction is a mechanical task, so LOW keeps it fast and leaves the
+/// budget for the actual output.
+nonisolated struct GeminiThinkingConfig: Encodable, Sendable {
+    var thinkingLevel: String
+
+    nonisolated static let low = GeminiThinkingConfig(thinkingLevel: "LOW")
 }
 
 nonisolated struct GeminiSafetySetting: Encodable, Sendable {
@@ -183,7 +198,8 @@ actor GeminiClient {
         parts: [GeminiPart],
         schema: GeminiSchema? = nil,
         temperature: Double = 0.4,
-        maxOutputTokens: Int = 4096,
+        maxOutputTokens: Int = 8192,
+        thinking: GeminiThinkingConfig? = .low,
         timeout: TimeInterval = GeminiClient.textTimeout
     ) async -> Result<String, CozyError> {
         guard let apiKey = keychain.string(for: .geminiAPIKey) else {
@@ -194,25 +210,51 @@ actor GeminiClient {
             return .failure(.badURL)
         }
 
-        let request = GeminiRequest(
-            systemInstruction: systemInstruction.map {
-                GeminiContent(role: nil, parts: [.text($0)])
-            },
-            contents: [GeminiContent(role: "user", parts: parts)],
-            generationConfig: GeminiGenerationConfig(
-                temperature: temperature,
-                maxOutputTokens: maxOutputTokens,
-                responseMimeType: schema == nil ? nil : "application/json",
-                responseSchema: schema
-            ),
-            safetySettings: GeminiSafetySetting.cookingDefaults
-        )
+        func makeBody(includingThinking: Bool) -> Data? {
+            let request = GeminiRequest(
+                systemInstruction: systemInstruction.map {
+                    GeminiContent(role: nil, parts: [.text($0)])
+                },
+                contents: [GeminiContent(role: "user", parts: parts)],
+                generationConfig: GeminiGenerationConfig(
+                    temperature: temperature,
+                    maxOutputTokens: maxOutputTokens,
+                    responseMimeType: schema == nil ? nil : "application/json",
+                    responseSchema: schema,
+                    thinkingConfig: includingThinking ? thinking : nil
+                ),
+                safetySettings: GeminiSafetySetting.cookingDefaults
+            )
+            return try? JSONEncoder().encode(request)
+        }
 
-        guard let body = try? JSONEncoder().encode(request) else {
+        guard let body = makeBody(includingThinking: true) else {
             return .failure(.decodingFailed)
         }
 
-        return await send(body: body, to: url, apiKey: apiKey, timeout: timeout)
+        let result = await send(body: body, to: url, apiKey: apiKey, timeout: timeout)
+
+        // The thinking parameter has changed shape across model generations.
+        // If the request was rejected as malformed, try once more without it
+        // rather than making the user debug Google's schema. If the plain
+        // request is rejected too, the request shape was never the problem and
+        // the key is the likely culprit.
+        if case .failure(.aiRequestRejected) = result, thinking != nil {
+            Log.ai.info("Request rejected; retrying without thinkingConfig")
+
+            guard let plainBody = makeBody(includingThinking: false) else {
+                return .failure(.decodingFailed)
+            }
+
+            let retry = await send(body: plainBody, to: url, apiKey: apiKey, timeout: timeout)
+
+            if case .failure(.aiRequestRejected) = retry {
+                return .failure(.invalidAPIKey)
+            }
+            return retry
+        }
+
+        return result
     }
 
     // MARK: - Transport
@@ -325,7 +367,11 @@ actor GeminiClient {
 
         switch status {
         case 400:
-            return apiStatus == "INVALID_ARGUMENT" ? .invalidAPIKey : .aiRequestRejected
+            // A bad key and a malformed request both come back as
+            // INVALID_ARGUMENT, and the message that would distinguish them is
+            // exactly the thing we refuse to log. generate() disambiguates by
+            // retrying with a simpler body.
+            return .aiRequestRejected
         case 401, 403:
             return .modelUnavailable
         case 404:
