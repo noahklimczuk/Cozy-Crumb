@@ -4,10 +4,16 @@
 //
 //  UserDefaults keys in one place. Everything here is surfaced in Settings.
 //
+//  `nonisolated` for the same reason as `Log`: the target defaults types to
+//  MainActor, and these keys are read from nonisolated code —
+//  `GeminiModel.preferred(in:)` and `AppAppearance.stored(in:)` both resolve a
+//  preference without a view around. They're immutable strings, so isolating
+//  them buys nothing and costs a compile error at every such call site.
+//
 
 import Foundation
 
-enum CozyDefaultsKey {
+nonisolated enum CozyDefaultsKey {
     static let accentPalette = "settings.accentPalette"
     static let hapticsEnabled = "settings.hapticsEnabled"
     /// Light, dark, or match the phone. Replaces `darkModeEnabled`, which is
