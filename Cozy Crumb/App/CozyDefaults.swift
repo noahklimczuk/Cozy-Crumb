@@ -16,4 +16,6 @@ enum CozyDefaultsKey {
     static let geminiModel = "settings.geminiModel"
     /// Ticking a grocery item off also stocks the pantry with it (§5.5).
     static let checkOffAddsToPantry = "settings.checkOffAddsToPantry"
+    /// Show grocery amounts as the sizes shops actually sell.
+    static let roundUpShoppingAmounts = "settings.roundUpShoppingAmounts"
 }

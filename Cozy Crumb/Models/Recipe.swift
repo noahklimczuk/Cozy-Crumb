@@ -69,6 +69,11 @@ final class Recipe {
     @Relationship(inverse: \RecipeCollection.recipes)
     var collections: [RecipeCollection]
 
+    /// Cascades: a recipe you delete shouldn't leave an empty slot sitting in
+    /// next week's plan.
+    @Relationship(deleteRule: .cascade, inverse: \PlannedMeal.recipe)
+    var plannedMeals: [PlannedMeal]
+
     var tags: [String]
     var isFavorite: Bool
     /// 1–5.
@@ -99,6 +104,7 @@ final class Recipe {
         steps: [RecipeStep] = [],
         cookLogs: [CookLog] = [],
         collections: [RecipeCollection] = [],
+        plannedMeals: [PlannedMeal] = [],
         tags: [String] = [],
         isFavorite: Bool = false,
         rating: Int? = nil,
@@ -122,6 +128,7 @@ final class Recipe {
         self.steps = steps
         self.cookLogs = cookLogs
         self.collections = collections
+        self.plannedMeals = plannedMeals
         self.tags = tags
         self.isFavorite = isFavorite
         self.rating = rating

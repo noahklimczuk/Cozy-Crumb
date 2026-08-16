@@ -32,13 +32,40 @@ enum CozyCrumbSchemaV1: VersionedSchema {
     }
 }
 
-enum CozyCrumbMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] {
-        [CozyCrumbSchemaV1.self]
+/// Adds the week planner. Purely additive — a new `PlannedMeal` model and the
+/// cascade relationship on `Recipe` that owns it — so the migration is
+/// lightweight and no existing recipe, list or log is touched.
+enum CozyCrumbSchemaV2: VersionedSchema {
+    static var versionIdentifier: Schema.Version {
+        Schema.Version(2, 0, 0)
     }
 
-    /// Empty while V1 is the only schema. Each future version appends one stage.
+    static var models: [any PersistentModel.Type] {
+        [
+            Recipe.self,
+            Ingredient.self,
+            RecipeStep.self,
+            RecipeCollection.self,
+            CookLog.self,
+            GroceryList.self,
+            GroceryItem.self,
+            PantryItem.self,
+            PlannedMeal.self
+        ]
+    }
+}
+
+/// The schema the app opens. Bump this alongside the newest version above.
+typealias CozyCrumbCurrentSchema = CozyCrumbSchemaV2
+
+enum CozyCrumbMigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [CozyCrumbSchemaV1.self, CozyCrumbSchemaV2.self]
+    }
+
     static var stages: [MigrationStage] {
-        []
+        [
+            .lightweight(fromVersion: CozyCrumbSchemaV1.self, toVersion: CozyCrumbSchemaV2.self)
+        ]
     }
 }

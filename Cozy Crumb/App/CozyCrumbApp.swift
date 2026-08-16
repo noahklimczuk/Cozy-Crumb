@@ -32,7 +32,7 @@ struct CozyCrumbApp: App {
     /// crash. The final `fatalError` is genuinely unrecoverable — if an
     /// in-memory container cannot be created there is no app to run.
     private static func makeModelContainer() -> ModelContainer {
-        let schema = Schema(versionedSchema: CozyCrumbSchemaV1.self)
+        let schema = Schema(versionedSchema: CozyCrumbCurrentSchema.self)
 
         do {
             return try ModelContainer(
