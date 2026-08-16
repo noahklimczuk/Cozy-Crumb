@@ -62,7 +62,12 @@ final class AIKeySettingsViewModel {
         refresh()
     }
 
-    /// Smallest possible round trip that proves the key works.
+    /// Round trip that proves the key works.
+    ///
+    /// The budget is deliberately generous: on Gemini 3 models, thinking
+    /// tokens are drawn from maxOutputTokens, so a tight cap gets spent on
+    /// reasoning and returns MAX_TOKENS with no text — which looks like a
+    /// broken key but is not one.
     func testConnection(model: GeminiModel) async {
         testState = .testing
 
@@ -71,13 +76,24 @@ final class AIKeySettingsViewModel {
             systemInstruction: nil,
             parts: [.text("Reply with the single word: ready")],
             temperature: 0,
-            maxOutputTokens: 16,
-            timeout: 20
+            maxOutputTokens: 512,
+            timeout: 25
         )
 
-        testState = switch outcome {
-        case .success: .passed
-        case .failure(let error): .failed(error)
+        switch outcome {
+        case .success:
+            testState = .passed
+
+        case .failure(let error):
+            // These three only happen *after* the request was accepted and
+            // authenticated, so as a credential test they are a pass. Failing
+            // here would tell the user their key is broken when it is fine.
+            switch error {
+            case .responseTruncated, .emptyResponse, .blockedBySafety:
+                testState = .passed
+            default:
+                testState = .failed(error)
+            }
         }
     }
 }

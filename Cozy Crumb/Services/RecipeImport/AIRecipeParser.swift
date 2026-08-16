@@ -105,7 +105,9 @@ struct AIRecipeParser: Sendable {
             parts: parts,
             schema: RecipeSchemas.extraction,
             temperature: 0.2,
-            maxOutputTokens: 6144,
+            // Generous, because thinking tokens come out of this same budget
+            // on Gemini 3 and a truncated response is unparseable JSON.
+            maxOutputTokens: 16_384,
             timeout: timeout
         )
 
