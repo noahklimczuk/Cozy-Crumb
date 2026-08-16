@@ -63,12 +63,20 @@ struct ImportReviewView: View {
             .listRowBackground(Color.clear)
         }
 
-        if viewModel.didFallBackToManual {
+        if let note = viewModel.socialNote {
+            // Social imports explain themselves — where the recipe came from
+            // matters more here than a bare confidence number.
             Section {
                 banner(
-                    text: viewModel.isSocialSource
-                        ? "This one's shy — social posts don't share their recipes. Type what you can and I'll keep it safe."
-                        : "I couldn't find a recipe on that page. Here's what I did get — fill in the rest?",
+                    text: note,
+                    tint: viewModel.didFallBackToManual ? CozyColor.warning : CozyColor.sky
+                )
+            }
+            .listRowBackground(Color.clear)
+        } else if viewModel.didFallBackToManual {
+            Section {
+                banner(
+                    text: "I couldn't find a recipe on that page. Here's what I did get — fill in the rest?",
                     tint: CozyColor.warning
                 )
             }
