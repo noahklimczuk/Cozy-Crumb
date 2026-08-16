@@ -103,7 +103,7 @@ struct GroceryAddReviewView: View {
 
                 Spacer()
 
-                if let quantity = entry.line.quantity {
+                if entry.line.quantity != nil {
                     if let unit = entry.line.unit, let dimension = GroceryMerge.dimension(of: unit) {
                         let existing = findExistingItem(name: entry.line.name, dimension: dimension)
                         if existing != nil {
