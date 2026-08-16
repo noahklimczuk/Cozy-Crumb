@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Show toolchain
         run: |
@@ -39,6 +39,7 @@ jobs:
             -target "Cozy Crumb" \
             -configuration Debug \
             -sdk iphonesimulator \
+            ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -63,10 +64,12 @@ jobs:
             echo "drag in the files from Cozy CrumbTests/."
           fi
 
-      # The spec asks for zero compiler warnings. Reported rather than enforced
-      # for now so the first green build is not blocked by SDK noise; flip the
-      # exit to non-zero once the count is genuinely at zero.
-      - name: Warning summary
+      # The spec asks for zero compiler warnings (§11). Only warnings from our
+      # own Swift files are counted — toolchain noise like the AppIntents
+      # metadata processor is not something we can fix and would make the gate
+      # meaningless. Reported rather than enforced for now; flip the commented
+      # exit on once this has stayed at zero for a while.
+      - name: Swift warning gate
         if: always()
         run: |
           if [ ! -f build.log ]; then
@@ -74,20 +77,24 @@ jobs:
             exit 0
           fi
 
-          COUNT=$(grep -c "warning:" build.log || true)
-          echo "Compiler warnings: $COUNT"
+          grep "warning:" build.log | grep "\.swift:" | sort -u > swift-warnings.txt || true
+          COUNT=$(wc -l < swift-warnings.txt | tr -d ' ')
 
-          if [ "$COUNT" -gt 0 ]; then
-            echo "--- warnings ---"
-            grep "warning:" build.log | sort -u | head -50
-          fi
+          echo "Swift source warnings: $COUNT"
+          [ "$COUNT" -gt 0 ] && cat swift-warnings.txt
 
           {
-            echo "### Build warnings: $COUNT"
+            echo "### Swift source warnings: $COUNT"
             if [ "$COUNT" -gt 0 ]; then
               echo ""
               echo '```'
-              grep "warning:" build.log | sort -u | head -20
+              head -20 swift-warnings.txt
               echo '```'
+            else
+              echo ""
+              echo "Clean."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+          # Uncomment to make warnings blocking:
+          # [ "$COUNT" -eq 0 ] || exit 1
