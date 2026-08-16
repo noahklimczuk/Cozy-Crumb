@@ -88,7 +88,7 @@ struct RecipeCard: View {
                        height: CozyMetrics.minimumTouchTarget)
                 .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderless)
         .accessibilityLabel(recipe.isFavorite ? "Remove from favourites" : "Add to favourites")
         .accessibilityAddTraits(recipe.isFavorite ? [.isSelected] : [])
         .onChange(of: heartPop) { _, popped in
