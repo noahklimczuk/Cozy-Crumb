@@ -10,8 +10,16 @@ import SwiftData
 import SwiftUI
 import os
 
+/// A pasted link, wrapped so `.sheet(item:)` can present it — the URL itself
+/// isn't `Identifiable`, and two pastes of the same link should each open.
+private struct QuickPastedLink: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accentPalette) private var accent
 
     @Query private var recipes: [Recipe]
     @Query(sort: \RecipeCollection.createdAt) private var collections: [RecipeCollection]
@@ -24,7 +32,8 @@ struct LibraryView: View {
     @State private var collectionBeingRenamed: RecipeCollection?
     @State private var renamedCollectionName = ""
     @State private var isImporting = false
-    @State private var isEnteringManually = false
+    @State private var quickPasted: QuickPastedLink?
+    @State private var clipboardHadNoLink = false
 
     private let columns = [
         GridItem(.flexible(), spacing: CozySpacing.m),
@@ -44,14 +53,20 @@ struct LibraryView: View {
             .background { BlobBackground() }
             .navigationTitle("Cookbook")
             .toolbar {
-                sortMenu
-                addMenu
+                quickPasteButton
+                addButton
             }
             .sheet(isPresented: $isImporting) {
                 ImportFlowView()
             }
-            .sheet(isPresented: $isEnteringManually) {
-                ImportFlowView(startsInManualEntry: true)
+            .sheet(item: $quickPasted) { pasted in
+                ImportFlowView(initialURL: pasted.url)
+            }
+            .alert("No link on the clipboard", isPresented: $clipboardHadNoLink) {
+                Button("Paste one in") { isImporting = true }
+                Button("Never mind", role: .cancel) {}
+            } message: {
+                Text("Copy a recipe link first, then tap this again.")
             }
             .confirmationDialog(
                 "Delete this recipe?",
@@ -118,46 +133,76 @@ struct LibraryView: View {
         .background(.ultraThinMaterial)
     }
 
+    /// The main call to action: straight to the paste screen, no menu in the
+    /// way. Adding a recipe is the thing people come here to do, so it should
+    /// take one tap rather than two.
     @ToolbarContentBuilder
-    private var addMenu: some ToolbarContent {
+    private var addButton: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button {
-                    isImporting = true
-                } label: {
-                    Label("Paste a link", systemImage: "link")
-                }
-                Button {
-                    isEnteringManually = true
-                } label: {
-                    Label("Type one in", systemImage: "square.and.pencil")
-                }
-                Button {
-                    isNamingCollection = true
-                } label: {
-                    Label("New collection", systemImage: "folder.badge.plus")
-                }
+            Button {
+                isImporting = true
             } label: {
-                Image(systemName: "plus.circle.fill")
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(CozyColor.inkPrimary)
+                    .frame(width: 38, height: 38)
+                    .background(accent.color, in: .circle)
+                    .overlay {
+                        Circle().strokeBorder(accent.deep, lineWidth: 1.5)
+                    }
+                    .cozyLiftShadow()
             }
+            .buttonStyle(.squishy)
             .accessibilityLabel("Add a recipe")
+            .accessibilityHint("Opens the paste-a-link screen")
         }
     }
 
+    /// Skips the paste screen entirely: takes the link already on the clipboard
+    /// and starts importing it.
+    ///
+    /// Uses PasteButton rather than reading UIPasteboard ourselves, so iOS
+    /// hands over the contents on an explicit tap with no permission banner
+    /// and nothing is read behind the user's back.
     @ToolbarContentBuilder
-    private var sortMenu: some ToolbarContent {
+    private var quickPasteButton: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Picker("Sort", selection: $viewModel.sort) {
-                    ForEach(LibrarySort.allCases) { option in
-                        Label(option.displayName, systemImage: option.symbol).tag(option)
+            PasteButton(payloadType: String.self) { strings in
+                let text = strings.first ?? ""
+                Task { @MainActor in
+                    guard let url = ImportViewModel.firstURL(in: text) else {
+                        clipboardHadNoLink = true
+                        return
                     }
+                    quickPasted = QuickPastedLink(url: url)
                 }
-            } label: {
-                Image(systemName: "arrow.up.arrow.down.circle")
             }
-            .accessibilityLabel("Sort recipes")
+            .labelStyle(.iconOnly)
+            .buttonBorderShape(.circle)
+            .tint(CozyColor.creamDeep)
+            .accessibilityLabel("Import the link on my clipboard")
         }
+    }
+
+    /// Sort lives beside a heading rather than in the toolbar now, so the
+    /// toolbar belongs to adding recipes.
+    private var sortControl: some View {
+        Menu {
+            Picker("Sort", selection: $viewModel.sort) {
+                ForEach(LibrarySort.allCases) { option in
+                    Label(option.displayName, systemImage: option.symbol).tag(option)
+                }
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down.circle")
+                .font(.body)
+                .foregroundStyle(CozyColor.inkSecondary)
+                .frame(width: CozyMetrics.minimumTouchTarget,
+                       height: CozyMetrics.minimumTouchTarget,
+                       alignment: .trailing)
+                .contentShape(.rect)
+        }
+        .accessibilityLabel("Sort recipes")
     }
 
     // MARK: - Content
@@ -206,8 +251,12 @@ struct LibraryView: View {
 
     private var collectionFolders: some View {
         VStack(alignment: .leading, spacing: CozySpacing.m) {
-            Text("Collections")
-                .cozyText(CozyFont.title2)
+            HStack(spacing: CozySpacing.s) {
+                Text("Collections")
+                    .cozyText(CozyFont.title2)
+                Spacer()
+                sortControl
+            }
 
             LazyVGrid(columns: columns, spacing: CozySpacing.m) {
                 ForEach(collections) { collection in
@@ -229,9 +278,20 @@ struct LibraryView: View {
         }
     }
 
+    /// Search results. The heading row exists so the sort control — which now
+    /// lives next to "Collections" — doesn't disappear the moment you type.
     private var grid: some View {
         ScrollView {
-            recipeGrid(recipes: visibleRecipes)
+            VStack(alignment: .leading, spacing: CozySpacing.m) {
+                HStack(spacing: CozySpacing.s) {
+                    Text("\(visibleRecipes.count) \(visibleRecipes.count == 1 ? "match" : "matches")")
+                        .cozyText(CozyFont.title2)
+                    Spacer()
+                    sortControl
+                }
+
+                recipeGrid(recipes: visibleRecipes)
+            }
             .padding(CozySpacing.l)
         }
     }
