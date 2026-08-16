@@ -146,7 +146,7 @@ struct ImportFlowView: View {
                 Image(systemName: "doc.on.clipboard")
                     .font(.body.weight(.semibold))
                 Text("Paste")
-                    .font(CozyFont.callout.weight(.semibold))
+                    .font(CozyFont.headline)
             }
             .foregroundStyle(CozyColor.inkPrimary)
             .padding(.horizontal, CozySpacing.m)
