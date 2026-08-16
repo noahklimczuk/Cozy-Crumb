@@ -22,11 +22,14 @@ struct ImportResult: Sendable {
     var metadata: OpenGraphMetadata
     /// True for hosts that never serve recipe markup to anonymous requests.
     var isSocialSource: Bool
+    /// The fetched page HTML, used for AI fallback when structured scrapers find no recipe.
+    var rawHTML: String?
 
-    nonisolated init(recipe: ImportedRecipe?, metadata: OpenGraphMetadata, isSocialSource: Bool) {
+    nonisolated init(recipe: ImportedRecipe?, metadata: OpenGraphMetadata, isSocialSource: Bool, rawHTML: String? = nil) {
         self.recipe = recipe
         self.metadata = metadata
         self.isSocialSource = isSocialSource
+        self.rawHTML = rawHTML
     }
 }
 
@@ -36,15 +39,18 @@ actor ImportCoordinator {
     private let tiers: [any RecipeExtracting]
     private let openGraph = OpenGraphExtractor()
 
-    /// Hosts that require auth and actively block scraping. We never try to
-    /// work around that — we read their public Open Graph tags and hand the
-    /// caption to the user (or, from Phase 7, to the AI parser).
+    /// Hosts that require auth and actively block scraping. We read their public
+    /// metadata or hand off to dedicated social/video parsers.
     private nonisolated static let socialHosts: Set<String> = [
-        "instagram.com", "www.instagram.com",
-        "tiktok.com", "www.tiktok.com", "vm.tiktok.com",
-        "youtube.com", "www.youtube.com", "youtu.be", "m.youtube.com",
-        "facebook.com", "www.facebook.com",
-        "x.com", "twitter.com"
+        "instagram.com", "www.instagram.com", "instagr.am",
+        "tiktok.com", "www.tiktok.com", "vm.tiktok.com", "vt.tiktok.com", "m.tiktok.com",
+        "youtube.com", "www.youtube.com", "youtu.be", "m.youtube.com", "music.youtube.com",
+        "facebook.com", "www.facebook.com", "fb.com", "fb.watch", "m.facebook.com",
+        "pinterest.com", "www.pinterest.com", "pin.it", "m.pinterest.com",
+        "x.com", "www.x.com", "twitter.com", "www.twitter.com",
+        "threads.net", "www.threads.net",
+        "reddit.com", "www.reddit.com", "redd.it",
+        "vimeo.com", "www.vimeo.com"
     ]
 
     init(session: URLSession? = nil, tiers: [any RecipeExtracting]? = nil) {
@@ -103,10 +109,10 @@ actor ImportCoordinator {
 
         if var recipe = best {
             recipe = filling(recipe, from: metadata)
-            return ImportResult(recipe: recipe, metadata: metadata, isSocialSource: isSocial)
+            return ImportResult(recipe: recipe, metadata: metadata, isSocialSource: isSocial, rawHTML: html)
         }
 
-        return ImportResult(recipe: nil, metadata: metadata, isSocialSource: isSocial)
+        return ImportResult(recipe: nil, metadata: metadata, isSocialSource: isSocial, rawHTML: html)
     }
 
     /// Open Graph fills the gaps a structured tier left behind — usually the

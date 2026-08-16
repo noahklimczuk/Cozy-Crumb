@@ -96,7 +96,7 @@ struct ImportFlowView: View {
                         systemImage: "link",
                         submitLabel: .go
                     ) {
-                        Task { await viewModel.importFromPastedText() }
+                        Task { await viewModel.importFromPastedText(overrideText: pasteLinkText.wrappedValue) }
                     }
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -114,7 +114,10 @@ struct ImportFlowView: View {
                 }
 
                 SquishyButton(title: "Get the recipe", systemImage: "sparkles") {
-                    Task { await viewModel.importFromPastedText() }
+                    Task {
+                        let targetText = pasteLinkText?.wrappedValue.isEmpty == false ? pasteLinkText!.wrappedValue : viewModel.urlText
+                        await viewModel.importFromPastedText(overrideText: targetText)
+                    }
                 }
                 .disabled(pasteLinkText?.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty ?? viewModel.urlText.trimmingCharacters(in: .whitespaces).isEmpty)
 

@@ -73,13 +73,13 @@ enum Prompts {
         """
     }
 
-    /// A YouTube video, which Gemini watches directly.
+    /// A video post (YouTube, Shorts, etc.), which Gemini watches/transcribes directly.
     nonisolated static func extractionFromVideo(
         title: String?,
         author: String?,
         description: String?
     ) -> String {
-        var context = "Watch this cooking video and write down the recipe."
+        var context = "Watch and transcribe this cooking video to extract the complete recipe."
 
         if let title, !title.isEmpty {
             context += "\n\nThe video is titled: \(title)"
@@ -94,16 +94,13 @@ enum Prompts {
         return """
         \(context)
 
-        Use everything you can see and hear: on-screen text, the narration,
-        what actually goes into the bowl, and the description above. When the
-        description and the video disagree, trust the video — creators often
-        paste an old or approximate list.
-
-        Quantities are often only spoken or shown on screen briefly. Capture
-        them where you can and leave them null where you genuinely cannot,
-        rather than estimating.
-
-        Write the steps in the order they happen in the video.
+        CRITICAL INSTRUCTIONS FOR VIDEO TRANSCRIPTION:
+        1. Transcribe all spoken audio dialogue, voiceover narration, and spoken measurements in the video.
+        2. Read all on-screen overlay text, titles, lists, and ingredient overlays in the video.
+        3. Observe visual kitchen actions (e.g. chopping, simmering, combining ingredients in a bowl).
+        4. If the video description is empty, incomplete, or lacks a recipe, rely fully on the transcribed spoken audio and visual steps to build the complete recipe.
+        5. When the description and spoken/visual content disagree, trust the video audio and visuals.
+        6. Do not omit ingredients or steps just because they were only spoken out loud or shown on screen.
         """
     }
 
