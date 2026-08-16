@@ -2,8 +2,8 @@
 //  LibraryViewModel.swift
 //  Cozy Crumb
 //
-//  Owns the Library's view state: what's typed in the search field, how the
-//  grid is sorted, and which collection is filtering it.
+//  Owns the Cookbook's view state: what's typed in the search field and how
+//  recipe grids are sorted. Collections are folders, not filters.
 //
 //  Filtering happens here rather than in a @Query predicate because searching
 //  ingredient names means walking a relationship, which SwiftData predicates
@@ -49,35 +49,25 @@ enum LibrarySort: String, CaseIterable, Identifiable, Sendable {
 final class LibraryViewModel {
     var searchText = ""
     var sort: LibrarySort = .recentlyAdded
-    var selectedCollectionID: UUID?
-
-    var isFiltering: Bool {
-        !trimmedSearch.isEmpty || selectedCollectionID != nil
-    }
+    var hasSearch: Bool { !trimmedSearch.isEmpty }
 
     private var trimmedSearch: String {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Applies the collection filter, then the search, then the sort.
+    /// Applies search, then sort.
     func visibleRecipes(from recipes: [Recipe]) -> [Recipe] {
         var result = recipes
-
-        if let selectedCollectionID {
-            result = result.filter { recipe in
-                recipe.collections.contains { $0.id == selectedCollectionID }
-            }
-        }
 
         let query = trimmedSearch.lowercased()
         if !query.isEmpty {
             result = result.filter { $0.matches(query) }
         }
 
-        return sorted(result)
+        return sortedRecipes(result)
     }
 
-    private func sorted(_ recipes: [Recipe]) -> [Recipe] {
+    func sortedRecipes(_ recipes: [Recipe]) -> [Recipe] {
         switch sort {
         case .recentlyAdded:
             recipes.sorted { $0.createdAt > $1.createdAt }
