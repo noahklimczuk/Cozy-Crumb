@@ -11,6 +11,9 @@
 //
 
 import Foundation
+// SwiftData is only used by the preview's `.modelContainer`, but SE-0444
+// means the import still has to be here for it to resolve.
+import SwiftData
 import SwiftUI
 
 struct GroceriesView: View {
