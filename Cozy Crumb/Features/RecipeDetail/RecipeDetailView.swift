@@ -30,7 +30,14 @@ struct RecipeDetailView: View {
     @State private var wantsCookLog = false
 
     private static let scrollSpace = "recipeScroll"
-    private static let heroHeight: CGFloat = 260
+
+    /// The hero is sized against the screen rather than pinned to one number,
+    /// so it reads as a proper photo on a big phone without swallowing a small
+    /// one. The floor keeps it generous on an SE; the ceiling stops it turning
+    /// into a poster on an iPad.
+    private static func heroHeight(inContainerOf height: CGFloat) -> CGFloat {
+        min(max(height * 0.42, 300), 520)
+    }
 
     init(recipe: Recipe) {
         self.recipe = recipe
@@ -42,9 +49,19 @@ struct RecipeDetailView: View {
     }
 
     var body: some View {
+        // The outer reader is only here to measure the screen, so the hero can
+        // be a share of it rather than one number that's too small on a Pro
+        // Max and too greedy on an SE.
+        GeometryReader { screen in
+            content(heroHeight: Self.heroHeight(inContainerOf: screen.size.height))
+        }
+        .ignoresSafeArea(edges: .top)
+    }
+
+    private func content(heroHeight: CGFloat) -> some View {
         ScrollView {
             VStack(spacing: CozySpacing.l) {
-                hero
+                hero(height: heroHeight)
                 heading
                 cookModeButton
                 servingsCard
@@ -61,7 +78,6 @@ struct RecipeDetailView: View {
         }
         .coordinateSpace(.named(Self.scrollSpace))
         .background { BlobBackground() }
-        .ignoresSafeArea(edges: .top)
         .navigationTitle(recipe.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -167,17 +183,17 @@ struct RecipeDetailView: View {
 
     // MARK: - Hero
 
-    private var hero: some View {
+    private func hero(height: CGFloat) -> some View {
         GeometryReader { proxy in
             let minY = proxy.frame(in: .named(Self.scrollSpace)).minY
             // Pulling down stretches the image instead of leaving a gap.
             let stretch = max(0, minY)
 
             RecipeHeroView(recipe: recipe)
-                .frame(width: proxy.size.width, height: Self.heroHeight + stretch)
+                .frame(width: proxy.size.width, height: height + stretch)
                 .offset(y: -stretch)
         }
-        .frame(height: Self.heroHeight)
+        .frame(height: height)
     }
 
     private var heading: some View {

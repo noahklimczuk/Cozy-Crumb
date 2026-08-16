@@ -171,17 +171,15 @@ enum CozyMetrics {
     /// Artwork on a recipe card, in the Cookbook and on the meal plan alike —
     /// one number so the two can't drift apart.
     ///
-    /// Roughly square on a half-width card, which is the point. Food photos
-    /// come out of phones portrait or square, and the old letterbox strip
-    /// threw away nearly half of one: filling a 4:3 landscape box with a 4:5
-    /// portrait photo shows about 60% of it, where a square box shows about
-    /// 80%. Taller still would show more again, but two cards would stop
-    /// fitting on a screen together.
-    nonisolated static let cardHeroHeight: CGFloat = 176
+    /// A card is for scanning: the picture is there to be recognised, not
+    /// studied, and a shorter one puts more of the cookbook on screen at once.
+    /// Seeing a photo properly is the recipe screen's job, and its hero is
+    /// sized for exactly that.
+    nonisolated static let cardHeroHeight: CGFloat = 132
 
     /// Where the artwork stops growing with the text size, so an accessibility
     /// size can't leave the title pushed off the bottom of the card.
-    nonisolated static let cardHeroHeightCap: CGFloat = 240
+    nonisolated static let cardHeroHeightCap: CGFloat = 190
 }
 
 // MARK: - Grids
