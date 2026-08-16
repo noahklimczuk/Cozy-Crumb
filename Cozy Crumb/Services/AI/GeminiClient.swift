@@ -24,12 +24,15 @@ nonisolated struct GeminiRequest: Encodable, Sendable {
     var contents: [GeminiContent]
     var generationConfig: GeminiGenerationConfig? = nil
     var safetySettings: [GeminiSafetySetting]? = nil
+    /// Functions the model may ask us to run. See GeminiConversation.swift.
+    var tools: [GeminiTool]? = nil
 
     enum CodingKeys: String, CodingKey {
         case systemInstruction = "system_instruction"
         case contents
         case generationConfig
         case safetySettings
+        case tools
     }
 }
 
@@ -43,15 +46,36 @@ nonisolated struct GeminiPart: Encodable, Sendable {
     var text: String? = nil
     var inlineData: GeminiInlineData? = nil
     var fileData: GeminiFileData? = nil
+    var functionCall: GeminiFunctionCallPayload? = nil
+    var functionResponse: GeminiFunctionResponsePayload? = nil
 
     enum CodingKeys: String, CodingKey {
         case text
         case inlineData = "inline_data"
         case fileData = "file_data"
+        case functionCall
+        case functionResponse
     }
 
     nonisolated static func text(_ value: String) -> GeminiPart {
         GeminiPart(text: value)
+    }
+
+    /// The model's own request, echoed back into the history so the next turn
+    /// knows what it asked for.
+    nonisolated static func functionCall(_ call: GeminiFunctionCall) -> GeminiPart {
+        GeminiPart(functionCall: GeminiFunctionCallPayload(
+            name: call.name,
+            args: .object(call.arguments)
+        ))
+    }
+
+    /// What actually happened when we ran it.
+    nonisolated static func functionResponse(name: String, result: String) -> GeminiPart {
+        GeminiPart(functionResponse: GeminiFunctionResponsePayload(
+            name: name,
+            response: ["result": result]
+        ))
     }
 
     /// Base64 image bytes. Put image parts *before* the text part — Gemini
@@ -159,6 +183,7 @@ nonisolated struct GeminiResponseContent: Decodable, Sendable {
 
 nonisolated struct GeminiResponsePart: Decodable, Sendable {
     var text: String?
+    var functionCall: GeminiFunctionCallPayload?
 }
 
 nonisolated struct GeminiPromptFeedback: Decodable, Sendable {
@@ -270,15 +295,133 @@ actor GeminiClient {
         return result
     }
 
+    // MARK: - Conversation
+
+    /// A turn of chat, with the app's own functions on the table.
+    ///
+    /// Separate from `generate` because the shape of the answer is different:
+    /// this one can come back as a request to *do* something rather than as
+    /// text, and the caller has to be able to tell the difference.
+    ///
+    /// Thinking is left on. A Sous Chef being asked "what can I make with what
+    /// I've got?" is doing real reasoning over a list, which is exactly what
+    /// the budget is for.
+    func converse(
+        model: GeminiModel,
+        systemInstruction: String?,
+        contents: [GeminiContent],
+        tools: [GeminiTool] = [],
+        temperature: Double = 0.6,
+        maxOutputTokens: Int = 8192,
+        timeout: TimeInterval = GeminiClient.textTimeout
+    ) async -> Result<GeminiReply, CozyError> {
+        guard let apiKey = keychain.string(for: .geminiAPIKey) else {
+            return .failure(.missingAPIKey)
+        }
+
+        guard let url = GeminiEndpoint.generateContent(model: model) else {
+            return .failure(.badURL)
+        }
+
+        let request = GeminiRequest(
+            systemInstruction: systemInstruction.map {
+                GeminiContent(role: nil, parts: [.text($0)])
+            },
+            contents: contents,
+            generationConfig: GeminiGenerationConfig(
+                temperature: temperature,
+                maxOutputTokens: maxOutputTokens,
+                thinkingConfig: .low
+            ),
+            safetySettings: GeminiSafetySetting.cookingDefaults,
+            tools: tools.isEmpty ? nil : tools
+        )
+
+        guard let body = try? JSONEncoder().encode(request) else {
+            return .failure(.decodingFailed)
+        }
+
+        switch await sendForData(body: body, to: url, apiKey: apiKey, timeout: timeout) {
+        case .failure(let error):
+            return .failure(error)
+        case .success(let data):
+            return decodeReply(data)
+        }
+    }
+
+    /// Pulls both halves of a turn out of one response: a model can say
+    /// something *and* ask for a function in the same breath.
+    private func decodeReply(_ data: Data) -> Result<GeminiReply, CozyError> {
+        guard let response = try? JSONDecoder().decode(GeminiResponse.self, from: data) else {
+            return .failure(.decodingFailed)
+        }
+
+        if let blockReason = response.promptFeedback?.blockReason, !blockReason.isEmpty {
+            Log.ai.info("Prompt blocked: \(blockReason, privacy: .public)")
+            return .failure(.blockedBySafety)
+        }
+
+        guard let candidate = response.candidates?.first else {
+            return .failure(.emptyResponse)
+        }
+
+        switch candidate.finishReason?.uppercased() {
+        case "SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "RECITATION":
+            return .failure(.blockedBySafety)
+        default:
+            break
+        }
+
+        let parts = candidate.content?.parts ?? []
+
+        let text = parts.compactMap(\.text).joined()
+        let calls = parts.compactMap(\.functionCall).map { payload in
+            GeminiFunctionCall(
+                name: payload.name,
+                arguments: payload.args?.objectValue ?? [:]
+            )
+        }
+
+        let reply = GeminiReply(
+            text: text.isEmpty ? nil : text,
+            functionCalls: calls
+        )
+
+        // MAX_TOKENS with something usable in hand is worth keeping here,
+        // unlike a truncated JSON extraction — a cut-off sentence still helps.
+        guard !reply.isEmpty else {
+            return .failure(candidate.finishReason?.uppercased() == "MAX_TOKENS"
+                ? .responseTruncated
+                : .emptyResponse)
+        }
+
+        return .success(reply)
+    }
+
     // MARK: - Transport
 
+    /// Text-in, text-out: the extraction path's view of a request.
     private func send(
+        body: Data,
+        to url: URL,
+        apiKey: String,
+        timeout: TimeInterval
+    ) async -> Result<String, CozyError> {
+        switch await sendForData(body: body, to: url, apiKey: apiKey, timeout: timeout) {
+        case .failure(let error): .failure(error)
+        case .success(let data): decode(data)
+        }
+    }
+
+    /// The transport itself, shared by the extraction calls and the chat: the
+    /// retry policy and the HTTP error mapping should not exist twice.
+    private func sendForData(
         body: Data,
         to url: URL,
         apiKey: String,
         timeout: TimeInterval,
         attempt: Int = 1
-    ) async -> Result<String, CozyError> {
+    ) async -> Result<Data, CozyError> {
         let maxAttempts = 3
 
         var request = URLRequest(url: url)
@@ -304,7 +447,7 @@ actor GeminiClient {
                 Log.ai.info("Gemini \(http.statusCode, privacy: .public), retry \(attempt, privacy: .public)")
                 try? await Task.sleep(for: .seconds(backoffSeconds(for: attempt)))
 
-                return await send(
+                return await sendForData(
                     body: body,
                     to: url,
                     apiKey: apiKey,
@@ -317,7 +460,7 @@ actor GeminiClient {
                 return .failure(mapHTTPError(status: http.statusCode, data: data))
             }
 
-            return decode(data)
+            return .success(data)
         } catch let error as URLError {
             return .failure(.from(urlError: error))
         } catch {

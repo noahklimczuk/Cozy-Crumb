@@ -2,10 +2,10 @@
 //  RootTabView.swift
 //  Cozy Crumb
 //
-//  Tab shell. The Sous Chef and Pantry tabs are still placeholders and say
-//  which phase delivers them; everything else is real. Preferences are read
-//  here and carried down through the environment, so one place decides the
-//  accent, the appearance and whether haptics fire.
+//  Tab shell. Only the Pantry is still a placeholder, and it says which phase
+//  delivers it; everything else is real. Preferences are read here and carried
+//  down through the environment, so one place decides the accent, the
+//  appearance and whether haptics fire.
 //
 
 import SwiftData
@@ -113,7 +113,7 @@ struct RootTabView: View {
                 GroceriesView()
             }
             Tab(CozyTab.sousChef.title, systemImage: CozyTab.sousChef.symbol, value: .sousChef) {
-                PlaceholderScreen(tab: .sousChef)
+                SousChefView()
             }
             Tab(CozyTab.pantry.title, systemImage: CozyTab.pantry.symbol, value: .pantry) {
                 PlaceholderScreen(tab: .pantry)
