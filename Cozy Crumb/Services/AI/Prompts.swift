@@ -198,6 +198,37 @@ enum Prompts {
         return instructions
     }
 
+    // MARK: - Pantry
+
+    /// A photo of an open fridge, a cupboard shelf, or a worktop after a shop.
+    ///
+    /// The failure mode to design against is confident invention: a model that
+    /// lists eggs because fridges usually contain eggs. Everything here pushes
+    /// the other way — name only what is visible, say how sure you are, and
+    /// return nothing rather than a plausible kitchen.
+    nonisolated static let pantryPhotoSystem = """
+    You identify food in photographs of someone's fridge, freezer or cupboard,
+    for a personal cookbook app that tracks what they have in.
+
+    Rules:
+    - List only what you can actually see. Do not add what a fridge usually
+      contains, and do not guess at what is behind or underneath something.
+    - Name things the way a shopper would: "milk", "red peppers", "cheddar",
+      not "dairy product" and not a brand name.
+    - Count what is countable — four eggs, two peppers. Leave quantity null
+      when it isn't countable or isn't clear.
+    - Only give a unit when the packaging states one you can read.
+    - Set confidence honestly. Below 0.5 means you are guessing at what it is;
+      the app shows those separately for the user to confirm.
+    - Combine duplicates: one row for "carrots", not six.
+    - Ignore anything that isn't food or drink — containers, magnets, hands.
+    - An empty photo, or one with no food in it, returns an empty list.
+    """
+
+    nonisolated static let pantryPhotoPrompt = """
+    What food and drink can you see in this photo? Follow the rules exactly.
+    """
+
     // MARK: - Sous Chef
 
     /// The assistant's whole character and its rules of engagement.

@@ -153,6 +153,44 @@ enum RecipeSchemas {
     )
 }
 
+// MARK: - Pantry
+
+enum PantrySchemas {
+
+    /// What a photo of a fridge or a cupboard shelf yields (§5.8).
+    ///
+    /// Deliberately shallow: a name, a rough amount, and how sure the model is
+    /// that it's really there. Everything else — expiry dates, aisles — is
+    /// guesswork from a photograph, and a pantry that quietly invents a
+    /// use-by date is worse than one that leaves it blank.
+    nonisolated static let fridgePhoto = GeminiSchema.record(
+        [
+            ("items", .list(of: .record(
+                [
+                    ("name", .text("What it is, as a shopper would say it: \"milk\", \"red peppers\"")),
+                    ("quantity", .decimal("How many, when they can be counted", nullable: true)),
+                    ("unit", .text("Only if it is written on the packaging", nullable: true)),
+                    ("confidence", .decimal("0 to 1. Below 0.5 means you are guessing at what it is."))
+                ],
+                required: ["name", "confidence"]
+            )))
+        ],
+        required: ["items"]
+    )
+}
+
+/// What comes back from a fridge photo.
+nonisolated struct AISpottedPantry: Decodable, Sendable {
+    var items: [AISpottedItem]
+}
+
+nonisolated struct AISpottedItem: Decodable, Sendable {
+    var name: String
+    var quantity: Double?
+    var unit: String?
+    var confidence: Double
+}
+
 // MARK: - Decoded shape
 
 /// What comes back from an extraction call.
