@@ -256,7 +256,13 @@ struct ImportFlowView: View {
     /// saves the reel (or screenshots it) and hands it over. The Sous Chef
     /// reads on-screen text and, for a video, listens to the narration too.
     private var mediaCard: some View {
-        CrumbCard(fill: accent.soft) {
+        // `PhotosPicker` takes its label as a Sendable closure, so the accent
+        // has to be read out here — inside the closure it's a main-actor
+        // reference from a nonisolated context.
+        let buttonFill = accent.color
+        let buttonEdge = accent.deep
+
+        return CrumbCard(fill: accent.soft) {
             VStack(alignment: .leading, spacing: CozySpacing.s) {
                 Text("Give me the video")
                     .cozyText(CozyFont.headline)
@@ -285,10 +291,10 @@ struct ImportFlowView: View {
                     .foregroundStyle(CozyColor.inkPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: CozyMetrics.minimumTouchTarget + 6)
-                    .background(accent.color, in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
+                    .background(buttonFill, in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: CozyRadius.button, style: .continuous)
-                            .strokeBorder(accent.deep, lineWidth: 1.5)
+                            .strokeBorder(buttonEdge, lineWidth: 1.5)
                     }
                 }
                 .disabled(!viewModel.isAIAvailable)
