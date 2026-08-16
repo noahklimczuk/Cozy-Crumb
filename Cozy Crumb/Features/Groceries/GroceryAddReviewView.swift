@@ -12,10 +12,11 @@ import SwiftUI
 
 /// A wrapper for GroceryLineItem to provide an identifiable ID for the review list
 private struct GroceryLineEntry: Identifiable {
-    let id = UUID()
+    let id: UUID
     let line: GroceryLineItem
     
     init(line: GroceryLineItem) {
+        self.id = UUID()
         self.line = line
     }
 }
@@ -181,7 +182,10 @@ struct GroceryAddReviewView: View {
 // MARK: - Previews
 
 #Preview("Add review") {
-    NavigationStack { GroceryAddReviewView(lines: PreviewLines.lines, sourceTitle: "Test Recipe") }
+    NavigationStack {
+        GroceryAddReviewView(lines: PreviewLines.lines, sourceTitle: "Test Recipe")
+            .modelContainer(PreviewData.container)
+    }
 }
 
 private enum PreviewLines {
