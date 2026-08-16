@@ -75,6 +75,7 @@ struct RootTabView: View {
 
     @AppStorage(CozyDefaultsKey.accentPalette) private var accentRaw = AccentPalette.blush.rawValue
     @AppStorage(CozyDefaultsKey.hapticsEnabled) private var hapticsEnabled = true
+    @AppStorage(CozyDefaultsKey.darkModeEnabled) private var darkModeEnabled = false
 
     @State private var selection: CozyTab = .library
 
@@ -104,12 +105,17 @@ struct RootTabView: View {
                 PlaceholderScreen(tab: .pantry)
             }
             Tab(CozyTab.settings.title, systemImage: CozyTab.settings.symbol, value: .settings) {
-                SettingsPlaceholderScreen(accent: accentBinding, hapticsEnabled: $hapticsEnabled)
+                SettingsPlaceholderScreen(
+                    accent: accentBinding,
+                    hapticsEnabled: $hapticsEnabled,
+                    darkModeEnabled: $darkModeEnabled
+                )
             }
         }
         .tint(accent.deep)
         .environment(\.accentPalette, accent)
         .environment(\.hapticsEnabled, hapticsEnabled)
+        .preferredColorScheme(darkModeEnabled ? .dark : .light)
         .task {
             SeedData.installIfNeeded(in: modelContext)
         }
@@ -146,6 +152,7 @@ private struct PlaceholderScreen: View {
 private struct SettingsPlaceholderScreen: View {
     @Binding var accent: AccentPalette
     @Binding var hapticsEnabled: Bool
+    @Binding var darkModeEnabled: Bool
 
     var body: some View {
         NavigationStack {
@@ -181,6 +188,18 @@ private struct SettingsPlaceholderScreen: View {
                                 Text("Haptics")
                                     .cozyText(CozyFont.bodyEmphasis)
                                 Text("A soft tap on every press.")
+                                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                            }
+                        }
+                        .tint(accent.deep)
+                    }
+
+                    CrumbCard {
+                        Toggle(isOn: $darkModeEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Dark mode")
+                                    .cozyText(CozyFont.bodyEmphasis)
+                                Text("Use Cozy Crumb's warm nighttime palette.")
                                     .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
                             }
                         }
