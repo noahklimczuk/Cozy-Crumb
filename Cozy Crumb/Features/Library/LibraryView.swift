@@ -216,9 +216,20 @@ struct LibraryView: View {
                 collectionFolders
 
                 VStack(alignment: .leading, spacing: CozySpacing.m) {
-                    Text("All recipes")
-                        .cozyText(CozyFont.title2)
-                    recipeGrid(recipes: visibleRecipes)
+                    HStack(spacing: CozySpacing.s) {
+                        Text("All recipes")
+                            .cozyText(CozyFont.title2)
+                        Spacer()
+                        sortControl
+                    }
+
+                    if visibleRecipes.isEmpty {
+                        Text("No recipes yet.")
+                            .cozyText(CozyFont.body, color: CozyColor.inkSecondary)
+                            .padding(.vertical, CozySpacing.s)
+                    } else {
+                        recipeGrid(recipes: visibleRecipes)
+                    }
                 }
             }
             .padding(CozySpacing.l)
@@ -227,12 +238,8 @@ struct LibraryView: View {
 
     private var collectionFolders: some View {
         VStack(alignment: .leading, spacing: CozySpacing.m) {
-            HStack(spacing: CozySpacing.s) {
-                Text("Collections")
-                    .cozyText(CozyFont.title2)
-                Spacer()
-                sortControl
-            }
+            Text("Collections")
+                .cozyText(CozyFont.title2)
 
             LazyVGrid(columns: columns, spacing: CozySpacing.m) {
                 ForEach(collections) { collection in
@@ -254,8 +261,7 @@ struct LibraryView: View {
         }
     }
 
-    /// Search results. The heading row exists so the sort control — which now
-    /// lives next to "Collections" — doesn't disappear the moment you type.
+    /// Search results.
     private var grid: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CozySpacing.m) {
