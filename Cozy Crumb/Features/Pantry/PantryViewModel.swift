@@ -47,7 +47,10 @@ final class PantryViewModel {
         }
     }
 
-    nonisolated struct Group: Identifiable, Sendable {
+    /// Not `Sendable`: it holds `PantryItem`s, which are SwiftData models tied
+    /// to the context that fetched them. Grouping is pure and stays on one
+    /// side of the boundary, so nothing here needs to cross.
+    nonisolated struct Group: Identifiable {
         var section: Section
         var items: [PantryItem]
 
