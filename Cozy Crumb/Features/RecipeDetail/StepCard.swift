@@ -5,8 +5,10 @@
 //  A numbered instruction card. Steps that state an explicit time show a
 //  duration chip.
 //
-//  The chip is display-only for now — tapping it to start a live timer needs
-//  the timer service that arrives with Cook Mode in Phase 6.
+//  As of Phase 6 that chip is live: tapping it starts a kitchen timer against
+//  this step, and the chip becomes the countdown. The timer belongs to
+//  `KitchenTimers`, not to this card, so it keeps running when the card
+//  scrolls away or the user moves into Cook Mode.
 //
 
 import SwiftUI
@@ -14,6 +16,9 @@ import SwiftUI
 struct StepCard: View {
     let step: RecipeStep
     let number: Int
+    /// Named on the timer's notification, so an alert that arrives an hour
+    /// later says what it was for.
+    var recipeTitle: String = ""
 
     var body: some View {
         CrumbCard {
@@ -26,13 +31,13 @@ struct StepCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if let duration = step.durationDisplay {
-                        PillTag(text: duration, systemImage: "timer", tint: CozyColor.butter)
-                    }
+                    CookTimerChip(step: step, recipeTitle: recipeTitle, number: number)
                 }
             }
         }
-        .accessibilityElement(children: .combine)
+        // `.contain` rather than `.combine`: the timer chip is a button now,
+        // and combining children would bury it.
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Step \(number). \(step.text)")
     }
 
@@ -55,10 +60,11 @@ struct StepCard: View {
     return ScrollView {
         VStack(spacing: CozySpacing.m) {
             ForEach(Array(recipe.orderedSteps.enumerated()), id: \.element.id) { index, step in
-                StepCard(step: step, number: index + 1)
+                StepCard(step: step, number: index + 1, recipeTitle: recipe.title)
             }
         }
         .padding()
     }
     .background { BlobBackground() }
+    .environment(KitchenTimers(usesNotifications: false))
 }

@@ -282,10 +282,12 @@ private struct SettingsPlaceholderScreen: View {
 #Preview("Tabs") {
     RootTabView()
         .modelContainer(PreviewData.container)
+        .environment(KitchenTimers(usesNotifications: false))
 }
 
 #Preview("Tabs — dark") {
     RootTabView()
         .modelContainer(PreviewData.container)
+        .environment(KitchenTimers(usesNotifications: false))
         .preferredColorScheme(.dark)
 }

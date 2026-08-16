@@ -24,6 +24,10 @@ struct RecipeDetailView: View {
     @State private var isEditing = false
     @State private var groceryToast: String?
     @State private var isPresentingAddReview = false
+    @State private var isCooking = false
+    /// Set when Cook Mode reaches the end, and acted on once it has closed —
+    /// a sheet raised from a screen that is mid-dismiss never appears.
+    @State private var wantsCookLog = false
 
     private static let scrollSpace = "recipeScroll"
     private static let heroHeight: CGFloat = 260
@@ -42,6 +46,7 @@ struct RecipeDetailView: View {
             VStack(spacing: CozySpacing.l) {
                 hero
                 heading
+                cookModeButton
                 servingsCard
                 ingredientsCard
                 addToGroceriesButton
@@ -77,7 +82,40 @@ struct RecipeDetailView: View {
             let lines = GroceryService.lineItems(from: recipe, servings: viewModel.servings)
             GroceryAddReviewView(lines: lines, sourceTitle: recipe.title)
         }
+        .fullScreenCover(isPresented: $isCooking) {
+            guard wantsCookLog else { return }
+            wantsCookLog = false
+            viewModel.isLoggingCook = true
+        } content: {
+            CookModeView(
+                recipe: recipe,
+                servings: viewModel.servings,
+                system: system
+            ) {
+                wantsCookLog = true
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            // Timers started from a step chip stay visible while reading the
+            // rest of the recipe, not only inside Cook Mode.
+            CookTimerBar()
+                .padding(.horizontal, CozySpacing.l)
+        }
         .overlay(alignment: .bottom) { groceryToastBanner }
+    }
+
+    // MARK: - Cook mode
+
+    /// The one thing this screen is ultimately for. It sits directly under the
+    /// heading rather than at the bottom, because someone about to cook should
+    /// not have to scroll past the shopping controls to start.
+    private var cookModeButton: some View {
+        SquishyButton(title: "Start cooking", systemImage: "flame") {
+            isCooking = true
+        }
+        .padding(.horizontal, CozySpacing.l)
+        .disabled(recipe.steps.isEmpty)
+        .opacity(recipe.steps.isEmpty ? 0.5 : 1)
     }
 
     // MARK: - Groceries
@@ -288,7 +326,7 @@ struct RecipeDetailView: View {
                 .padding(.horizontal, CozySpacing.l)
 
             ForEach(Array(recipe.orderedSteps.enumerated()), id: \.element.id) { index, step in
-                StepCard(step: step, number: index + 1)
+                StepCard(step: step, number: index + 1, recipeTitle: recipe.title)
                     .padding(.horizontal, CozySpacing.l)
             }
         }
@@ -444,6 +482,7 @@ struct RecipeDetailView: View {
         RecipeDetailView(recipe: SeedData.bananaBread())
     }
     .modelContainer(PreviewData.container)
+    .environment(KitchenTimers(usesNotifications: false))
 }
 
 #Preview("Recipe detail — dark") {
@@ -451,6 +490,7 @@ struct RecipeDetailView: View {
         RecipeDetailView(recipe: SeedData.chickpeaCurry())
     }
     .modelContainer(PreviewData.container)
+    .environment(KitchenTimers(usesNotifications: false))
     .preferredColorScheme(.dark)
 }
 
@@ -459,5 +499,6 @@ struct RecipeDetailView: View {
         RecipeDetailView(recipe: SeedData.misoSalmon())
     }
     .modelContainer(PreviewData.container)
+    .environment(KitchenTimers(usesNotifications: false))
     .environment(\.dynamicTypeSize, .accessibility3)
 }

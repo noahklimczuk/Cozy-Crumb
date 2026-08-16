@@ -14,6 +14,11 @@ import os
 struct CozyCrumbApp: App {
     private let modelContainer: ModelContainer
 
+    /// Kitchen timers live above every screen. A timer started in Cook Mode
+    /// has to keep counting while the user wanders off to the shopping list,
+    /// so this cannot belong to a view that gets torn down.
+    @State private var timers = KitchenTimers()
+
     init() {
         modelContainer = Self.makeModelContainer()
     }
@@ -23,6 +28,7 @@ struct CozyCrumbApp: App {
             AppLaunchView {
                 RootTabView()
             }
+            .environment(timers)
         }
         .modelContainer(modelContainer)
     }

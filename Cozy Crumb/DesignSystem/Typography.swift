@@ -45,7 +45,12 @@ enum CozyFont {
     nonisolated static let caption2 = Font.system(.caption2, design: .rounded)
 
     /// Cook Mode step text. Deliberately huge and readable across a kitchen.
-    nonisolated static let cookStep = Font.system(size: 28, weight: .semibold, design: .rounded)
+    ///
+    /// Built on `.title` rather than a fixed 28pt: the style lands at 28pt at
+    /// the default text size anyway, and this way the one screen someone reads
+    /// from two feet away with steamed-up glasses still scales with Dynamic
+    /// Type, like everything else here.
+    nonisolated static let cookStep = Font.system(.title, design: .rounded, weight: .semibold)
 }
 
 extension View {
