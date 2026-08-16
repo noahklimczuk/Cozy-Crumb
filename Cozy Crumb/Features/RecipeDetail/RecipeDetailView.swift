@@ -93,8 +93,12 @@ struct RecipeDetailView: View {
                 if let time = recipe.totalTimeDisplay {
                     PillTag(text: time, systemImage: "clock")
                 }
-                if let sourceName = recipe.sourceName {
-                    PillTag(text: sourceName, systemImage: recipe.sourceKind.symbol, tint: CozyColor.creamDeep)
+                if let sourceLabel = SourcePill.label(for: recipe) {
+                    SourcePill(
+                        name: sourceLabel,
+                        symbol: recipe.sourceKind.symbol,
+                        url: recipe.sourceURL
+                    )
                 }
             }
 
