@@ -2,9 +2,8 @@
 //  RootTabView.swift
 //  Cozy Crumb
 //
-//  Tab shell. Only the Pantry is still a placeholder, and it says which phase
-//  delivers it; everything else is real. Preferences are read here and carried
-//  down through the environment, so one place decides the accent, the
+//  Tab shell. Every tab is a real screen now. Preferences are read here and
+//  carried down through the environment, so one place decides the accent, the
 //  appearance and whether haptics fire.
 //
 
@@ -38,37 +37,6 @@ enum CozyTab: Hashable {
         }
     }
 
-    /// Which build phase delivers this screen. Shown on the placeholder only.
-    var arrivingInPhase: String {
-        switch self {
-        case .library: "Phase 3"
-        case .groceries: "Phase 5"
-        case .sousChef: "Phase 8"
-        case .pantry: "Phase 9"
-        case .settings: "Phase 7"
-        }
-    }
-
-    /// Empty-state copy, so the placeholders already read in the app's voice.
-    var placeholderMessage: String {
-        switch self {
-        case .library: "Your cookbook's a blank page. Paste a link to get started."
-        case .groceries: "Nothing on the list yet. Add a recipe's ingredients and they'll land here."
-        case .sousChef: "Add your key in Settings to wake up the Sous Chef."
-        case .pantry: "Nothing in the pantry. Snap a photo of your fridge and I'll take a look."
-        case .settings: "Preferences, your API key, and your data live here."
-        }
-    }
-
-    var pose: MascotView.Pose {
-        switch self {
-        case .library: .sleeping
-        case .groceries: .idle
-        case .sousChef: .cooking
-        case .pantry: .peeking
-        case .settings: .idle
-        }
-    }
 }
 
 struct RootTabView: View {
@@ -116,7 +84,7 @@ struct RootTabView: View {
                 SousChefView()
             }
             Tab(CozyTab.pantry.title, systemImage: CozyTab.pantry.symbol, value: .pantry) {
-                PlaceholderScreen(tab: .pantry)
+                PantryView()
             }
             Tab(CozyTab.settings.title, systemImage: CozyTab.settings.symbol, value: .settings) {
                 SettingsView(
@@ -134,31 +102,6 @@ struct RootTabView: View {
             // Re-reads ingredient lines saved before the caption parsing
             // fixes, so recipes already in the library start scaling too.
             IngredientRepair.run(in: modelContext)
-        }
-    }
-}
-
-// MARK: - Placeholders
-
-private struct PlaceholderScreen: View {
-    let tab: CozyTab
-
-    var body: some View {
-        NavigationStack {
-            EmptyStateView(
-                title: tab.title,
-                message: tab.placeholderMessage,
-                pose: tab.pose
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background { BlobBackground() }
-            .navigationTitle(tab.title)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Text(tab.arrivingInPhase)
-                        .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                }
-            }
         }
     }
 }
