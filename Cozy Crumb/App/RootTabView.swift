@@ -118,6 +118,9 @@ struct RootTabView: View {
         .preferredColorScheme(darkModeEnabled ? .dark : .light)
         .task {
             SeedData.installIfNeeded(in: modelContext)
+            // Re-reads ingredient lines saved before the caption parsing
+            // fixes, so recipes already in the library start scaling too.
+            IngredientRepair.run(in: modelContext)
         }
     }
 }

@@ -52,6 +52,35 @@ enum QuantityParser {
         return Double(trimmed)
     }
 
+    /// Splits a token that runs a number straight into a word: "100g" becomes
+    /// ("100", "g"). Returns nil when the token is all number or all word,
+    /// since there is nothing to separate.
+    nonisolated static func splitLeadingNumber(_ token: String) -> (number: String, rest: String)? {
+        var number = ""
+        var index = token.startIndex
+
+        while index < token.endIndex {
+            let character = token[index]
+            let isNumeric = character.isNumber
+                || character == "."
+                || character == ","
+                || character == "/"
+                || unicodeFractions[character] != nil
+
+            guard isNumeric else { break }
+
+            number.append(character)
+            index = token.index(after: index)
+        }
+
+        guard !number.isEmpty, index < token.endIndex else { return nil }
+
+        let rest = String(token[index...])
+        guard rest.contains(where: \.isLetter) else { return nil }
+
+        return (number, rest)
+    }
+
     /// Pulls a quantity off the front of a line, returning it and what's left.
     ///
     /// Handles mixed numbers written with a space ("1 1/2 cup", "1 ½ cup") and
@@ -73,8 +102,23 @@ enum QuantityParser {
             }
         }
 
+        // Captions jam the number and the unit together — "100g butter",
+        // "2tbsp oil", "500ml stock" — where a recipe site would write
+        // "100 g butter". Splitting them here is what lets the unit be
+        // recognised at all, and without it the whole line parses as having
+        // no quantity.
+        var jammedUnit: String?
+        if parse(first) == nil, let split = splitLeadingNumber(first) {
+            first = split.number
+            jammedUnit = split.rest
+        }
+
         guard var value = parse(first) else { return nil }
         tokens.removeFirst()
+
+        if let jammedUnit {
+            tokens.insert(jammedUnit, at: 0)
+        }
 
         // "1 to 2 cups"
         if tokens.count >= 2, tokens[0].lowercased() == "to", parse(tokens[1]) != nil {
