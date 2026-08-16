@@ -24,7 +24,7 @@ struct RecipeCard: View {
 
     /// Grows with the text size, so the picture keeps its share of a card that
     /// got taller to fit larger type instead of being squeezed by it.
-    @ScaledMetric(relativeTo: .headline) private var heroHeight: CGFloat = 132
+    @ScaledMetric(relativeTo: .headline) private var heroHeight = CozyMetrics.cardHeroHeight
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -54,7 +54,7 @@ struct RecipeCard: View {
         RecipeHeroView(recipe: recipe)
             // Capped so an accessibility text size can't turn the picture into
             // most of the card.
-            .frame(height: min(heroHeight, 190))
+            .frame(height: min(heroHeight, CozyMetrics.cardHeroHeightCap))
             .frame(maxWidth: .infinity)
             // Clip the image before the overlays go on, so the heart and the
             // review pill are never trimmed by the card's rounded corners.

@@ -167,6 +167,21 @@ enum CozyMetrics {
     /// The Cookbook's add button. Deliberately bigger than a toolbar glyph —
     /// it's the one control the whole app is built around.
     nonisolated static let addButtonDiameter: CGFloat = 56
+
+    /// Artwork on a recipe card, in the Cookbook and on the meal plan alike —
+    /// one number so the two can't drift apart.
+    ///
+    /// Roughly square on a half-width card, which is the point. Food photos
+    /// come out of phones portrait or square, and the old letterbox strip
+    /// threw away nearly half of one: filling a 4:3 landscape box with a 4:5
+    /// portrait photo shows about 60% of it, where a square box shows about
+    /// 80%. Taller still would show more again, but two cards would stop
+    /// fitting on a screen together.
+    nonisolated static let cardHeroHeight: CGFloat = 176
+
+    /// Where the artwork stops growing with the text size, so an accessibility
+    /// size can't leave the title pushed off the bottom of the card.
+    nonisolated static let cardHeroHeightCap: CGFloat = 240
 }
 
 // MARK: - Grids
