@@ -34,31 +34,14 @@ struct MealPlanView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: CozySpacing.m) {
-                weekBar
-
-                ForEach(days, id: \.self) { day in
-                    dayCard(day)
-                }
-
-                if !weekMeals.isEmpty {
-                    Button("Clear this week", role: .destructive) {
-                        isConfirmingClearWeek = true
-                    }
-                    .font(CozyFont.caption)
-                    .foregroundStyle(CozyColor.inkSecondary)
-                    .frame(minHeight: CozyMetrics.minimumTouchTarget)
-                }
-            }
-            .padding(.horizontal, CozySpacing.l)
-            .padding(.bottom, CozySpacing.xxl)
+            week
         }
         .background { BlobBackground() }
         .safeAreaInset(edge: .bottom) { shopBar }
         .sheet(item: $addingTo) { target in
             RecipePickerSheet(day: target.day, slot: target.slot) { recipe, slot, servings in
                 withAnimation(motion(Motion.bouncy)) {
-                    MealPlanService.add(
+                    _ = MealPlanService.add(
                         recipe,
                         on: target.day,
                         slot: slot,
@@ -85,7 +68,34 @@ struct MealPlanView: View {
         .overlay(alignment: .bottom) { toastBanner }
     }
 
-    // MARK: - Week bar
+    // MARK: - Week
+
+    private var week: some View {
+        VStack(spacing: CozySpacing.m) {
+            weekBar
+
+            ForEach(days, id: \.self) { day in
+                dayCard(day)
+            }
+
+            if !weekMeals.isEmpty {
+                clearWeekButton
+            }
+        }
+        .padding(.horizontal, CozySpacing.l)
+        .padding(.bottom, CozySpacing.xxl)
+    }
+
+    private var clearWeekButton: some View {
+        Button {
+            isConfirmingClearWeek = true
+        } label: {
+            Text("Clear this week")
+                .font(CozyFont.caption)
+                .foregroundStyle(CozyColor.inkSecondary)
+                .frame(minHeight: CozyMetrics.minimumTouchTarget)
+        }
+    }
 
     private var weekBar: some View {
         HStack(spacing: CozySpacing.s) {
