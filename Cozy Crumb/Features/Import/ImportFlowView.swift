@@ -204,7 +204,7 @@ struct ImportFlowView: View {
         }
 
         return switch platform {
-        case .instagram, .facebook:
+        case .instagram, .facebook, .pinterest, .x, .threads, .reddit, .vimeo:
             "\(platform.displayName) keeps posts behind a login, so I can't read that one myself. Paste the caption and I'll do the rest."
         case .tiktok:
             "TikTok didn't share the caption for that one. Paste it and I'll do the rest."
