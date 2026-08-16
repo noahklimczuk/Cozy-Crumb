@@ -8,10 +8,12 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct ImportFlowView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accentPalette) private var accent
 
     @Query private var existingRecipes: [Recipe]
 
@@ -89,28 +91,32 @@ struct ImportFlowView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                if let pasteLinkText {
-                    CozyTextField(
-                        placeholder: "https://…",
-                        text: pasteLinkText,
-                        systemImage: "link",
-                        submitLabel: .go
-                    ) {
-                        Task { await viewModel.importFromPastedText(overrideText: pasteLinkText.wrappedValue) }
+                HStack(spacing: CozySpacing.s) {
+                    if let pasteLinkText {
+                        CozyTextField(
+                            placeholder: "https://…",
+                            text: pasteLinkText,
+                            systemImage: "link",
+                            submitLabel: .go
+                        ) {
+                            Task { await viewModel.importFromPastedText(overrideText: pasteLinkText.wrappedValue) }
+                        }
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    } else {
+                        CozyTextField(
+                            placeholder: "https://…",
+                            text: $viewModel.urlText,
+                            systemImage: "link",
+                            submitLabel: .go
+                        ) {
+                            Task { await viewModel.importFromPastedText() }
+                        }
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
                     }
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                } else {
-                    CozyTextField(
-                        placeholder: "https://…",
-                        text: $viewModel.urlText,
-                        systemImage: "link",
-                        submitLabel: .go
-                    ) {
-                        Task { await viewModel.importFromPastedText() }
-                    }
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
+
+                    quickPasteButton
                 }
 
                 SquishyButton(title: "Get the recipe", systemImage: "sparkles") {
@@ -129,6 +135,43 @@ struct ImportFlowView: View {
                 .frame(minHeight: CozyMetrics.minimumTouchTarget)
             }
             .padding(CozySpacing.l)
+        }
+    }
+
+    private var quickPasteButton: some View {
+        Button {
+            quickPaste()
+        } label: {
+            HStack(spacing: CozySpacing.xs) {
+                Image(systemName: "doc.on.clipboard")
+                    .font(.body.weight(.semibold))
+                Text("Paste")
+                    .font(CozyFont.callout.weight(.semibold))
+            }
+            .foregroundStyle(CozyColor.inkPrimary)
+            .padding(.horizontal, CozySpacing.m)
+            .frame(minHeight: CozyMetrics.minimumTouchTarget + 6)
+            .background(accent.color, in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: CozyRadius.button, style: .continuous)
+                    .strokeBorder(accent.deep, lineWidth: 1.5)
+            }
+            .cozyLiftShadow()
+        }
+        .buttonStyle(.squishy)
+        .accessibilityLabel("Quick paste from clipboard")
+    }
+
+    private func quickPaste() {
+        let pasted = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? UIPasteboard.general.url?.absoluteString.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let pasted, !pasted.isEmpty {
+            viewModel.urlText = pasted
+            pasteLinkText?.wrappedValue = pasted
+            Haptics.soft()
+        } else {
+            Haptics.notify(.warning)
         }
     }
 
