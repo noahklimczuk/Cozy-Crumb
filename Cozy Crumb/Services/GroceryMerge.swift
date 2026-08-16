@@ -77,6 +77,23 @@ enum GroceryMerge {
 
     private nonisolated static let leadingArticles = ["a ", "an ", "the "]
 
+    /// Words that describe what you do to an ingredient, or how big it is,
+    /// rather than what you buy. "2 chopped onions" and "1 large onion" come
+    /// off the same shelf, and a shopping list that lists them separately is
+    /// the main reason a week's worth of recipes looks like it didn't merge.
+    ///
+    /// Deliberately conservative. Anything that changes which product you
+    /// reach for stays: "ground" (beef, cinnamon), "dried" (basil), "smoked",
+    /// "unsalted", "whole", "raw". Those are different things in a shop, and
+    /// merging them would put a wrong item on the list — which is worse than
+    /// one duplicate row.
+    private nonisolated static let preparationWords: Set<String> = [
+        "chopped", "diced", "minced", "sliced", "grated", "crushed", "shredded",
+        "cubed", "julienned", "halved", "quartered", "peeled", "trimmed",
+        "finely", "roughly", "thinly", "coarsely", "freshly",
+        "large", "small", "medium", "ripe", "fresh"
+    ]
+
     /// The key two lines must agree on to be the same shopping item.
     ///
     /// Consistency matters more than linguistic accuracy here: two spellings
@@ -96,6 +113,17 @@ enum GroceryMerge {
             name.removeFirst(article.count)
             break
         }
+
+        // Strip leading preparation and size words, but never the last word:
+        // "fresh" on its own is still something you'd buy, and an empty key
+        // would collapse unrelated lines together.
+        var words = name.components(separatedBy: " ").filter { !$0.isEmpty }
+
+        while words.count > 1, preparationWords.contains(words[0]) {
+            words.removeFirst()
+        }
+
+        name = words.joined(separator: " ")
 
         // Only the head noun gets singularised — "sweet potatoes" should match
         // "sweet potato", but "sweets" in the middle of a name is left alone.
