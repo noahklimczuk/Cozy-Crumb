@@ -98,10 +98,14 @@ struct ImportReviewView: View {
 
     @MainActor
     private var heroSection: some View {
+        // PhotosPicker builds its label from a nonisolated closure. Take the
+        // main-actor state snapshot before entering that closure.
+        let heroImageData = viewModel.heroImageData
+
         Section {
             PhotosPicker(selection: $pickedPhoto, matching: .images) {
                 ZStack {
-                    if let data = viewModel.heroImageData, let image = UIImage(data: data) {
+                    if let data = heroImageData, let image = UIImage(data: data) {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
@@ -125,7 +129,7 @@ struct ImportReviewView: View {
                 .clipShape(.rect(cornerRadius: CozyRadius.image, style: .continuous))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(viewModel.heroImageData == nil ? "Add a photo" : "Replace the photo")
+            .accessibilityLabel(heroImageData == nil ? "Add a photo" : "Replace the photo")
         }
         .listRowBackground(Color.clear)
         .listRowInsets(EdgeInsets(top: CozySpacing.s, leading: 0, bottom: CozySpacing.s, trailing: 0))
