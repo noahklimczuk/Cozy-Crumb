@@ -96,7 +96,7 @@ struct RootTabView: View {
                 LibraryView()
             }
             Tab(CozyTab.groceries.title, systemImage: CozyTab.groceries.symbol, value: .groceries) {
-                PlaceholderScreen(tab: .groceries)
+                GroceriesView()
             }
             Tab(CozyTab.sousChef.title, systemImage: CozyTab.sousChef.symbol, value: .sousChef) {
                 PlaceholderScreen(tab: .sousChef)
@@ -157,6 +157,8 @@ private struct SettingsPlaceholderScreen: View {
     @Binding var hapticsEnabled: Bool
     @Binding var darkModeEnabled: Bool
 
+    @AppStorage(CozyDefaultsKey.checkOffAddsToPantry) private var checkOffAddsToPantry = false
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -215,6 +217,18 @@ private struct SettingsPlaceholderScreen: View {
                                 Text("Haptics")
                                     .cozyText(CozyFont.bodyEmphasis)
                                 Text("A soft tap on every press.")
+                                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                            }
+                        }
+                        .tint(accent.deep)
+                    }
+
+                    CrumbCard {
+                        Toggle(isOn: $checkOffAddsToPantry) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Ticking stocks the Pantry")
+                                    .cozyText(CozyFont.bodyEmphasis)
+                                Text("Anything you tick off the grocery list counts as bought.")
                                     .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
                             }
                         }

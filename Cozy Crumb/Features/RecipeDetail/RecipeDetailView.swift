@@ -13,6 +13,7 @@ import os
 
 struct RecipeDetailView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.cozyMotion) private var motion
 
     @AppStorage(CozyDefaultsKey.measurementSystem)
     private var systemRaw = MeasurementSystem.asWritten.rawValue
@@ -21,6 +22,7 @@ struct RecipeDetailView: View {
 
     @State private var viewModel: RecipeDetailViewModel
     @State private var isEditing = false
+    @State private var groceryToast: String?
 
     private static let scrollSpace = "recipeScroll"
     private static let heroHeight: CGFloat = 260
@@ -41,6 +43,7 @@ struct RecipeDetailView: View {
                 heading
                 servingsCard
                 ingredientsCard
+                addToGroceriesButton
                 stepsSection
                 notesCard
                 madeThisSection
@@ -68,6 +71,50 @@ struct RecipeDetailView: View {
             CookLogSheet(recipeTitle: recipe.title) { rating, notes in
                 logCook(rating: rating, notes: notes)
             }
+        }
+        .overlay(alignment: .bottom) { groceryToastBanner }
+    }
+
+    // MARK: - Groceries
+
+    /// Sends the ingredient list — at whatever servings the user has dialled
+    /// to, not the recipe's original — over to the grocery list.
+    private var addToGroceriesButton: some View {
+        SquishyButton(title: "Add to groceries", systemImage: "checklist", emphasis: .secondary) {
+            addToGroceries()
+        }
+        .padding(.horizontal, CozySpacing.l)
+    }
+
+    @ViewBuilder
+    private var groceryToastBanner: some View {
+        if let groceryToast {
+            Text(groceryToast)
+                .cozyText(CozyFont.caption, color: CozyColor.inkPrimary)
+                .padding(.horizontal, CozySpacing.m)
+                .padding(.vertical, CozySpacing.s)
+                .background(CozyColor.creamDeep, in: .capsule)
+                .cozyLiftShadow()
+                .padding(.bottom, CozySpacing.xl)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .allowsHitTesting(false)
+        }
+    }
+
+    private func addToGroceries() {
+        let list = GroceryService.activeList(in: modelContext)
+        let lines = GroceryService.lineItems(from: recipe, servings: viewModel.servings)
+        let outcome = GroceryService.add(lines, to: list, in: modelContext)
+
+        Haptics.notify(.success)
+
+        withAnimation(motion(Motion.snappy)) {
+            groceryToast = outcome.summary ?? "Nothing on this one needs buying."
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.2))
+            withAnimation(motion(Motion.gentle)) { groceryToast = nil }
         }
     }
 

@@ -43,6 +43,31 @@ enum PreviewData {
     /// Container with nothing in it, for empty states.
     static let emptyContainer: ModelContainer = makeContainer()
 
+    /// A part-shopped grocery list: a few aisles' worth outstanding, a couple
+    /// already ticked off so the "Got it" section renders too.
+    static let groceriesContainer: ModelContainer = {
+        let container = makeContainer()
+        let context = container.mainContext
+
+        let bread = SeedData.bananaBread()
+        let salmon = SeedData.misoSalmon()
+        context.insert(bread)
+        context.insert(salmon)
+
+        let list = GroceryList()
+        context.insert(list)
+
+        let lines = GroceryService.lineItems(from: bread, servings: bread.servings)
+            + GroceryService.lineItems(from: salmon, servings: salmon.servings)
+        GroceryService.add(lines, to: list, in: context)
+
+        for item in list.items.prefix(2) {
+            item.isChecked = true
+        }
+
+        return container
+    }()
+
     private static func makeContainer() -> ModelContainer {
         let schema = Schema(versionedSchema: CozyCrumbSchemaV1.self)
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
