@@ -47,15 +47,24 @@ enum IngredientLineParser {
             return ImportedIngredient(rawText: line, name: line)
         }
 
-        if isSectionHeader(raw) {
+        // Social captions decorate their lists — "• 2 eggs", "🧈 100g butter",
+        // "- 1 onion". The decoration is stripped before parsing but never
+        // from rawText, which stays exactly as the poster wrote it.
+        let cleaned = stripLeadingDecoration(raw)
+
+        guard !cleaned.isEmpty else {
+            return ImportedIngredient(rawText: raw, name: raw)
+        }
+
+        if isSectionHeader(cleaned) {
             return ImportedIngredient(
                 rawText: raw,
-                name: raw,
+                name: cleaned,
                 isSectionHeader: true
             )
         }
 
-        var remainder = raw
+        var remainder = cleaned
         var quantity: Double?
 
         if let leading = QuantityParser.leadingQuantity(in: remainder) {
@@ -94,6 +103,33 @@ enum IngredientLineParser {
             isSectionHeader: false,
             groceryCategory: GroceryCategoryGuesser.category(for: name.isEmpty ? raw : name)
         )
+    }
+
+    /// Drops leading bullets, dashes and emoji so a decorated caption line
+    /// still parses. Stops at the first letter, digit or unicode fraction, so
+    /// "½ cup sugar" keeps its fraction.
+    nonisolated static func stripLeadingDecoration(_ line: String) -> String {
+        var remaining = Substring(line)
+
+        while let first = remaining.first,
+              !first.isLetter,
+              !first.isNumber,
+              QuantityParser.unicodeFractions[first] == nil {
+            remaining = remaining.dropFirst()
+        }
+
+        return String(remaining).trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Trailing emoji are decoration too — "2 eggs 🥚" is still just eggs.
+    nonisolated static func stripTrailingDecoration(_ text: String) -> String {
+        var remaining = Substring(text)
+
+        while let last = remaining.last, !last.isLetter, !last.isNumber, last != ")" {
+            remaining = remaining.dropLast()
+        }
+
+        return String(remaining).trimmingCharacters(in: .whitespaces)
     }
 
     /// "For the sauce:" — a divider, not something you buy.
@@ -136,9 +172,11 @@ enum IngredientLineParser {
             tokens.removeLast()
         }
 
-        let name = tokens
-            .joined(separator: " ")
-            .trimmingCharacters(in: CharacterSet(charactersIn: " ,.;"))
+        let name = stripTrailingDecoration(
+            tokens
+                .joined(separator: " ")
+                .trimmingCharacters(in: CharacterSet(charactersIn: " ,.;"))
+        )
 
         return (name, notes.isEmpty ? nil : notes.joined(separator: ", "))
     }

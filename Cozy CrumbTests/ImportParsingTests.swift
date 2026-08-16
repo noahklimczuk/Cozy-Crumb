@@ -232,3 +232,57 @@ struct IngredientLineParserTests {
         #expect(IngredientLineParser.parse("200 ml coconut milk", order: 0).groceryCategory == .pantry)
     }
 }
+
+@Suite("Caption-style ingredient lines")
+struct CaptionIngredientTests {
+
+    @Test("Bulleted lines still yield a quantity")
+    func bulletedLines() {
+        // This is what broke servings scaling on social imports: a leading
+        // bullet made the parser return no quantity, so there was nothing to
+        // scale or convert.
+        let bullet = IngredientLineParser.parse("• 2 eggs", order: 0)
+        #expect(bullet.quantity == 2)
+        #expect(bullet.name == "eggs")
+
+        let dash = IngredientLineParser.parse("- 100 g butter", order: 0)
+        #expect(dash.quantity == 100)
+        #expect(dash.unit == "g")
+
+        let asterisk = IngredientLineParser.parse("* 1 onion", order: 0)
+        #expect(asterisk.quantity == 1)
+    }
+
+    @Test("Emoji decoration is ignored")
+    func emojiLines() {
+        let leading = IngredientLineParser.parse("🧈 100 g butter", order: 0)
+        #expect(leading.quantity == 100)
+        #expect(leading.unit == "g")
+
+        let trailing = IngredientLineParser.parse("2 eggs 🥚", order: 0)
+        #expect(trailing.quantity == 2)
+        #expect(trailing.name == "eggs")
+    }
+
+    @Test("Decoration never touches rawText")
+    func rawTextIsUntouched() {
+        // The poster's own wording is what the user sees, so it is preserved
+        // exactly even when the parser reads past the decoration.
+        let line = "• 2 eggs 🥚"
+        #expect(IngredientLineParser.parse(line, order: 0).rawText == line)
+    }
+
+    @Test("A leading unicode fraction survives stripping")
+    func fractionsSurvive() throws {
+        // The strip must stop at a fraction character rather than eating it.
+        let result = IngredientLineParser.parse("½ cup sugar", order: 0)
+        let quantity = try #require(result.quantity)
+        #expect(abs(quantity - 0.5) < 0.0001)
+        #expect(result.unit == "cup")
+    }
+
+    @Test("Bulleted section headers are still headers")
+    func decoratedHeaders() {
+        #expect(IngredientLineParser.parse("• For the sauce:", order: 0).isSectionHeader)
+    }
+}
