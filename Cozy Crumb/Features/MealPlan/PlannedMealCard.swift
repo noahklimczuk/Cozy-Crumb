@@ -24,8 +24,10 @@ struct PlannedMealCard: View {
     var servings: Int?
 
     /// Grows with the text size, so the picture keeps its share of a card that
-    /// got taller to fit larger type.
-    @ScaledMetric(relativeTo: .headline) private var heroHeight: CGFloat = 112
+    /// got taller to fit larger type. Same number as the Cookbook's card: a
+    /// meal on the plan should look like the recipe it came from, not like a
+    /// smaller relative of it.
+    @ScaledMetric(relativeTo: .headline) private var heroHeight = CozyMetrics.cardHeroHeight
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -51,7 +53,7 @@ struct PlannedMealCard: View {
         RecipeHeroView(recipe: recipe)
             // Capped so an accessibility text size can't turn the picture into
             // most of the card.
-            .frame(height: min(heroHeight, 170))
+            .frame(height: min(heroHeight, CozyMetrics.cardHeroHeightCap))
             .frame(maxWidth: .infinity)
             // Clipped before the badge goes on, so the badge is never trimmed
             // by the card's rounded corners.
@@ -67,6 +69,15 @@ struct PlannedMealCard: View {
             .overlay(alignment: .topLeading) {
                 if let slot {
                     PillTag(text: slot.displayName, systemImage: slot.symbol)
+                        .padding(CozySpacing.s)
+                }
+            }
+            .overlay(alignment: .bottomLeading) {
+                // Same warning the Cookbook shows. Finding out a recipe was
+                // never checked over is worth more on the night you planned to
+                // cook it than it is while browsing.
+                if recipe.needsReview {
+                    PillTag(text: "Check me", systemImage: "questionmark.circle", tint: CozyColor.warning)
                         .padding(CozySpacing.s)
                 }
             }
