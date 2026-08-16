@@ -18,8 +18,12 @@
 //    Facebook   Same, and gated harder.
 //
 //  Comments are not available on any of them without an authenticated API, so
-//  we do not claim to read them. When a platform gives us nothing, the user is
-//  offered a paste-the-caption box, which always works.
+//  we do not claim to read them.
+//
+//  This file only ever gets at *text*. When the caption turns out not to
+//  contain the recipe — which is the norm for short-form cooking video —
+//  `SocialMediaResolver` has a go at the post's media, and failing that the
+//  user is offered the video-or-caption screen, which always works.
 //
 
 import Foundation
@@ -66,9 +70,9 @@ enum SocialPlatform: String, Sendable, CaseIterable {
         case .youtube:
             "I'll watch the video and write the recipe down."
         case .tiktok:
-            "TikTok shares the caption but not the video, so I'll work from that."
+            "I'll read the caption, and have a go at the video when the recipe isn't in it."
         case .instagram, .facebook, .pinterest, .x, .threads, .reddit, .vimeo:
-            "Social platforms keep posts behind a login or custom structure, so I may need you to paste the caption."
+            "Social platforms keep posts behind a login, so I may need the video or a screenshot from you."
         }
     }
 

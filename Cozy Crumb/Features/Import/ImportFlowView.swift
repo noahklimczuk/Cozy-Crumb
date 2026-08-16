@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import PhotosUI
 import SwiftData
 import SwiftUI
 import UIKit
@@ -18,6 +19,8 @@ struct ImportFlowView: View {
     @Query private var existingRecipes: [Recipe]
 
     @State private var viewModel = ImportViewModel()
+    @State private var pickedMedia: [PhotosPickerItem] = []
+    @State private var mediaProblem: String?
 
     /// Pre-filled when opened from a share or the pasteboard.
     var initialURL: URL?
@@ -183,6 +186,8 @@ struct ImportFlowView: View {
                 "Opening the page…",
                 "Looking for the actual recipe…",
                 "Skipping past the life story…",
+                "Watching the video, if there is one…",
+                "Reading what's written on screen…",
                 "Tidying up the ingredients…"
             ],
             pose: .peeking
@@ -192,8 +197,8 @@ struct ImportFlowView: View {
 
     // MARK: - Caption paste
 
-    /// The always-works path. Instagram and Facebook hide most posts behind a
-    /// login, so when they give us nothing we ask rather than fail.
+    /// The always-works path, for the posts where the recipe was never written
+    /// down: the video itself, screenshots of it, or the caption by hand.
     private var captionPaste: some View {
         ScrollView {
             VStack(spacing: CozySpacing.l) {
@@ -203,15 +208,17 @@ struct ImportFlowView: View {
                 VStack(spacing: CozySpacing.s) {
                     Text("This one's shy.")
                         .cozyText(CozyFont.title2)
-                    Text(captionExplanation)
+                    Text(viewModel.captionPromptReason ?? captionExplanation)
                         .cozyText(CozyFont.subheadline, color: CozyColor.inkSecondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
+                mediaCard
+
                 CrumbCard {
                     VStack(alignment: .leading, spacing: CozySpacing.s) {
-                        Text("Paste the caption")
+                        Text("Or paste the caption")
                             .cozyText(CozyFont.headline)
                         TextField(
                             "Tap the post, copy the caption, paste it here…",
@@ -239,20 +246,110 @@ struct ImportFlowView: View {
             }
             .padding(CozySpacing.l)
         }
+        .onChange(of: pickedMedia) { _, items in
+            guard !items.isEmpty else { return }
+            Task { await handlePickedMedia(items) }
+        }
+    }
+
+    /// The route that works when the platform gives us nothing at all: the user
+    /// saves the reel (or screenshots it) and hands it over. The Sous Chef
+    /// reads on-screen text and, for a video, listens to the narration too.
+    private var mediaCard: some View {
+        // `PhotosPicker` takes its label as a Sendable closure, so the accent
+        // has to be read out here — inside the closure it's a main-actor
+        // reference from a nonisolated context.
+        let buttonFill = accent.color
+        let buttonEdge = accent.deep
+
+        return CrumbCard(fill: accent.soft) {
+            VStack(alignment: .leading, spacing: CozySpacing.s) {
+                Text("Give me the video")
+                    .cozyText(CozyFont.headline)
+
+                Text("Most reels keep the recipe in the video rather than the caption. Save it to your camera roll — or screenshot the ingredients and method — and I'll read it off that.")
+                    .cozyText(CozyFont.subheadline, color: CozyColor.inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let mediaProblem {
+                    Text(mediaProblem)
+                        .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                PhotosPicker(
+                    selection: $pickedMedia,
+                    maxSelectionCount: 6,
+                    matching: .any(of: [.videos, .images])
+                ) {
+                    HStack(spacing: CozySpacing.s) {
+                        Image(systemName: "photo.badge.plus")
+                            .font(.body.weight(.semibold))
+                        Text("Choose video or screenshots")
+                            .font(CozyFont.headline)
+                    }
+                    .foregroundStyle(CozyColor.inkPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: CozyMetrics.minimumTouchTarget + 6)
+                    .background(buttonFill, in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: CozyRadius.button, style: .continuous)
+                            .strokeBorder(buttonEdge, lineWidth: 1.5)
+                    }
+                }
+                .disabled(!viewModel.isAIAvailable)
+
+                if !viewModel.isAIAvailable {
+                    Text("Add your Gemini key in Settings to use this.")
+                        .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// A video beats stills every time — it carries the audio, and the recipe
+    /// is often only ever spoken. So if the user picked one, that's what we
+    /// send, whatever else came with it.
+    private func handlePickedMedia(_ items: [PhotosPickerItem]) async {
+        mediaProblem = nil
+        pickedMedia = []
+
+        for item in items {
+            if let movie = try? await item.loadTransferable(type: PickedMovie.self) {
+                await viewModel.importPickedVideo(at: movie.url)
+                return
+            }
+        }
+
+        var images: [Data] = []
+
+        for item in items {
+            guard let data = try? await item.loadTransferable(type: Data.self),
+                  let jpeg = ImageProcessor.downscaledJPEG(from: data) else { continue }
+            images.append(jpeg)
+        }
+
+        guard !images.isEmpty else {
+            mediaProblem = "I couldn't open that one. A screenshot or a saved video works best."
+            return
+        }
+
+        await viewModel.importPickedImages(images)
     }
 
     private var captionExplanation: String {
         guard let platform = viewModel.socialPost?.platform else {
-            return "Paste the caption and I'll pull the recipe out of it."
+            return "Give me the video or the caption, and I'll pull the recipe out of it."
         }
 
         return switch platform {
         case .instagram, .facebook, .pinterest, .x, .threads, .reddit, .vimeo:
-            "\(platform.displayName) keeps posts behind a login, so I can't read that one myself. Paste the caption and I'll do the rest."
+            "\(platform.displayName) keeps posts behind a login, and the caption didn't have the recipe in it. Hand me the video or a screenshot instead."
         case .tiktok:
-            "TikTok didn't share the caption for that one. Paste it and I'll do the rest."
+            "TikTok didn't give me a recipe for that one — the caption's just the hook. Hand me the video or a screenshot instead."
         case .youtube:
-            "I couldn't get enough from that video. Paste the description and I'll do the rest."
+            "I couldn't get enough from that video. Paste the description, or send me the video itself."
         }
     }
 

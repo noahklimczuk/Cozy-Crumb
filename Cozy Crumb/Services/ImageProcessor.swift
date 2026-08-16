@@ -61,6 +61,29 @@ enum ImageProcessor {
 
         return output as Data
     }
+
+    /// JPEG-encodes an image we already hold — video frames on their way to the
+    /// Sous Chef, which wants bytes rather than a `CGImage`.
+    nonisolated static func jpeg(
+        from image: CGImage,
+        quality: CGFloat = ImageProcessor.jpegQuality
+    ) -> Data? {
+        let output = NSMutableData()
+
+        guard let destination = CGImageDestinationCreateWithData(
+            output as CFMutableData,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil
+        ) else { return nil }
+
+        let properties = [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary
+        CGImageDestinationAddImage(destination, image, properties)
+
+        guard CGImageDestinationFinalize(destination) else { return nil }
+
+        return output as Data
+    }
 }
 
 /// Fetches remote images. Separate from the coordinator so a failed image never

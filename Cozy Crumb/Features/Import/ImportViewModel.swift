@@ -59,10 +59,13 @@ final class ImportViewModel {
     var pastedCaption = ""
     /// Describes what happened on a social import, for the review banner.
     var socialNote: String?
+    /// Why the "paste the caption" screen is being shown, in the app's voice.
+    var captionPromptReason: String?
 
     private let coordinator: ImportCoordinator
     private let imageFetcher: ImageFetcher
     private let socialImporter: SocialImporter
+    private let mediaResolver: SocialMediaResolver
     private let parser: AIRecipeParser
     private let keychain: KeychainStore
 
@@ -70,12 +73,14 @@ final class ImportViewModel {
         coordinator: ImportCoordinator = ImportCoordinator(),
         imageFetcher: ImageFetcher = ImageFetcher(),
         socialImporter: SocialImporter = SocialImporter(),
+        mediaResolver: SocialMediaResolver = SocialMediaResolver(),
         parser: AIRecipeParser = AIRecipeParser(),
         keychain: KeychainStore = .shared
     ) {
         self.coordinator = coordinator
         self.imageFetcher = imageFetcher
         self.socialImporter = socialImporter
+        self.mediaResolver = mediaResolver
         self.parser = parser
         self.keychain = keychain
     }
@@ -132,6 +137,7 @@ final class ImportViewModel {
 
     func runImport(from url: URL, existingRecipes: [Recipe] = []) async {
         stage = .working
+        captionPromptReason = nil
 
         // Social posts never serve recipe markup, so the scraping cascade is
         // skipped entirely rather than being run and failing.
@@ -250,10 +256,242 @@ final class ImportViewModel {
             }
         }
 
-        // Nothing readable came back. Ask for the caption rather than saving
-        // a hollow recipe.
+        // The caption was a hook rather than a recipe — "full recipe below 👇"
+        // with nothing below it. The recipe is in the video, so go and get the
+        // video.
+        if await importFromPostMedia(post: post) { return }
+
+        // Nothing readable came back. Ask for the caption, or for the video,
+        // rather than saving a hollow recipe.
         prefillFromPost(post)
+        captionPromptReason = nil
         stage = .needsCaption
+    }
+
+    // MARK: - Reading the post's media
+
+    /// The path for the posts this app exists for: a Reel or a TikTok whose
+    /// caption never contained the recipe.
+    ///
+    /// Three things are tried, cheapest first, and any of them can quietly come
+    /// back with nothing — these platforms serve a logged-out visitor less
+    /// every year:
+    ///
+    ///   1. a fuller caption than Open Graph gave us (Instagram's embed page
+    ///      serves the whole thing where og:description is truncated)
+    ///   2. the video itself, sent to Gemini as bytes so it reads the on-screen
+    ///      text *and* hears the narration
+    ///   3. the post's images — a carousel's recipe card, or the cover frame
+    ///
+    /// Returns true when one of them produced a recipe.
+    private func importFromPostMedia(post: SocialPost) async -> Bool {
+        // Gemini fetches YouTube itself, and has already had its go by here.
+        guard post.platform != .youtube else { return false }
+
+        var media = await mediaResolver.resolve(post: post)
+        guard !media.isEmpty else { return false }
+
+        // Instagram wraps a caption in engagement noise wherever it serves one.
+        media.caption = media.caption.map {
+            SocialImporter.cleanCaption($0, platform: post.platform)
+        }
+
+        if heroImageData == nil, let cover = media.imageURLs.first {
+            heroImageData = await imageFetcher.downscaledImage(from: cover)
+        }
+
+        // 1. A caption we hadn't seen in full before.
+        if let caption = media.caption,
+           caption.count >= 40,
+           caption.count > (post.caption?.count ?? 0),
+           case .success(let recipe) = await parser.parse(caption: caption, post: post) {
+            accept(recipe, post: post, note: "Read from the post's caption — worth a check.")
+            return true
+        }
+
+        // 2. The video.
+        if let videoURL = media.videoURL,
+           let video = await mediaResolver.downloadVideo(from: videoURL, referer: post.url) {
+            let outcome = await parser.parse(
+                video: video.data,
+                mimeType: video.mimeType,
+                post: post,
+                caption: media.caption
+            )
+
+            if case .success(let recipe) = outcome {
+                accept(
+                    recipe,
+                    post: post,
+                    note: "The caption didn't have the recipe, so I watched the video — worth a check."
+                )
+                return true
+            }
+
+            Log.importer.info("Post video parse found nothing")
+        }
+
+        // 3. The pictures, where a recipe card often hides.
+        let images = await downloadImages(media.imageURLs, limit: 4)
+
+        if !images.isEmpty {
+            let outcome = await parser.parse(
+                images: images,
+                kind: .images,
+                post: post,
+                caption: media.caption
+            )
+
+            if case .success(let recipe) = outcome {
+                accept(
+                    recipe,
+                    post: post,
+                    note: "I read this one off the pictures in the post — worth a proper check."
+                )
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private func downloadImages(_ urls: [URL], limit: Int) async -> [Data] {
+        var images: [Data] = []
+
+        for url in urls.prefix(limit) {
+            if let data = await imageFetcher.downscaledImage(from: url) {
+                images.append(data)
+            }
+        }
+
+        return images
+    }
+
+    // MARK: - Media the user hands over
+
+    /// The always-works route for a Reel the app can't reach: the user saves
+    /// the video, or screenshots it, and passes it to us directly.
+    ///
+    /// A short clip goes over whole, audio and all. A long one is sampled into
+    /// stills first, because the request has to fit inside Gemini's inline
+    /// limit — worse, but far better than nothing.
+    func importPickedVideo(at url: URL) async {
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let post = currentPost
+        stage = .working
+
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? .max
+        var outcome: Result<ImportedRecipe, CozyError> = .failure(.noRecipeFound)
+
+        if size <= SocialMediaResolver.inlineVideoByteLimit, let data = try? Data(contentsOf: url) {
+            outcome = await parser.parse(
+                video: data,
+                mimeType: Self.mimeType(for: url),
+                post: post,
+                caption: nonEmptyPastedCaption
+            )
+        }
+
+        // Either it was too big to send whole, or Gemini couldn't make a recipe
+        // out of it. Stills are the second chance.
+        if case .failure = outcome {
+            let frames = await VideoFrameSampler.frames(from: url)
+
+            if !frames.isEmpty {
+                outcome = await parser.parse(
+                    images: frames,
+                    kind: .frames,
+                    post: post,
+                    caption: nonEmptyPastedCaption
+                )
+            }
+        }
+
+        finish(outcome, post: post, note: "Read from the video you gave me — worth a check.")
+    }
+
+    /// Screenshots of the post: the ingredient overlay, the method, the recipe
+    /// card at the end.
+    func importPickedImages(_ images: [Data]) async {
+        let usable = images.filter { !$0.isEmpty }
+        guard !usable.isEmpty else { return }
+
+        let post = currentPost
+        stage = .working
+
+        let outcome = await parser.parse(
+            images: usable,
+            kind: .images,
+            post: post,
+            caption: nonEmptyPastedCaption
+        )
+
+        finish(outcome, post: post, note: "Read from the screenshots — worth a check.")
+    }
+
+    /// Lands a media parse: straight to review on success, back to the paste
+    /// screen with an explanation when it found nothing.
+    private func finish(_ outcome: Result<ImportedRecipe, CozyError>, post: SocialPost, note: String) {
+        switch outcome {
+        case .success(let recipe):
+            if heroImageData == nil, let imageURL = recipe.imageURL {
+                // Best effort only; the recipe is already good.
+                Task { heroImageData = await imageFetcher.downscaledImage(from: imageURL) }
+            }
+            accept(recipe, post: post, note: note)
+
+        case .failure(let error):
+            Log.importer.info("Picked-media parse failed: \(String(describing: error), privacy: .public)")
+
+            captionPromptReason = switch error {
+            case .missingAPIKey, .invalidAPIKey, .modelUnavailable:
+                error.friendlyMessage
+            case .noRecipeFound:
+                "I couldn't find a recipe in that. If the recipe's spoken or on screen somewhere else, try the whole video — or paste the caption."
+            default:
+                "That didn't come back with anything. Want to try the caption instead?"
+            }
+
+            stage = .needsCaption
+        }
+    }
+
+    private var nonEmptyPastedCaption: String? {
+        let trimmed = pastedCaption.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// Stands in for a link when there isn't one. `accept` strips it again, so
+    /// a recipe read off the camera roll is saved with no source URL rather
+    /// than a made-up one.
+    private nonisolated static let placeholderPostURL = URL(
+        string: "https://cozycrumb.local/from-your-camera-roll"
+    )!
+
+    /// The post we're working on, invented from the draft when the user reached
+    /// the media picker some other way.
+    private var currentPost: SocialPost {
+        if let socialPost { return socialPost }
+
+        let url = draft.sourceURL ?? Self.placeholderPostURL
+        let platform = draft.sourceURL.flatMap(SocialPlatform.detect(from:)) ?? .instagram
+
+        return SocialPost(
+            platform: platform,
+            url: url,
+            title: draft.title.isEmpty ? nil : draft.title,
+            author: draft.sourceName
+        )
+    }
+
+    private nonisolated static func mimeType(for url: URL) -> String {
+        switch url.pathExtension.lowercased() {
+        case "mov", "qt": "video/quicktime"
+        case "m4v": "video/x-m4v"
+        case "webm": "video/webm"
+        default: "video/mp4"
+        }
     }
 
     /// Parses a caption the user pasted in themselves. This path always works,
@@ -296,10 +534,12 @@ final class ImportViewModel {
 
     private func accept(_ recipe: ImportedRecipe, post: SocialPost, note: String?) {
         draft = recipe
-        draft.sourceURL = post.url
+        // A recipe read from the camera roll has no link to keep.
+        draft.sourceURL = post.url == Self.placeholderPostURL ? nil : post.url
         draft.sourceName = recipe.sourceName ?? post.author ?? post.platform.displayName
         didFallBackToManual = false
         socialNote = note
+        captionPromptReason = nil
         stage = .review
     }
 

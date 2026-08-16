@@ -22,11 +22,18 @@ struct RecipeCard: View {
     @State private var hasAppeared = false
     @State private var heartPop = false
 
+    /// Grows with the text size, so the picture keeps its share of a card that
+    /// got taller to fit larger type instead of being squeezed by it.
+    @ScaledMetric(relativeTo: .headline) private var heroHeight: CGFloat = 132
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             hero
             details
         }
+        // Fill the row's height so two cards side by side line up even when one
+        // title wraps to two lines and the other doesn't.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.card, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: CozyRadius.card, style: .continuous)
@@ -45,7 +52,9 @@ struct RecipeCard: View {
 
     private var hero: some View {
         RecipeHeroView(recipe: recipe)
-            .frame(height: 118)
+            // Capped so an accessibility text size can't turn the picture into
+            // most of the card.
+            .frame(height: min(heroHeight, 190))
             .frame(maxWidth: .infinity)
             // Clip the image before the overlays go on, so the heart and the
             // review pill are never trimmed by the card's rounded corners.
@@ -106,16 +115,25 @@ struct RecipeCard: View {
                 .cozyText(CozyFont.headline)
                 .lineLimit(2, reservesSpace: true)
                 .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: CozySpacing.xs) {
-                if let time = recipe.totalTimeDisplay {
-                    PillTag(text: time, systemImage: "clock")
-                }
-                PillTag(text: "\(recipe.servings)", systemImage: "person.2", tint: CozyColor.creamDeep)
+            // Two pills fit side by side on a half-width card at normal type,
+            // and stack rather than being clipped once the text grows.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: CozySpacing.xs) { pills }
+                VStack(alignment: .leading, spacing: CozySpacing.xs) { pills }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(CozySpacing.m)
+    }
+
+    @ViewBuilder
+    private var pills: some View {
+        if let time = recipe.totalTimeDisplay {
+            PillTag(text: time, systemImage: "clock")
+        }
+        PillTag(text: "\(recipe.servings)", systemImage: "person.2", tint: CozyColor.creamDeep)
     }
 
     // MARK: - Detail

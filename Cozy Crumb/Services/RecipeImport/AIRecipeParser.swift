@@ -65,6 +65,70 @@ struct AIRecipeParser: Sendable {
         )
     }
 
+    /// A video we fetched ourselves, or one the user handed over from their
+    /// camera roll, sent to Gemini as bytes.
+    ///
+    /// This is the answer for TikTok and Instagram, where the recipe lives in
+    /// the video and Gemini cannot go and get the video itself. Audio comes
+    /// along with the frames, so a narrated "about half a cup" is readable in a
+    /// way it never is from stills.
+    func parse(
+        video data: Data,
+        mimeType: String,
+        post: SocialPost,
+        caption: String?
+    ) async -> Result<ImportedRecipe, CozyError> {
+        guard !data.isEmpty else { return .failure(.noRecipeFound) }
+
+        let parts: [GeminiPart] = [
+            .video(data, mimeType: mimeType),
+            .text(Prompts.extractionFromMedia(
+                kind: .video,
+                platform: post.platform.displayName,
+                title: post.title,
+                author: post.author,
+                caption: caption ?? post.caption
+            ))
+        ]
+
+        return await run(
+            parts: parts,
+            sourceURL: post.url,
+            sourceName: post.author ?? post.platform.displayName,
+            timeout: GeminiClient.visionTimeout
+        )
+    }
+
+    /// Stills: video frames we sampled because the clip was too big to send, or
+    /// the post's own images — carousel recipe cards, or screenshots the user
+    /// took themselves.
+    func parse(
+        images: [Data],
+        kind: Prompts.MediaKind,
+        post: SocialPost,
+        caption: String?
+    ) async -> Result<ImportedRecipe, CozyError> {
+        let usable = images.filter { !$0.isEmpty }.prefix(8)
+        guard !usable.isEmpty else { return .failure(.noRecipeFound) }
+
+        // Media first, text after — Gemini attends to it better that way.
+        var parts: [GeminiPart] = usable.map { .image(jpeg: $0) }
+        parts.append(.text(Prompts.extractionFromMedia(
+            kind: kind,
+            platform: post.platform.displayName,
+            title: post.title,
+            author: post.author,
+            caption: caption ?? post.caption
+        )))
+
+        return await run(
+            parts: parts,
+            sourceURL: post.url,
+            sourceName: post.author ?? post.platform.displayName,
+            timeout: GeminiClient.visionTimeout
+        )
+    }
+
     /// YouTube only. Gemini fetches and watches the video server-side; there
     /// is no equivalent for TikTok, Instagram or Facebook, so this must not be
     /// called for them.
