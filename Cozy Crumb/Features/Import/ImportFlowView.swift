@@ -116,12 +116,13 @@ struct ImportFlowView: View {
                 SquishyButton(title: "Get the recipe", systemImage: "sparkles") {
                     Task { await viewModel.importFromPastedText() }
                 }
-                .disabled {
+                .disabled(
                     if let pasteLinkText {
-                        return pasteLinkText.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty
+                        pasteLinkText.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty
+                    } else {
+                        viewModel.urlText.trimmingCharacters(in: .whitespaces).isEmpty
                     }
-                    return viewModel.urlText.trimmingCharacters(in: .whitespaces).isEmpty
-                }()
+                )
 
                 Button("Or type one in by hand") {
                     viewModel.startManualEntry()

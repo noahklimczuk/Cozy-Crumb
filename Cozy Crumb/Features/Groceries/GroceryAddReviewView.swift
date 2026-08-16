@@ -95,8 +95,8 @@ struct GroceryAddReviewView: View {
                     Text(entry.line.name)
                         .cozyText(CozyFont.body)
 
-                    if let quantity = entry.line.quantity, let unit = entry.line.unit {
-                        Text(FractionFormatter.quantityString(quantity: quantity, unit: unit))
+                    if entry.line.quantity != nil, let unit = entry.line.unit {
+                        Text(FractionFormatter.quantityString(quantity: entry.line.quantity ?? 0, unit: unit))
                             .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
                     }
                 }
@@ -125,7 +125,7 @@ struct GroceryAddReviewView: View {
     }
 
     private func findExistingItem(name: String, dimension: GroceryMerge.Dimension) -> GroceryItem? {
-        guard let list = GroceryService.activeList(in: modelContext) else { return nil }
+        let list = GroceryService.activeList(in: modelContext)
 
         let normalizedName = GroceryMerge.normalizedName(name)
         return list.items.first { item in
@@ -172,7 +172,7 @@ struct GroceryAddReviewView: View {
         guard !selectedItemLines.isEmpty else { return }
 
         let list = GroceryService.activeList(in: modelContext)
-        let outcome = GroceryService.add(selectedItemLines, to: list, in: modelContext)
+        _ = GroceryService.add(selectedItemLines, to: list, in: modelContext)
 
         Haptics.notify(.success)
         dismiss()
@@ -195,7 +195,7 @@ private enum PreviewLines {
             GroceryLineItem(name: "Sugar", quantity: 1, unit: "cup", category: .bakery),
             GroceryLineItem(name: "Eggs", quantity: 3, unit: "large", category: .dairy),
             GroceryLineItem(name: "Butter", quantity: 100, unit: "g", category: .dairy),
-            GroceryLineItem(name: "Vanilla extract", quantity: 1, unit: "tsp", category: .baking),
+            GroceryLineItem(name: "Vanilla extract", quantity: 1, unit: "tsp", category: .bakery),
         ]
     }
 }
