@@ -2,8 +2,7 @@
 //  CozyDefaults.swift
 //  Cozy Crumb
 //
-//  UserDefaults keys in one place. Settings (Phase 7) will add the model
-//  picker, units preference, and the remaining toggles here.
+//  UserDefaults keys in one place. Everything here is surfaced in Settings.
 //
 
 import Foundation
@@ -11,6 +10,10 @@ import Foundation
 enum CozyDefaultsKey {
     static let accentPalette = "settings.accentPalette"
     static let hapticsEnabled = "settings.hapticsEnabled"
+    /// Light, dark, or match the phone. Replaces `darkModeEnabled`, which is
+    /// still read once by `AppAppearance.stored(in:)` so an existing choice
+    /// carries over.
+    static let appearance = "settings.appearance"
     static let darkModeEnabled = "settings.darkModeEnabled"
     static let measurementSystem = "settings.measurementSystem"
     static let geminiModel = "settings.geminiModel"

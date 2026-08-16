@@ -25,7 +25,10 @@ struct AIRecipeParser: Sendable {
     /// However confident the model says it is, a parse is still a parse.
     private nonisolated static let confidenceCeiling = 0.85
 
-    init(client: GeminiClient = GeminiClient(), model: GeminiModel = .balanced) {
+    /// The model comes from Settings by default. A default argument is
+    /// evaluated at the call site, so a parser built after the user changes
+    /// the picker picks the new model up without anything being notified.
+    init(client: GeminiClient = GeminiClient(), model: GeminiModel = .preferred) {
         self.client = client
         self.model = model
     }
