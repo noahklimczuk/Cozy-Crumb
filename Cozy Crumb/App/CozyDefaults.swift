@@ -14,4 +14,6 @@ enum CozyDefaultsKey {
     static let darkModeEnabled = "settings.darkModeEnabled"
     static let measurementSystem = "settings.measurementSystem"
     static let geminiModel = "settings.geminiModel"
+    /// Ticking a grocery item off also stocks the pantry with it (§5.5).
+    static let checkOffAddsToPantry = "settings.checkOffAddsToPantry"
 }

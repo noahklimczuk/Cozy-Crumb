@@ -33,6 +33,10 @@ enum CozyError: Error, Sendable, Equatable {
     case socialNeedsCaption
     case captionTooShort
 
+    // Groceries
+    case remindersDenied
+    case remindersUnavailable
+
     case unknown(String)
 
     /// Shown directly to the user. Warm, short, never blaming them.
@@ -83,6 +87,11 @@ enum CozyError: Error, Sendable, Equatable {
         case .captionTooShort:
             "There's not much to go on there. Paste a bit more?"
 
+        case .remindersDenied:
+            "I need permission for Reminders — you can turn it on in Settings."
+        case .remindersUnavailable:
+            "I couldn't find a Reminders list to write to."
+
         case .unknown:
             "The kitchen's a bit quiet — check your connection?"
         }
@@ -96,6 +105,7 @@ enum CozyError: Error, Sendable, Equatable {
         case .badURL, .notAWebPage, .noRecipeFound, .decodingFailed, .imageUnavailable, .cancelled: false
         case .missingAPIKey, .invalidAPIKey, .modelUnavailable, .blockedBySafety: false
         case .socialNeedsCaption, .captionTooShort: false
+        case .remindersDenied, .remindersUnavailable: false
         }
     }
 

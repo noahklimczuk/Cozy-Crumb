@@ -42,9 +42,31 @@ extension GroceryList {
     }
 
     /// Grouped for the sectioned list, in supermarket-walk order.
-    var itemsByCategory: [(category: GroceryCategory, items: [GroceryItem])] {
+    ///
+    /// A named type rather than a tuple: `ForEach` needs an identity, and
+    /// Swift has no key paths into tuple elements.
+    var itemsByCategory: [GroceryCategoryGroup] {
         Dictionary(grouping: outstandingItems, by: \.category)
-            .map { (category: $0.key, items: $0.value.sorted { $0.name < $1.name }) }
+            .map { GroceryCategoryGroup(category: $0.key, items: $0.value.sorted { $0.name < $1.name }) }
             .sorted { $0.category.sortOrder < $1.category.sortOrder }
     }
+}
+
+/// One aisle's worth of the grocery list.
+///
+/// Not `Sendable` — `GroceryItem` is a SwiftData model and belongs to the
+/// context that fetched it.
+/// `nonisolated` for the same reason the rest of the model layer is: the
+/// target defaults actor isolation to MainActor, and this is built inside a
+/// `@Model` extension that isn't on the UI actor.
+nonisolated struct GroceryCategoryGroup: Identifiable {
+    let category: GroceryCategory
+    let items: [GroceryItem]
+
+    nonisolated init(category: GroceryCategory, items: [GroceryItem]) {
+        self.category = category
+        self.items = items
+    }
+
+    nonisolated var id: GroceryCategory { category }
 }
