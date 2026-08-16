@@ -95,25 +95,23 @@ struct GroceryAddReviewView: View {
                     Text(entry.line.name)
                         .cozyText(CozyFont.body)
 
-                    if entry.line.quantity != nil, let unit = entry.line.unit {
-                        Text(FractionFormatter.quantityString(quantity: entry.line.quantity ?? 0, unit: unit))
+                    if let quantity = entry.line.quantity, let unit = entry.line.unit {
+                        Text(FractionFormatter.quantityString(quantity: quantity, unit: unit))
                             .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
                     }
                 }
 
                 Spacer()
 
-                if let quantity = entry.line.quantity {
-                    if let unit = entry.line.unit, let dimension = GroceryMerge.dimension(of: unit) {
-                        let existing = findExistingItem(name: entry.line.name, dimension: dimension)
-                        if existing != nil {
-                            HStack(spacing: 2) {
-                                Image(systemName: "plus.circle")
-                                    .font(.caption)
-                                Text("Merge with \(existing!.name)")
-                                    .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
-                            }
-                        }
+                if entry.line.quantity != nil,
+                   let unit = entry.line.unit,
+                   let dimension = GroceryMerge.dimension(of: unit),
+                   let existing = findExistingItem(name: entry.line.name, dimension: dimension) {
+                    HStack(spacing: 2) {
+                        Image(systemName: "plus.circle")
+                            .font(.caption)
+                        Text("Merge with \(existing.name)")
+                            .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
                     }
                 }
             }
