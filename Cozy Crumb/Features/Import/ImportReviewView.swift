@@ -102,7 +102,7 @@ struct ImportReviewView: View {
         // main-actor state snapshot before entering that closure.
         let heroImageData = viewModel.heroImageData
 
-        Section {
+        return Section {
             PhotosPicker(selection: $pickedPhoto, matching: .images) {
                 ZStack {
                     if let data = heroImageData, let image = UIImage(data: data) {
