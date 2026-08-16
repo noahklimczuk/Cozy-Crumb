@@ -2,9 +2,10 @@
 //  RootTabView.swift
 //  Cozy Crumb
 //
-//  Tab shell. Screens are still placeholders — each notes the phase that
-//  delivers it — but they now sit on the real background and carry the
-//  accent and haptics preferences down through the environment.
+//  Tab shell. The Sous Chef and Pantry tabs are still placeholders and say
+//  which phase delivers them; everything else is real. Preferences are read
+//  here and carried down through the environment, so one place decides the
+//  accent, the appearance and whether haptics fire.
 //
 
 import SwiftData
@@ -75,7 +76,9 @@ struct RootTabView: View {
 
     @AppStorage(CozyDefaultsKey.accentPalette) private var accentRaw = AccentPalette.blush.rawValue
     @AppStorage(CozyDefaultsKey.hapticsEnabled) private var hapticsEnabled = true
-    @AppStorage(CozyDefaultsKey.darkModeEnabled) private var darkModeEnabled = false
+    /// Defaults to whatever the old dark-mode switch was set to, so upgrading
+    /// doesn't silently change how the app looks.
+    @AppStorage(CozyDefaultsKey.appearance) private var appearanceRaw = AppAppearance.stored().rawValue
 
     @State private var selection: CozyTab = .library
 
@@ -87,6 +90,17 @@ struct RootTabView: View {
         Binding(
             get: { accent },
             set: { accentRaw = $0.rawValue }
+        )
+    }
+
+    private var appearance: AppAppearance {
+        AppAppearance(rawValue: appearanceRaw) ?? .system
+    }
+
+    private var appearanceBinding: Binding<AppAppearance> {
+        Binding(
+            get: { appearance },
+            set: { appearanceRaw = $0.rawValue }
         )
     }
 
@@ -105,17 +119,16 @@ struct RootTabView: View {
                 PlaceholderScreen(tab: .pantry)
             }
             Tab(CozyTab.settings.title, systemImage: CozyTab.settings.symbol, value: .settings) {
-                SettingsPlaceholderScreen(
-                    accent: accentBinding,
-                    hapticsEnabled: $hapticsEnabled,
-                    darkModeEnabled: $darkModeEnabled
+                SettingsView(
+                    accentSelection: accentBinding,
+                    appearance: appearanceBinding
                 )
             }
         }
         .tint(accent.deep)
         .environment(\.accentPalette, accent)
         .environment(\.hapticsEnabled, hapticsEnabled)
-        .preferredColorScheme(darkModeEnabled ? .dark : .light)
+        .preferredColorScheme(appearance.colorScheme)
         .task {
             SeedData.installIfNeeded(in: modelContext)
             // Re-reads ingredient lines saved before the caption parsing
@@ -146,135 +159,6 @@ private struct PlaceholderScreen: View {
                         .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
                 }
             }
-        }
-    }
-}
-
-/// Settings is a placeholder too, but it hosts the design-system gallery so
-/// the whole visual language can be checked on a real device.
-private struct SettingsPlaceholderScreen: View {
-    @Binding var accent: AccentPalette
-    @Binding var hapticsEnabled: Bool
-    @Binding var darkModeEnabled: Bool
-
-    @AppStorage(CozyDefaultsKey.checkOffAddsToPantry) private var checkOffAddsToPantry = false
-    @AppStorage(CozyDefaultsKey.roundUpShoppingAmounts) private var roundUpShoppingAmounts = true
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: CozySpacing.l) {
-                    CrumbCard {
-                        VStack(alignment: .leading, spacing: CozySpacing.m) {
-                            Text("Design System")
-                                .cozyText(CozyFont.title2)
-                            Text("Every colour, type style, component and motion curve on one screen.")
-                                .cozyText(CozyFont.subheadline, color: CozyColor.inkSecondary)
-                            NavigationLink {
-                                ComponentGalleryView(accent: $accent)
-                            } label: {
-                                HStack {
-                                    Text("Open the gallery")
-                                        .cozyText(CozyFont.bodyEmphasis)
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundStyle(CozyColor.inkSecondary)
-                                }
-                                .frame(minHeight: CozyMetrics.minimumTouchTarget)
-                                .contentShape(.rect)
-                            }
-                            .buttonStyle(.squishy)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    CrumbCard {
-                        VStack(alignment: .leading, spacing: CozySpacing.m) {
-                            Text("Sous Chef")
-                                .cozyText(CozyFont.title2)
-                            Text("Add a Gemini key to import from Instagram, TikTok, YouTube and Facebook.")
-                                .cozyText(CozyFont.subheadline, color: CozyColor.inkSecondary)
-                            NavigationLink {
-                                AIKeySettingsView()
-                            } label: {
-                                HStack {
-                                    Text("Set up the Sous Chef")
-                                        .cozyText(CozyFont.bodyEmphasis)
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundStyle(CozyColor.inkSecondary)
-                                }
-                                .frame(minHeight: CozyMetrics.minimumTouchTarget)
-                                .contentShape(.rect)
-                            }
-                            .buttonStyle(.squishy)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    CrumbCard {
-                        Toggle(isOn: $hapticsEnabled) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Haptics")
-                                    .cozyText(CozyFont.bodyEmphasis)
-                                Text("A soft tap on every press.")
-                                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                            }
-                        }
-                        .tint(accent.deep)
-                    }
-
-                    CrumbCard {
-                        Toggle(isOn: $roundUpShoppingAmounts) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Round up to shop sizes")
-                                    .cozyText(CozyFont.bodyEmphasis)
-                                Text("375 g of flour becomes the 400 g you'd actually buy.")
-                                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                            }
-                        }
-                        .tint(accent.deep)
-                    }
-
-                    CrumbCard {
-                        Toggle(isOn: $checkOffAddsToPantry) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Ticking stocks the Pantry")
-                                    .cozyText(CozyFont.bodyEmphasis)
-                                Text("Anything you tick off the grocery list counts as bought.")
-                                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                            }
-                        }
-                        .tint(accent.deep)
-                    }
-
-                    CrumbCard {
-                        Toggle(isOn: $darkModeEnabled) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Dark mode")
-                                    .cozyText(CozyFont.bodyEmphasis)
-                                Text("Use Cozy Crumb's warm nighttime palette.")
-                                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                            }
-                        }
-                        .tint(accent.deep)
-                    }
-
-                    CrumbCard(fill: CozyColor.creamDeep) {
-                        VStack(spacing: CozySpacing.s) {
-                            Text("The rest of Settings arrives in Phase 7")
-                                .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                                .multilineTextAlignment(.center)
-                            Text(AppBranding.versionDisplayString)
-                                .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-                .padding(CozySpacing.l)
-            }
-            .background { BlobBackground() }
-            .navigationTitle("Settings")
         }
     }
 }

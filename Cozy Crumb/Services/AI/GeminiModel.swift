@@ -33,6 +33,25 @@ enum GeminiModel: String, CaseIterable, Identifiable, Sendable {
     nonisolated var supportsVideo: Bool {
         self == .balanced
     }
+
+    /// The model Settings is set to.
+    ///
+    /// Every AI call site defaults to this rather than to a hard-coded case,
+    /// which is what makes the picker in Settings mean something — it was
+    /// writing a preference nothing read.
+    nonisolated static var preferred: GeminiModel {
+        preferred(in: .standard)
+    }
+
+    /// A model ID stored by an older build — or a hand-edited one — falls back
+    /// to the default rather than being sent to the API to 404.
+    nonisolated static func preferred(in defaults: UserDefaults) -> GeminiModel {
+        guard let raw = defaults.string(forKey: CozyDefaultsKey.geminiModel),
+              let model = GeminiModel(rawValue: raw) else {
+            return .balanced
+        }
+        return model
+    }
 }
 
 enum GeminiEndpoint {
