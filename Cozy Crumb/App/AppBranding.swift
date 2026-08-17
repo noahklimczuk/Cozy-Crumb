@@ -22,8 +22,12 @@ enum AppBranding {
 
     /// Custom scheme used by the Share Extension to hand a URL to the main app.
     /// (A free Apple ID cannot use App Groups, so the extension cannot write to
-    /// the shared store directly — see the Phase 10 notes.)
-    static let urlScheme = "cozycrumb"
+    /// the shared store directly — see `CozyDeepLink`.)
+    ///
+    /// Taken from `CozyDeepLink` rather than written out again: the extension
+    /// builds its links from that one, and two spellings of the same scheme is
+    /// exactly the bug this would cause.
+    nonisolated static let urlScheme = CozyDeepLink.scheme
 
     /// Where the user gets a Gemini key. Linked from Settings.
     static let apiKeyURL = URL(string: "https://aistudio.google.com/apikey")

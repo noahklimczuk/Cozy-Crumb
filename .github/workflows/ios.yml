@@ -46,6 +46,28 @@ jobs:
             DEVELOPMENT_TEAM="" \
             | tee build.log
 
+      # The app's Info.plist is a merge of two things: Config/CozyCrumb-Info.plist
+      # carries the URL scheme (there is no INFOPLIST_KEY_ for CFBundleURLTypes)
+      # and GENERATE_INFOPLIST_FILE layers the INFOPLIST_KEY_* settings on top.
+      # If that merge ever stops happening the app still builds perfectly — it
+      # just quietly loses its usage strings and the share hand-off — so the
+      # keys are checked in the product rather than assumed.
+      - name: Check the built Info.plists
+        run: |
+          set -e
+          APP="build/Debug-iphonesimulator/Cozy Crumb.app"
+
+          echo "Scheme, from the partial plist:"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes:0:CFBundleURLSchemes:0" "$APP/Info.plist"
+          echo "Display name and usage string, from the INFOPLIST_KEY_* settings:"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :NSRemindersFullAccessUsageDescription" "$APP/Info.plist"
+
+          echo "The extension, and its principal class with \$(PRODUCT_MODULE_NAME) expanded:"
+          APPEX="$APP/PlugIns/Cozy CrumbShare.appex/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$APPEX"
+          /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPrincipalClass" "$APPEX"
+
       # Skips itself until a test target exists. Adding a Unit Testing Bundle
       # in Xcode is all that is needed to turn this on.
       - name: Test
