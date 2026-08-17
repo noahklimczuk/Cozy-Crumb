@@ -380,6 +380,7 @@
 				INFOPLIST_FILE = "Config/CozyCrumb-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Cozy Crumb";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cozy Crumb uses the camera so you can photograph your fridge or cupboard and have what's in it read straight into your pantry.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Cozy Crumb adds your grocery list to Reminders so you can tick things off while you shop.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -416,6 +417,7 @@
 				INFOPLIST_FILE = "Config/CozyCrumb-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Cozy Crumb";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cozy Crumb uses the camera so you can photograph your fridge or cupboard and have what's in it read straight into your pantry.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Cozy Crumb adds your grocery list to Reminders so you can tick things off while you shop.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

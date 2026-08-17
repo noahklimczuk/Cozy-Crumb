@@ -29,4 +29,7 @@ nonisolated enum CozyDefaultsKey {
     static let roundUpShoppingAmounts = "settings.roundUpShoppingAmounts"
     /// How the Cookbook's recipe grids are ordered.
     static let librarySort = "library.sort"
+    /// Whether the "how to photograph a fridge" tips have been through once.
+    /// After that the camera button goes straight to the viewfinder.
+    static let seenFridgeCameraTips = "pantry.seenFridgeCameraTips"
 }
