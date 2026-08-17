@@ -9,6 +9,7 @@
 
 import SwiftData
 import SwiftUI
+import os
 
 enum CozyTab: Hashable {
     case library
@@ -47,6 +48,10 @@ struct RootTabView: View {
     /// Defaults to whatever the old dark-mode switch was set to, so upgrading
     /// doesn't silently change how the app looks.
     @AppStorage(CozyDefaultsKey.appearance) private var appearanceRaw = AppAppearance.stored().rawValue
+
+    /// Called the moment a shared link arrives, so the launch splash can get
+    /// out of the way rather than making the import wait behind it.
+    var onSharedLink: () -> Void = {}
 
     @State private var selection: CozyTab = .library
     /// A link handed over from outside the app — the share extension, a
@@ -101,7 +106,14 @@ struct RootTabView: View {
         .environment(\.hapticsEnabled, hapticsEnabled)
         .preferredColorScheme(appearance.colorScheme)
         .onOpenURL { url in
-            guard case .importRecipe(let link)? = CozyDeepLink(url: url) else { return }
+            guard case .importRecipe(let link)? = CozyDeepLink(url: url) else {
+                Log.app.error("Ignored an unrecognised link: \(url.scheme ?? "none", privacy: .public)://…")
+                return
+            }
+
+            Log.app.info("Opened with a shared link to import")
+
+            onSharedLink()
 
             // The Cookbook is where a new recipe belongs, and switching first
             // means cancelling the import leaves you somewhere sensible.
