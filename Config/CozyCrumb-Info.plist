@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Only the keys Xcode cannot generate live here. GENERATE_INFOPLIST_FILE
+	  stays on, so everything set through INFOPLIST_KEY_* build settings is
+	  merged into this file at build time rather than duplicated in it.
+
+	  The scheme is how the share extension hands a link to the app: a free
+	  Apple ID cannot use App Groups, so the extension has no shared container
+	  to write to and opens cozycrumb://import?url=… instead.
+	-->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>ca.klimczuk.cozycrumb</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>cozycrumb</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

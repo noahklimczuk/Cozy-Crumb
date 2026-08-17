@@ -49,6 +49,9 @@ struct RootTabView: View {
     @AppStorage(CozyDefaultsKey.appearance) private var appearanceRaw = AppAppearance.stored().rawValue
 
     @State private var selection: CozyTab = .library
+    /// A link handed over from outside the app — the share extension, a
+    /// shortcut, anything that opens the cozycrumb:// scheme.
+    @State private var sharedLink: SharedLink?
 
     private var accent: AccentPalette {
         AccentPalette(rawValue: accentRaw) ?? .blush
@@ -97,6 +100,17 @@ struct RootTabView: View {
         .environment(\.accentPalette, accent)
         .environment(\.hapticsEnabled, hapticsEnabled)
         .preferredColorScheme(appearance.colorScheme)
+        .onOpenURL { url in
+            guard case .importRecipe(let link)? = CozyDeepLink(url: url) else { return }
+
+            // The Cookbook is where a new recipe belongs, and switching first
+            // means cancelling the import leaves you somewhere sensible.
+            selection = .library
+            sharedLink = SharedLink(url: link)
+        }
+        .sheet(item: $sharedLink) { link in
+            ImportFlowView(initialURL: link.url)
+        }
         .task {
             SeedData.installIfNeeded(in: modelContext)
             // Re-reads ingredient lines saved before the caption parsing
@@ -117,4 +131,14 @@ struct RootTabView: View {
         .modelContainer(PreviewData.container)
         .environment(KitchenTimers(usesNotifications: false))
         .preferredColorScheme(.dark)
+}
+
+// MARK: - Shared links
+
+/// A link from outside the app, wrapped so `.sheet(item:)` can present it —
+/// `URL` isn't `Identifiable`, and sharing the same link twice should open the
+/// importer both times.
+private struct SharedLink: Identifiable {
+    let id = UUID()
+    let url: URL
 }

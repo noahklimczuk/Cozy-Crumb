@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  The share extension's manifest. It lives here rather than inside
+	  "Cozy CrumbShare/" so that folder holds nothing but Swift, and Xcode's
+	  synchronized-folder membership never has to make an exception for it.
+
+	  Only the keys Xcode cannot generate are here; GENERATE_INFOPLIST_FILE
+	  stays on, so the INFOPLIST_KEY_* build settings are merged in on top.
+	-->
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.share-services</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).ShareViewController</string>
+		<key>NSExtensionAttributes</key>
+		<dict>
+			<!--
+			  Links and text only. A share sheet entry that lights up for
+			  photos and then says "that isn't a recipe" is worse than not
+			  appearing at all.
+			-->
+			<key>NSExtensionActivationRule</key>
+			<dict>
+				<key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
+				<integer>1</integer>
+				<key>NSExtensionActivationSupportsText</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+</dict>
+</plist>

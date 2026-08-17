@@ -6,8 +6,42 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		CC100000000000000000000F /* CozyDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC100000000000000000000E /* CozyDeepLink.swift */; };
+		CC1000000000000000000010 /* CozyDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC100000000000000000000E /* CozyDeepLink.swift */; };
+		CC100000000000000000000D /* Cozy CrumbShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CC1000000000000000000008 /* Cozy CrumbShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		CC100000000000000000000C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4FA9ECA33030334F00F91901 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC1000000000000000000001;
+			remoteInfo = "Cozy CrumbShare";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		CC100000000000000000000A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				CC100000000000000000000D /* Cozy CrumbShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		4FA9ECAB3030335000F91901 /* Cozy Crumb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cozy Crumb.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC1000000000000000000008 /* Cozy CrumbShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Cozy CrumbShare.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC100000000000000000000E /* CozyDeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CozyDeepLink.swift; sourceTree = "<group>"; };
+		CC1000000000000000000013 /* CozyCrumb-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "CozyCrumb-Info.plist"; sourceTree = "<group>"; };
+		CC1000000000000000000014 /* CozyCrumbShare-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "CozyCrumbShare-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +50,22 @@
 			path = "Cozy Crumb";
 			sourceTree = "<group>";
 		};
+		CC1000000000000000000009 /* Cozy CrumbShare */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Cozy CrumbShare";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4FA9ECA83030335000F91901 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC1000000000000000000003 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +79,9 @@
 			isa = PBXGroup;
 			children = (
 				4FA9ECAD3030335000F91901 /* Cozy Crumb */,
+				CC1000000000000000000009 /* Cozy CrumbShare */,
+				CC1000000000000000000011 /* Shared */,
+				CC1000000000000000000012 /* Config */,
 				4FA9ECAC3030335000F91901 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,8 +90,26 @@
 			isa = PBXGroup;
 			children = (
 				4FA9ECAB3030335000F91901 /* Cozy Crumb.app */,
+				CC1000000000000000000008 /* Cozy CrumbShare.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		CC1000000000000000000011 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				CC100000000000000000000E /* CozyDeepLink.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		CC1000000000000000000012 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				CC1000000000000000000013 /* CozyCrumb-Info.plist */,
+				CC1000000000000000000014 /* CozyCrumbShare-Info.plist */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -55,10 +122,12 @@
 				4FA9ECA73030335000F91901 /* Sources */,
 				4FA9ECA83030335000F91901 /* Frameworks */,
 				4FA9ECA93030335000F91901 /* Resources */,
+				CC100000000000000000000A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				CC100000000000000000000B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4FA9ECAD3030335000F91901 /* Cozy Crumb */,
@@ -69,6 +138,28 @@
 			productName = "Cozy Crumb";
 			productReference = 4FA9ECAB3030335000F91901 /* Cozy Crumb.app */;
 			productType = "com.apple.product-type.application";
+		};
+		CC1000000000000000000001 /* Cozy CrumbShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CC1000000000000000000005 /* Build configuration list for PBXNativeTarget "Cozy CrumbShare" */;
+			buildPhases = (
+				CC1000000000000000000002 /* Sources */,
+				CC1000000000000000000003 /* Frameworks */,
+				CC1000000000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				CC1000000000000000000009 /* Cozy CrumbShare */,
+			);
+			name = "Cozy CrumbShare";
+			packageProductDependencies = (
+			);
+			productName = "Cozy CrumbShare";
+			productReference = CC1000000000000000000008 /* Cozy CrumbShare.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -81,6 +172,9 @@
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					4FA9ECAA3030335000F91901 = {
+						CreatedOnToolsVersion = 26.5;
+					};
+					CC1000000000000000000001 = {
 						CreatedOnToolsVersion = 26.5;
 					};
 				};
@@ -100,12 +194,20 @@
 			projectRoot = "";
 			targets = (
 				4FA9ECAA3030335000F91901 /* Cozy Crumb */,
+				CC1000000000000000000001 /* Cozy CrumbShare */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		4FA9ECA93030335000F91901 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC1000000000000000000004 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -119,10 +221,27 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC100000000000000000000F /* CozyDeepLink.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC1000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC1000000000000000000010 /* CozyDeepLink.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		CC100000000000000000000B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC1000000000000000000001 /* Cozy CrumbShare */;
+			targetProxy = CC100000000000000000000C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		4FA9ECB43030335F00F91901 /* Debug */ = {
@@ -258,6 +377,7 @@
 				DEVELOPMENT_TEAM = G7QJ43W8M3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/CozyCrumb-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Cozy Crumb";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Cozy Crumb adds your grocery list to Reminders so you can tick things off while you shop.";
@@ -293,6 +413,7 @@
 				DEVELOPMENT_TEAM = G7QJ43W8M3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/CozyCrumb-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Cozy Crumb";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Cozy Crumb adds your grocery list to Reminders so you can tick things off while you shop.";
@@ -309,6 +430,62 @@
 				PRODUCT_BUNDLE_IDENTIFIER = ca.klimczuk.cozycrumb;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		CC1000000000000000000006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = G7QJ43W8M3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/CozyCrumbShare-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Cozy Crumb";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ca.klimczuk.cozycrumb.Share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CC1000000000000000000007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = G7QJ43W8M3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/CozyCrumbShare-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Cozy Crumb";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ca.klimczuk.cozycrumb.Share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -335,6 +512,15 @@
 			buildConfigurations = (
 				4FA9ECB73030335F00F91901 /* Debug */,
 				4FA9ECB83030335F00F91901 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CC1000000000000000000005 /* Build configuration list for PBXNativeTarget "Cozy CrumbShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC1000000000000000000006 /* Debug */,
+				CC1000000000000000000007 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
