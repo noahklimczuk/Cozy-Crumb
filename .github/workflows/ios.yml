@@ -62,6 +62,9 @@ jobs:
           echo "Display name and usage string, from the INFOPLIST_KEY_* settings:"
           /usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" "$APP/Info.plist"
           /usr/libexec/PlistBuddy -c "Print :NSRemindersFullAccessUsageDescription" "$APP/Info.plist"
+          # A missing camera string is not a build error — it is a crash the
+          # first time someone taps the pantry's camera button.
+          /usr/libexec/PlistBuddy -c "Print :NSCameraUsageDescription" "$APP/Info.plist"
 
           echo "The extension, and its principal class with \$(PRODUCT_MODULE_NAME) expanded:"
           APPEX="$APP/PlugIns/Cozy CrumbShare.appex/Info.plist"

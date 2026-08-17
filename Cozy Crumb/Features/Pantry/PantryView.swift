@@ -17,6 +17,7 @@
 import PhotosUI
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct PantryView: View {
     @Environment(\.modelContext) private var modelContext
@@ -28,6 +29,25 @@ struct PantryView: View {
     @State private var viewModel = PantryViewModel()
     @State private var photoSelection: [PhotosPickerItem] = []
     @State private var editingExpiry: PantryItem?
+
+    /// The camera flow. Each step hands to the next through the presentation's
+    /// own `onDismiss`, because a sheet and a full-screen cover cannot be
+    /// swapped in the same run loop turn without one of them being dropped.
+    @AppStorage(CozyDefaultsKey.seenFridgeCameraTips) private var seenCameraTips = false
+    @State private var isShowingTips = false
+    @State private var isShowingCamera = false
+    @State private var isShowingShots = false
+    @State private var isShowingPhotoPicker = false
+    @State private var nextCameraStep: CameraStep?
+    @State private var shots: [UIImage] = []
+
+    /// What to do once the sheet that's on screen has finished getting out of
+    /// the way.
+    private enum CameraStep {
+        case camera
+        case shots
+        case photoLibrary
+    }
 
     private var groups: [PantryViewModel.Group] {
         viewModel.groups(from: items)
@@ -75,7 +95,104 @@ struct PantryView: View {
                 guard !picked.isEmpty else { return }
                 Task { await handlePicked(picked) }
             }
+            .sheet(isPresented: $isShowingTips, onDismiss: advance) {
+                FridgeCameraTipsView(
+                    hasCamera: CameraCaptureView.isAvailable,
+                    onStart: {
+                        seenCameraTips = true
+                        take(.camera)
+                    },
+                    onPickFromPhotos: { take(.photoLibrary) }
+                )
+            }
+            .fullScreenCover(isPresented: $isShowingCamera, onDismiss: advance) {
+                CameraCaptureView(
+                    onCapture: { image in
+                        shots.append(image)
+                        take(.shots)
+                    },
+                    onCancel: {
+                        // Back to the tray if anything has been taken already,
+                        // otherwise the whole flow is over.
+                        take(shots.isEmpty ? nil : .shots)
+                    }
+                )
+                .ignoresSafeArea()
+            }
+            .sheet(isPresented: $isShowingShots, onDismiss: advance) {
+                FridgeShotsView(
+                    shots: shots,
+                    hasCamera: CameraCaptureView.isAvailable,
+                    onTakeAnother: { take(.camera) },
+                    onRemove: { index in
+                        shots.remove(at: index)
+                        if shots.isEmpty { take(nil) }
+                    },
+                    onPickFromPhotos: { take(.photoLibrary) },
+                    onRead: { take(nil); Task { await readShots() } }
+                )
+            }
+            .photosPicker(
+                isPresented: $isShowingPhotoPicker,
+                selection: $photoSelection,
+                maxSelectionCount: 4,
+                matching: .images
+            )
         }
+    }
+
+    // MARK: - The camera flow
+
+    /// Closes whatever is on screen and remembers what comes next. Passing nil
+    /// simply closes.
+    private func take(_ step: CameraStep?) {
+        nextCameraStep = step
+        isShowingTips = false
+        isShowingCamera = false
+        isShowingShots = false
+    }
+
+    private func advance() {
+        guard let step = nextCameraStep else { return }
+        nextCameraStep = nil
+
+        switch step {
+        case .camera: isShowingCamera = true
+        case .shots: isShowingShots = true
+        case .photoLibrary: isShowingPhotoPicker = true
+        }
+    }
+
+    /// The camera button. The tips come up once, on the first go; after that it
+    /// goes straight to the viewfinder.
+    private func startCamera() {
+        shots = []
+
+        guard seenCameraTips else {
+            isShowingTips = true
+            return
+        }
+
+        guard CameraCaptureView.isAvailable else {
+            isShowingPhotoPicker = true
+            return
+        }
+
+        isShowingCamera = true
+    }
+
+    private func readShots() async {
+        // The encode is the expensive half, and a camera image is big, so it
+        // happens off the main actor. `Data` crosses the boundary; `UIImage`
+        // stays on this side of it.
+        let raw = shots.compactMap { $0.jpegData(compressionQuality: 0.9) }
+        shots = []
+
+        let photos = await Task.detached {
+            raw.compactMap { ImageProcessor.downscaledJPEG(from: $0) }
+        }.value
+
+        await viewModel.read(photos: photos)
     }
 
     private var showingSpotted: Binding<Bool> {
@@ -259,16 +376,15 @@ struct PantryView: View {
     @ToolbarContentBuilder
     private var photoButton: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            PhotosPicker(
-                selection: $photoSelection,
-                maxSelectionCount: 4,
-                matching: .images
-            ) {
+            Button {
+                startCamera()
+            } label: {
                 Image(systemName: "camera")
                     .foregroundStyle(CozyColor.inkSecondary)
             }
             .disabled(!viewModel.canReadPhotos)
-            .accessibilityLabel("Read the fridge from a photo")
+            .accessibilityLabel("Photograph the fridge")
+            .accessibilityHint("Opens the camera to read what's in from a photo")
         }
     }
 
