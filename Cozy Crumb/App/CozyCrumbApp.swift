@@ -19,14 +19,18 @@ struct CozyCrumbApp: App {
     /// so this cannot belong to a view that gets torn down.
     @State private var timers = KitchenTimers()
 
+    /// Set when a link arrives from the share sheet. Someone who shared a
+    /// recipe is waiting on the importer, not on the cupcake.
+    @State private var isSplashSkipped = false
+
     init() {
         modelContainer = Self.makeModelContainer()
     }
 
     var body: some Scene {
         WindowGroup {
-            AppLaunchView {
-                RootTabView()
+            AppLaunchView(isSkipped: isSplashSkipped) {
+                RootTabView(onSharedLink: { isSplashSkipped = true })
             }
             .environment(timers)
         }
@@ -66,6 +70,9 @@ struct CozyCrumbApp: App {
 /// A short, branded handoff after iOS's system launch screen. Keeping this in
 /// SwiftUI lets the cupcake greet the user while SwiftData opens the store.
 private struct AppLaunchView<Content: View>: View {
+    /// Cuts the greeting short — set when the app was opened to do something
+    /// specific, like import a shared link.
+    let isSkipped: Bool
     let content: () -> Content
 
     @State private var isShowingSplash = true
@@ -82,9 +89,19 @@ private struct AppLaunchView<Content: View>: View {
         }
         .task {
             try? await Task.sleep(for: .seconds(4))
-            withAnimation(.easeOut(duration: 0.28)) {
-                isShowingSplash = false
-            }
+            hideSplash()
+        }
+        .onChange(of: isSkipped) { _, skipped in
+            guard skipped else { return }
+            hideSplash()
+        }
+    }
+
+    private func hideSplash() {
+        guard isShowingSplash else { return }
+
+        withAnimation(.easeOut(duration: 0.28)) {
+            isShowingSplash = false
         }
     }
 }

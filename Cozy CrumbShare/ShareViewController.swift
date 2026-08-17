@@ -13,11 +13,22 @@
 //
 //      find the link → open cozycrumb://import?url=… → get out of the way
 //
-//  There is deliberately no UI. A share extension that flashes a screen to say
-//  "opening…" is slower to use than one that just opens.
+//  Getting out of the way is the hard part, and the first version of this got
+//  it wrong: iOS does not really want a share extension opening its containing
+//  app. `extensionContext.open` is documented for Today widgets, and from a
+//  share sheet it answers false — or never answers at all, which left the
+//  sheet sitting there awaiting a callback that was never coming. That is what
+//  "nothing happens when you share" looked like.
+//
+//  So nothing here waits on a callback. The responder chain goes first because
+//  it is synchronous and it is what actually works; `extensionContext.open` is
+//  the fallback, fire-and-forget; the link goes on the pasteboard before
+//  either is tried; and if neither route exists the extension says so on
+//  screen. Silence is the one outcome ruled out.
 //
 
 import Foundation
+import ObjectiveC
 import UIKit
 import UniformTypeIdentifiers
 import os
@@ -26,35 +37,58 @@ final class ShareViewController: UIViewController {
 
     private static let log = Logger(subsystem: "ca.klimczuk.cozycrumb", category: "share")
 
+    private var hasStarted = false
+
+    /// Deliberately `viewDidAppear` rather than `viewDidLoad`. Asking the
+    /// system to open a URL before the extension is actually on screen is one
+    /// of the ways this quietly fails.
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        guard !hasStarted else { return }
+        hasStarted = true
+
+        Task { await handOffSharedLink() }
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear
-
-        Task { await handOffSharedLink() }
     }
 
     // MARK: - The hand-off
 
     private func handOffSharedLink() async {
         guard let shared = await sharedURL() else {
-            Self.log.info("Nothing shareable in that item")
+            Self.log.error("No link in the shared item")
+            await explain("Cozy Crumb couldn't find a link in that.")
             finish()
             return
         }
 
         guard let deepLink = CozyDeepLink.importing(shared) else {
+            Self.log.error("Could not build an import link")
+            await explain("Cozy Crumb couldn't read that link.")
             finish()
             return
         }
 
-        let opened = await open(deepLink)
+        // Always leave the link on the pasteboard, before trying anything. The
+        // user just shared a link, so it is no surprise to find it there, and
+        // it means the app's paste button can finish the job whatever the
+        // system decides to do with the request below.
+        UIPasteboard.general.url = shared
 
-        if !opened {
-            // Nothing useful left to do — the sheet is the wrong place to
-            // explain it, and the link is still on the user's clipboard route.
-            Self.log.error("The system declined to open \(CozyDeepLink.scheme, privacy: .public)://")
+        guard open(deepLink) else {
+            Self.log.error("Nothing would open \(CozyDeepLink.scheme, privacy: .public)://")
+            await explain("Cozy Crumb wouldn't open. The link is copied — open the app and tap paste.")
+            finish()
+            return
         }
 
+        // A beat before tearing the sheet down: completing the request the
+        // instant after asking to launch can cancel the launch.
+        try? await Task.sleep(for: .milliseconds(400))
         finish()
     }
 
@@ -119,18 +153,61 @@ final class ShareViewController: UIViewController {
 
     // MARK: - Handing over
 
-    /// `extensionContext.open` is the only sanctioned way out of a share
-    /// extension. The old trick of walking the responder chain to find
-    /// `UIApplication` is not used here: it needs extension-unsafe API, and a
-    /// share extension that links against it is the wrong trade for a fallback
-    /// that Apple has been closing off for years.
-    private func open(_ url: URL) async -> Bool {
+    /// The responder chain goes first, and `extensionContext.open` is the
+    /// fallback rather than the other way round. Two reasons: it is the one
+    /// that actually works from a share sheet, and it is synchronous — waiting
+    /// on `open`'s completion handler means waiting on a callback that, from a
+    /// share extension, may never arrive at all. A sheet sitting there forever
+    /// is indistinguishable from the extension doing nothing.
+    private func open(_ url: URL) -> Bool {
+        if openViaResponderChain(url) { return true }
+
+        Self.log.info("No UIApplication in the responder chain; asking the extension context")
+
         guard let context = extensionContext else { return false }
 
-        return await withCheckedContinuation { continuation in
-            context.open(url) { opened in
-                continuation.resume(returning: opened)
+        // Deliberately no completion handler: nothing here waits on it.
+        context.open(url, completionHandler: nil)
+
+        return true
+    }
+
+    /// The long-standing route out of a share extension. Officially only a
+    /// Today widget may open a URL, so this finds the `UIApplication` up the
+    /// responder chain and asks it directly.
+    ///
+    /// It goes through the ObjC selector rather than calling `UIApplication.open`,
+    /// which is the point: the symbol never appears in the binary, so the
+    /// extension still builds with `APPLICATION_EXTENSION_API_ONLY` on.
+    private func openViaResponderChain(_ url: URL) -> Bool {
+        let selector = NSSelectorFromString("openURL:")
+        var responder: UIResponder? = self
+
+        while let current = responder {
+            if current.responds(to: selector) {
+                _ = current.perform(selector, with: url)
+                return true
             }
+            responder = current.next
+        }
+
+        return false
+    }
+
+    // MARK: - When it doesn't work
+
+    /// The only UI in here, and it only ever appears on a failure. A share
+    /// extension that dismisses itself without a word leaves the user with no
+    /// idea whether anything happened.
+    private func explain(_ message: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+
+            alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+                continuation.resume()
+            })
+
+            present(alert, animated: true)
         }
     }
 
