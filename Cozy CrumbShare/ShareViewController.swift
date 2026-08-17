@@ -25,9 +25,24 @@
 //
 
 import Foundation
+import ObjectiveC
 import UIKit
 import UniformTypeIdentifiers
 import os
+
+/// `UIApplication.open(_:options:completionHandler:)`, redeclared.
+///
+/// Nothing conforms to this. It exists so the selector can be sent to the real
+/// `UIApplication` without the extension's binary containing a symbol that app
+/// extensions are not allowed to reference. The signature has to match the
+/// Objective-C method exactly, or the message lands somewhere unpleasant.
+/// The completion handler is declared `@MainActor` because that is where
+/// UIKit calls it, and because it saves the closure below from having to cross
+/// an isolation boundary to touch the page it is reporting on.
+@objc private protocol ApplicationURLOpening {
+    @objc(openURL:options:completionHandler:)
+    func open(_ url: URL, options: [String: Any], completionHandler: (@MainActor (Bool) -> Void)?)
+}
 
 final class ShareViewController: UIViewController {
 
@@ -80,35 +95,63 @@ final class ShareViewController: UIViewController {
         }
 
         show(status: "Opening Cozy Crumb…", canOpen: false)
-        await attemptOpen(deepLink)
+        attemptOpen(deepLink)
     }
 
     // MARK: - Handing over
 
-    /// Asks `UIApplication` directly, found by walking up the responder chain.
+    /// Finds `UIApplication` up the responder chain and asks it to open the
+    /// link, by selector rather than by name.
     ///
-    /// The polite route, `extensionContext.open`, is documented for Today
-    /// widgets and from a share sheet it either answers false or never answers
-    /// at all — it is kept below only as a last resort. Reaching `UIApplication`
-    /// is why this target is built with `APPLICATION_EXTENSION_API_ONLY = NO`:
-    /// the extension-safe API cannot open the app, and opening the app is the
-    /// entire point of the extension.
-    private func attemptOpen(_ url: URL) async {
-        guard let application = hostApplication() else {
-            Self.log.info("No UIApplication in the responder chain; asking the extension context")
+    /// The dance is forced. `UIApplication.open` is unavailable to app
+    /// extensions at compile time, and the build system refuses to let an
+    /// extension opt out — "Application extensions and any libraries they link
+    /// to must be built with the APPLICATION_EXTENSION_API_ONLY build setting
+    /// set to YES". Meanwhile the one call an extension *is* given,
+    /// `extensionContext.open`, is documented for Today widgets and from a
+    /// share sheet answers false or never answers at all. So the method is
+    /// declared as a selector on a protocol nothing conforms to, and the real
+    /// object is messaged through it — no `UIApplication` symbol in the binary,
+    /// same method at the other end.
+    private func attemptOpen(_ url: URL) {
+        guard let responder = applicationResponder() else {
+            // Nothing in the chain can open a URL. That is worth saying out
+            // loud rather than failing into the same silence as before.
+            Self.log.error("No UIApplication in the responder chain")
             extensionContext?.open(url, completionHandler: nil)
             show(status: "Tap to open Cozy Crumb and import this.", canOpen: true)
             return
         }
 
-        // Only the `Bool` crosses back out of the completion handler, which
-        // keeps the compiler happy without capturing `self` inside it. If the
-        // handler never fires the page simply stays on "Opening…" — visible,
-        // with a Close button, rather than a sheet that vanished silently.
-        let opened = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
-            application.open(url, options: [:]) { continuation.resume(returning: $0) }
+        let modern = NSSelectorFromString("openURL:options:completionHandler:")
+
+        if responder.responds(to: modern) {
+            // Our own declaration, so the completion handler is an ordinary
+            // closure and can talk back to the page.
+            let opener = unsafeBitCast(responder, to: (any ApplicationURLOpening).self)
+
+            opener.open(url, options: [:]) { [weak self] opened in
+                self?.openFinished(opened)
+            }
+            return
         }
 
+        let legacy = NSSelectorFromString("openURL:")
+
+        if responder.responds(to: legacy) {
+            Self.log.info("Falling back to the deprecated openURL:")
+            _ = responder.perform(legacy, with: url)
+            // No answer to be had from this one, so leave the button up.
+            show(status: "Asked iOS to open Cozy Crumb. Tap below if it didn't.", canOpen: true)
+            return
+        }
+
+        Self.log.error("UIApplication answers to neither open selector")
+        extensionContext?.open(url, completionHandler: nil)
+        show(status: "Tap to open Cozy Crumb and import this.", canOpen: true)
+    }
+
+    private func openFinished(_ opened: Bool) {
         guard opened else {
             Self.log.error("The system would not open \(CozyDeepLink.scheme, privacy: .public)://")
             show(
@@ -122,11 +165,15 @@ final class ShareViewController: UIViewController {
         finish()
     }
 
-    private func hostApplication() -> UIApplication? {
+    /// `UIApplication` cannot be named in an extension, so it is found by class
+    /// rather than by cast.
+    private func applicationResponder() -> UIResponder? {
+        guard let applicationClass = NSClassFromString("UIApplication") else { return nil }
+
         var responder: UIResponder? = self
 
         while let current = responder {
-            if let application = current as? UIApplication { return application }
+            if current.isKind(of: applicationClass) { return current }
             responder = current.next
         }
 
@@ -290,8 +337,7 @@ final class ShareViewController: UIViewController {
         guard let link = sharedLink, let deepLink = CozyDeepLink.importing(link) else { return }
 
         show(status: "Opening Cozy Crumb…", canOpen: false)
-
-        Task { await attemptOpen(deepLink) }
+        attemptOpen(deepLink)
     }
 }
 
