@@ -3,32 +3,28 @@
 //  Cozy CrumbShare
 //
 //  The share sheet entry: send a link from Instagram, TikTok, Safari or
-//  Messages straight into the importer.
+//  Messages into the importer.
 //
-//  It does as little as possible on purpose. A free Apple ID cannot use App
-//  Groups, so the extension has no shared container to write a recipe into,
-//  and it has no business running an import inside a share sheet anyway —
-//  that would mean a network call, an API key, and a review screen inside a
-//  process iOS is happy to kill. So the whole job is:
+//  This is the third attempt at the hand-off, and the first two both failed
+//  the same way — invisibly. The extension found the link, asked the system to
+//  open the app, the system declined, and the sheet dismissed without a word.
+//  From the outside that is indistinguishable from the extension never having
+//  run at all, which is why two rounds of fixing produced no information.
 //
-//      find the link → open cozycrumb://import?url=… → get out of the way
+//  So the rule here is: something always comes up. The extension draws its own
+//  page, in Cozy Crumb's colours, before it tries anything. If the app opens,
+//  the page is never seen and the sheet tidies itself away. If the app does not
+//  open, the page stays, says so, and offers the button again — with the link
+//  already on the pasteboard, so the app's own paste button can finish the job
+//  either way.
 //
-//  Getting out of the way is the hard part, and the first version of this got
-//  it wrong: iOS does not really want a share extension opening its containing
-//  app. `extensionContext.open` is documented for Today widgets, and from a
-//  share sheet it answers false — or never answers at all, which left the
-//  sheet sitting there awaiting a callback that was never coming. That is what
-//  "nothing happens when you share" looked like.
-//
-//  So nothing here waits on a callback. The responder chain goes first because
-//  it is synchronous and it is what actually works; `extensionContext.open` is
-//  the fallback, fire-and-forget; the link goes on the pasteboard before
-//  either is tried; and if neither route exists the extension says so on
-//  screen. Silence is the one outcome ruled out.
+//  Why the extension cannot simply do the import itself: a free Apple ID has
+//  no App Groups, so there is no container shared with the app to save a
+//  recipe into. Opening the app is the only way a shared link becomes a saved
+//  recipe, so the whole design hangs on that one call working.
 //
 
 import Foundation
-import ObjectiveC
 import UIKit
 import UniformTypeIdentifiers
 import os
@@ -37,59 +33,104 @@ final class ShareViewController: UIViewController {
 
     private static let log = Logger(subsystem: "ca.klimczuk.cozycrumb", category: "share")
 
+    private var sharedLink: URL?
     private var hasStarted = false
 
-    /// Deliberately `viewDidAppear` rather than `viewDidLoad`. Asking the
-    /// system to open a URL before the extension is actually on screen is one
-    /// of the ways this quietly fails.
+    private let titleLabel = UILabel()
+    private let linkLabel = UILabel()
+    private let statusLabel = UILabel()
+    private let openButton = UIButton(type: .system)
+    private let closeButton = UIButton(type: .system)
+
+    // MARK: - Lifecycle
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        buildPage()
+    }
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
 
         guard !hasStarted else { return }
         hasStarted = true
 
-        Task { await handOffSharedLink() }
+        Task { await start() }
     }
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .clear
-    }
-
-    // MARK: - The hand-off
-
-    private func handOffSharedLink() async {
-        guard let shared = await sharedURL() else {
+    private func start() async {
+        guard let link = await sharedURL() else {
             Self.log.error("No link in the shared item")
-            await explain("Cozy Crumb couldn't find a link in that.")
-            finish()
+            show(status: "There is no link in that to import.", canOpen: false)
             return
         }
 
-        guard let deepLink = CozyDeepLink.importing(shared) else {
+        sharedLink = link
+        linkLabel.text = Self.readable(link)
+
+        // On the pasteboard before anything is attempted. The user just shared
+        // a link, so finding it there is no surprise, and it means the app's
+        // paste button can finish the job whatever the system does next.
+        UIPasteboard.general.url = link
+
+        guard let deepLink = CozyDeepLink.importing(link) else {
             Self.log.error("Could not build an import link")
-            await explain("Cozy Crumb couldn't read that link.")
-            finish()
+            show(status: "That link can't be imported.", canOpen: false)
             return
         }
 
-        // Always leave the link on the pasteboard, before trying anything. The
-        // user just shared a link, so it is no surprise to find it there, and
-        // it means the app's paste button can finish the job whatever the
-        // system decides to do with the request below.
-        UIPasteboard.general.url = shared
+        show(status: "Opening Cozy Crumb…", canOpen: false)
+        await attemptOpen(deepLink)
+    }
 
-        guard open(deepLink) else {
-            Self.log.error("Nothing would open \(CozyDeepLink.scheme, privacy: .public)://")
-            await explain("Cozy Crumb wouldn't open. The link is copied — open the app and tap paste.")
-            finish()
+    // MARK: - Handing over
+
+    /// Asks `UIApplication` directly, found by walking up the responder chain.
+    ///
+    /// The polite route, `extensionContext.open`, is documented for Today
+    /// widgets and from a share sheet it either answers false or never answers
+    /// at all — it is kept below only as a last resort. Reaching `UIApplication`
+    /// is why this target is built with `APPLICATION_EXTENSION_API_ONLY = NO`:
+    /// the extension-safe API cannot open the app, and opening the app is the
+    /// entire point of the extension.
+    private func attemptOpen(_ url: URL) async {
+        guard let application = hostApplication() else {
+            Self.log.info("No UIApplication in the responder chain; asking the extension context")
+            extensionContext?.open(url, completionHandler: nil)
+            show(status: "Tap to open Cozy Crumb and import this.", canOpen: true)
             return
         }
 
-        // A beat before tearing the sheet down: completing the request the
-        // instant after asking to launch can cancel the launch.
-        try? await Task.sleep(for: .milliseconds(400))
+        // Only the `Bool` crosses back out of the completion handler, which
+        // keeps the compiler happy without capturing `self` inside it. If the
+        // handler never fires the page simply stays on "Opening…" — visible,
+        // with a Close button, rather than a sheet that vanished silently.
+        let opened = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            application.open(url, options: [:]) { continuation.resume(returning: $0) }
+        }
+
+        guard opened else {
+            Self.log.error("The system would not open \(CozyDeepLink.scheme, privacy: .public)://")
+            show(
+                status: "Cozy Crumb wouldn't open on its own. The link is copied — tap below, or open the app and tap Paste.",
+                canOpen: true
+            )
+            return
+        }
+
+        // The app is coming up. Tidy the sheet away behind it.
         finish()
+    }
+
+    private func hostApplication() -> UIApplication? {
+        var responder: UIResponder? = self
+
+        while let current = responder {
+            if let application = current as? UIApplication { return application }
+            responder = current.next
+        }
+
+        return nil
     }
 
     // MARK: - Finding the link
@@ -151,67 +192,137 @@ final class ShareViewController: UIViewController {
         return detector.firstMatch(in: text, range: range)?.url
     }
 
-    // MARK: - Handing over
+    /// "instagram.com/reel/ABC" — enough to recognise what you shared, without
+    /// a line of tracking parameters.
+    private static func readable(_ url: URL) -> String {
+        let host = (url.host() ?? "").replacingOccurrences(of: "www.", with: "")
+        let path = url.path
 
-    /// The responder chain goes first, and `extensionContext.open` is the
-    /// fallback rather than the other way round. Two reasons: it is the one
-    /// that actually works from a share sheet, and it is synchronous — waiting
-    /// on `open`'s completion handler means waiting on a callback that, from a
-    /// share extension, may never arrive at all. A sheet sitting there forever
-    /// is indistinguishable from the extension doing nothing.
-    private func open(_ url: URL) -> Bool {
-        if openViaResponderChain(url) { return true }
-
-        Self.log.info("No UIApplication in the responder chain; asking the extension context")
-
-        guard let context = extensionContext else { return false }
-
-        // Deliberately no completion handler: nothing here waits on it.
-        context.open(url, completionHandler: nil)
-
-        return true
+        return path.isEmpty ? host : host + path
     }
 
-    /// The long-standing route out of a share extension. Officially only a
-    /// Today widget may open a URL, so this finds the `UIApplication` up the
-    /// responder chain and asks it directly.
-    ///
-    /// It goes through the ObjC selector rather than calling `UIApplication.open`,
-    /// which is the point: the symbol never appears in the binary, so the
-    /// extension still builds with `APPLICATION_EXTENSION_API_ONLY` on.
-    private func openViaResponderChain(_ url: URL) -> Bool {
-        let selector = NSSelectorFromString("openURL:")
-        var responder: UIResponder? = self
+    // MARK: - The page
 
-        while let current = responder {
-            if current.responds(to: selector) {
-                _ = current.perform(selector, with: url)
-                return true
-            }
-            responder = current.next
-        }
-
-        return false
-    }
-
-    // MARK: - When it doesn't work
-
-    /// The only UI in here, and it only ever appears on a failure. A share
-    /// extension that dismisses itself without a word leaves the user with no
-    /// idea whether anything happened.
-    private func explain(_ message: String) async {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-
-            alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-                continuation.resume()
-            })
-
-            present(alert, animated: true)
-        }
+    private func show(status: String, canOpen: Bool) {
+        statusLabel.text = status
+        openButton.isHidden = !canOpen
+        closeButton.setTitle(canOpen ? "Not now" : "Close", for: .normal)
     }
 
     private func finish() {
         extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+    }
+
+    private func buildPage() {
+        view.backgroundColor = CozyShare.cream
+
+        let card = UIView()
+        card.backgroundColor = CozyShare.card
+        card.layer.cornerRadius = 24
+        card.layer.cornerCurve = .continuous
+        card.layer.borderWidth = 1.5
+        card.layer.borderColor = CozyShare.outline.cgColor
+
+        titleLabel.text = "Import to Cozy Crumb"
+        titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
+        titleLabel.textColor = CozyShare.inkPrimary
+        titleLabel.textAlignment = .center
+        titleLabel.numberOfLines = 0
+
+        linkLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        linkLabel.textColor = CozyShare.inkSecondary
+        linkLabel.textAlignment = .center
+        linkLabel.numberOfLines = 2
+        linkLabel.lineBreakMode = .byTruncatingMiddle
+
+        statusLabel.font = .systemFont(ofSize: 15)
+        statusLabel.textColor = CozyShare.inkSecondary
+        statusLabel.textAlignment = .center
+        statusLabel.numberOfLines = 0
+        statusLabel.text = "Looking for a link…"
+
+        openButton.setTitle("Open Cozy Crumb", for: .normal)
+        openButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+        openButton.setTitleColor(CozyShare.inkPrimary, for: .normal)
+        openButton.backgroundColor = CozyShare.blush
+        openButton.layer.cornerRadius = 20
+        openButton.layer.cornerCurve = .continuous
+        openButton.isHidden = true
+        openButton.addAction(
+            UIAction { [weak self] _ in self?.openAgain() },
+            for: .touchUpInside
+        )
+
+        closeButton.setTitle("Close", for: .normal)
+        closeButton.titleLabel?.font = .systemFont(ofSize: 16)
+        closeButton.setTitleColor(CozyShare.inkSecondary, for: .normal)
+        closeButton.addAction(
+            UIAction { [weak self] _ in self?.finish() },
+            for: .touchUpInside
+        )
+
+        let stack = UIStackView(arrangedSubviews: [titleLabel, linkLabel, statusLabel, openButton, closeButton])
+        stack.axis = .vertical
+        stack.alignment = .fill
+        stack.spacing = 16
+        stack.setCustomSpacing(8, after: titleLabel)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        card.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(stack)
+        view.addSubview(card)
+
+        NSLayoutConstraint.activate([
+            card.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+
+            stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 24),
+            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -20),
+
+            openButton.heightAnchor.constraint(equalToConstant: 52)
+        ])
+    }
+
+    private func openAgain() {
+        guard let link = sharedLink, let deepLink = CozyDeepLink.importing(link) else { return }
+
+        show(status: "Opening Cozy Crumb…", canOpen: false)
+
+        Task { await attemptOpen(deepLink) }
+    }
+}
+
+/// The handful of colours this page needs, written out rather than shared.
+///
+/// The app's design system is SwiftUI and reads its accent from the asset
+/// catalog in the app target; dragging that into the extension to style one
+/// card would be a poor trade. These are the same hex values as `CozyColor`.
+private enum CozyShare {
+    // Left on the target's default MainActor isolation on purpose: these are
+    // only ever read while building the page, and a `nonisolated` static of a
+    // class type is the sort of thing Swift 6 rightly objects to.
+    static let cream = adaptive(light: 0xFFFBF7, dark: 0x2A2321)
+    static let card = adaptive(light: 0xFFFFFF, dark: 0x362D2A)
+    static let blush = adaptive(light: 0xF8C8D4, dark: 0xE0A6B6)
+    static let outline = adaptive(light: 0xE4D5CB, dark: 0x4A3E39)
+    static let inkPrimary = adaptive(light: 0x6B5A52, dark: 0xF2E7E0)
+    static let inkSecondary = adaptive(light: 0x826F64, dark: 0xC4B2A8)
+
+    nonisolated static func adaptive(light: UInt32, dark: UInt32) -> UIColor {
+        UIColor { traits in
+            solid(traits.userInterfaceStyle == .dark ? dark : light)
+        }
+    }
+
+    nonisolated static func solid(_ rgb: UInt32) -> UIColor {
+        UIColor(
+            red: CGFloat((rgb >> 16) & 0xFF) / 255,
+            green: CGFloat((rgb >> 8) & 0xFF) / 255,
+            blue: CGFloat(rgb & 0xFF) / 255,
+            alpha: 1
+        )
     }
 }
