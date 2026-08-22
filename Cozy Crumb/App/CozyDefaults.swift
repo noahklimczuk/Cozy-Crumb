@@ -35,4 +35,6 @@ nonisolated enum CozyDefaultsKey {
 
     /// When the taste signal log was last pruned. See SignalRetention.
     static let lastSignalPruneAt = "taste.lastSignalPruneAt"
+    /// When the app last looked for saved-but-never-cooked recipes.
+    static let lastAspirationScanAt = "taste.lastAspirationScanAt"
 }

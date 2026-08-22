@@ -44,7 +44,8 @@ enum CozyCrumbSchemaV1: VersionedSchema {
             GroceryItem.self,
             PantryItem.self,
             PlannedMeal.self,
-            TasteSignal.self
+            TasteSignal.self,
+            TasteProfile.self
         ]
     }
 }

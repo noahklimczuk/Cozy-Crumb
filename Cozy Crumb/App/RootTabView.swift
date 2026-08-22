@@ -134,6 +134,9 @@ struct RootTabView: View {
             // Recipes saved before the classifier existed have no cuisine,
             // and cuisine is most of what the taste profile talks about.
             CuisineBackfill.run(in: modelContext)
+            // The recipes they mean to make and never do. Once a day.
+            AspirationGapDetector.runIfDue(in: modelContext)
+            TasteProfileStore.rebuildIfStale(in: modelContext)
         }
     }
 }

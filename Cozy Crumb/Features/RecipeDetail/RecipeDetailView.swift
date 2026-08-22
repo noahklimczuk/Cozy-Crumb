@@ -502,6 +502,10 @@ struct RecipeDetailView: View {
             in: modelContext
         )
 
+        // §3: rebuild immediately after a cook or an explicit rating. Those
+        // are the signals worth acting on before the next launch.
+        TasteProfileStore.rebuild(in: modelContext)
+
         viewModel.isCelebrating = true
         Task {
             try? await Task.sleep(for: .milliseconds(1400))
