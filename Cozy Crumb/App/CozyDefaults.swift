@@ -32,4 +32,7 @@ nonisolated enum CozyDefaultsKey {
     /// Whether the "how to photograph a fridge" tips have been through once.
     /// After that the camera button goes straight to the viewfinder.
     static let seenFridgeCameraTips = "pantry.seenFridgeCameraTips"
+
+    /// When the taste signal log was last pruned. See SignalRetention.
+    static let lastSignalPruneAt = "taste.lastSignalPruneAt"
 }

@@ -253,6 +253,20 @@ struct SettingsView: View {
             }
             .buttonStyle(.squishy)
 
+            #if DEBUG
+            Divider().overlay(CozyColor.outline)
+
+            NavigationLink {
+                SignalInspectorView()
+            } label: {
+                SettingsRowLabel(
+                    title: "Taste signals",
+                    detail: "The raw learning log, with the decay arithmetic. Debug builds only."
+                )
+            }
+            .buttonStyle(.squishy)
+            #endif
+
             Divider().overlay(CozyColor.outline)
 
             VStack(spacing: CozySpacing.xs) {

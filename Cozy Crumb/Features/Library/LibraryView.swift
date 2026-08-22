@@ -117,7 +117,10 @@ struct LibraryView: View {
                 placeholder: "Search recipes and ingredients",
                 text: $viewModel.searchText,
                 systemImage: "magnifyingglass",
-                submitLabel: .search
+                submitLabel: .search,
+                // Only submitted searches are logged. Recording every
+                // keystroke would fill the log with the prefixes of one word.
+                onSubmit: { SignalLog.searched(viewModel.searchText, in: modelContext) }
             )
 
             addButton
@@ -383,9 +386,12 @@ struct LibraryView: View {
         recipe.isFavorite.toggle()
         recipe.touch()
         save("favourite")
+        SignalLog.favorited(recipe, isNowFavorite: recipe.isFavorite, in: modelContext)
     }
 
     private func toggle(_ recipe: Recipe, in collection: RecipeCollection) {
+        let wasIn = recipe.collections.contains { $0.id == collection.id }
+
         if let index = recipe.collections.firstIndex(where: { $0.id == collection.id }) {
             recipe.collections.remove(at: index)
         } else {
@@ -393,6 +399,12 @@ struct LibraryView: View {
         }
         recipe.touch()
         save("collection membership")
+
+        // Filing something away is deliberate curation. Taking it out again
+        // is tidying, and is not read as a rejection.
+        if !wasIn {
+            SignalLog.addedToCollection(recipe, in: modelContext)
+        }
     }
 
     private func createCollection() {
@@ -580,6 +592,7 @@ private struct CollectionFolderView: View {
         recipe.isFavorite.toggle()
         recipe.touch()
         save("favourite")
+        SignalLog.favorited(recipe, isNowFavorite: recipe.isFavorite, in: modelContext)
     }
 
     private func remove(_ recipe: Recipe) {

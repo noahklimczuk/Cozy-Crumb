@@ -79,6 +79,20 @@ struct RecipeDetailView: View {
         .coordinateSpace(.named(Self.scrollSpace))
         .background { BlobBackground() }
         .navigationTitle(recipe.title)
+        // Opening a recipe is a weak signal; staying on it is a better one.
+        // The sleep is cancelled when the screen goes away, so backing
+        // straight out records only the glance.
+        .task(id: recipe.id) {
+            SignalLog.viewed(recipe, in: modelContext)
+
+            do {
+                try await Task.sleep(for: SignalLog.longViewThreshold)
+            } catch {
+                return
+            }
+
+            SignalLog.readProperly(recipe, in: modelContext)
+        }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             favoriteButton
@@ -451,6 +465,7 @@ struct RecipeDetailView: View {
                 recipe.isFavorite.toggle()
                 recipe.touch()
                 save("favourite")
+                SignalLog.favorited(recipe, isNowFavorite: recipe.isFavorite, in: modelContext)
             } label: {
                 Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
                     .foregroundStyle(recipe.isFavorite ? CozyColor.blushDeep : CozyColor.inkSecondary)
@@ -462,6 +477,11 @@ struct RecipeDetailView: View {
     // MARK: - Actions
 
     private func logCook(rating: Int?, notes: String?) {
+        // Counted before the new log is attached: one prior cook or more is
+        // what makes this a repeat, which is the strongest taste signal there
+        // is.
+        let priorCookCount = recipe.cookLogs.count
+
         let log = CookLog(rating: rating, notes: notes)
         modelContext.insert(log)
         log.recipe = recipe
@@ -474,6 +494,13 @@ struct RecipeDetailView: View {
         recipe.touch()
 
         save("cook log")
+
+        SignalLog.cooked(
+            recipe,
+            priorCookCount: priorCookCount,
+            rating: rating,
+            in: modelContext
+        )
 
         viewModel.isCelebrating = true
         Task {

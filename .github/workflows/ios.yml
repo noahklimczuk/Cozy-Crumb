@@ -26,11 +26,12 @@ jobs:
           swift --version
           xcodebuild -project "Cozy Crumb.xcodeproj" -list || true
 
-      # Built with -target rather than -scheme deliberately: the project has no
-      # shared scheme (schemes live in xcuserdata, which is gitignored), so a
-      # -scheme build would fail on a clean checkout. Signing is disabled
-      # because a simulator build does not need it and the project carries a
-      # personal DEVELOPMENT_TEAM that CI cannot use.
+      # Still built with -target rather than -scheme: the Info.plist check
+      # below reads the product out of build/, which is where a -target build
+      # puts it, and a -scheme build would hide it in DerivedData. The Test
+      # step does use the shared scheme, which now names a test target.
+      # Signing is disabled because a simulator build does not need it and the
+      # project carries a personal DEVELOPMENT_TEAM that CI cannot use.
       - name: Build for iOS Simulator
         run: |
           set -o pipefail
@@ -71,23 +72,34 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$APPEX"
           /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPrincipalClass" "$APPEX"
 
-      # Skips itself until a test target exists. Adding a Unit Testing Bundle
-      # in Xcode is all that is needed to turn this on.
+      # Runs against the shared scheme, which builds the app as the test host
+      # and then the test bundle. The simulator is picked from whatever the
+      # runner actually has rather than named outright — a hard-coded device
+      # name turns a runner image bump into a red build for no real reason.
       - name: Test
         run: |
           set -o pipefail
-          if xcodebuild -project "Cozy Crumb.xcodeproj" -list 2>/dev/null | grep -qi "CozyCrumbTests\|Cozy CrumbTests"; then
-            echo "Test target found — running tests."
-            xcodebuild test \
-              -project "Cozy Crumb.xcodeproj" \
-              -scheme "Cozy Crumb" \
-              -destination 'platform=iOS Simulator,OS=latest,name=iPhone 17' \
-              CODE_SIGNING_ALLOWED=NO
-          else
-            echo "No test target in the project yet — skipping."
-            echo "Add one with File > New > Target > Unit Testing Bundle, then"
-            echo "drag in the files from Cozy CrumbTests/."
+
+          DEVICE=$(xcrun simctl list devices available \
+            | grep -E '^ +iPhone' \
+            | head -1 \
+            | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+
+          if [ -z "$DEVICE" ]; then
+            echo "::error::No iPhone simulator available on this runner."
+            xcrun simctl list devices available
+            exit 1
           fi
+
+          echo "Testing on simulator $DEVICE"
+          xcodebuild test \
+            -project "Cozy Crumb.xcodeproj" \
+            -scheme "Cozy Crumb" \
+            -destination "platform=iOS Simulator,id=$DEVICE" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=""
 
       # The spec asks for zero compiler warnings (§11). Only warnings from our
       # own Swift files are counted — toolchain noise like the AppIntents

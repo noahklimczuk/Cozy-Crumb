@@ -687,6 +687,14 @@ final class ImportViewModel {
 
         do {
             try context.save()
+
+            // Only a genuinely new recipe is a signal. Re-saving an edit is
+            // housekeeping, and reading it as fresh interest would let one
+            // fiddled-with recipe outweigh five real ones.
+            if !updatingExisting {
+                SignalLog.imported(target, in: context)
+            }
+
             return target
         } catch {
             Log.data.error("Could not save imported recipe: \(error.localizedDescription, privacy: .public)")
