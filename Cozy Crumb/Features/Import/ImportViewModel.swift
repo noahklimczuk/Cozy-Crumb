@@ -684,6 +684,7 @@ final class ImportViewModel {
         }
 
         apply(to: target, in: context)
+        CuisineBackfill.classify(target)
 
         do {
             try context.save()

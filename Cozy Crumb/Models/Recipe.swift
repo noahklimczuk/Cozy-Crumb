@@ -84,6 +84,12 @@ final class Recipe {
     /// banner on the review screen.
     var importConfidence: Double?
 
+    /// What kind of food this is, worked out by `CuisineClassifier` rather
+    /// than stated by anyone. Cached because the taste profile reads it for
+    /// every recipe on every rebuild, and nil when the evidence did not
+    /// support a guess — an honest blank beats a confident wrong answer.
+    var inferredCuisine: String?
+
     var createdAt: Date
     var updatedAt: Date
     /// Drives the "Recently cooked" section without walking every cook log.
@@ -110,6 +116,7 @@ final class Recipe {
         rating: Int? = nil,
         personalNotes: String? = nil,
         importConfidence: Double? = nil,
+        inferredCuisine: String? = nil,
         createdAt: Date = .now,
         updatedAt: Date = .now,
         lastCookedAt: Date? = nil
@@ -134,6 +141,7 @@ final class Recipe {
         self.rating = rating
         self.personalNotes = personalNotes
         self.importConfidence = importConfidence
+        self.inferredCuisine = inferredCuisine
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.lastCookedAt = lastCookedAt

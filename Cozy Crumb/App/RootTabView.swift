@@ -131,6 +131,9 @@ struct RootTabView: View {
             // Drops taste signals old enough that decay has already made them
             // worthless. Once a day at most; see SignalRetention.
             SignalRetention.runIfDue(in: modelContext)
+            // Recipes saved before the classifier existed have no cuisine,
+            // and cuisine is most of what the taste profile talks about.
+            CuisineBackfill.run(in: modelContext)
         }
     }
 }
