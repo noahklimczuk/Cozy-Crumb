@@ -214,9 +214,10 @@ enum SignalLog {
         do {
             try modelContext.save()
         } catch {
+            // One literal, not two concatenated: an os.Logger message is an
+            // OSLogMessage rather than a String, and '+' does not apply.
             Log.data.error(
-                "Could not save a \(kind.rawValue, privacy: .public) signal: "
-                    + "\(error.localizedDescription, privacy: .public)"
+                "Could not save a \(kind.rawValue, privacy: .public) signal: \(error.localizedDescription, privacy: .public)"
             )
         }
     }
