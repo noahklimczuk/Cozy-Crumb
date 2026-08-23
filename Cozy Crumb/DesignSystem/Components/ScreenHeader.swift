@@ -21,6 +21,12 @@
 //  The block bleeds under the status bar by ignoring the top safe area on its
 //  fill only, so the text stays where the safe area put it.
 //
+//  One call-site rule: a header with only *one* of the two slots filled must
+//  name it — `ScreenHeader(title: …, trailing: { … })`. Both slots are
+//  closures, so a bare trailing closure matches the `trailing`-only and the
+//  `below`-only initialiser equally and the call is ambiguous. Filling both is
+//  fine unlabelled, because only one initialiser takes two.
+//
 
 import SwiftUI
 

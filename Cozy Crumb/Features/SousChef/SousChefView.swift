@@ -28,35 +28,50 @@ struct SousChefView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            VStack(spacing: 0) {
+                header
+
                 if viewModel.isAwake {
                     conversation
                 } else {
                     asleep
                 }
             }
-            .background { BlobBackground() }
-            .navigationTitle("Sous Chef")
+            .cozyScreenBackground()
+            .toolbar(.hidden, for: .navigationBar)
             .task {
                 await viewModel.loadReflection(in: modelContext)
             }
             .sheet(isPresented: $isShowingOnboarding) {
                 TasteOnboardingView()
             }
-            .toolbar {
+        }
+    }
+
+    // MARK: - Header
+
+    /// No strip under the title and nothing much beside it: the mascot is this
+    /// screen's hero and it belongs in the conversation, at the size the empty
+    /// state draws it, not shrunk into a badge in the corner.
+    ///
+    /// The one control is "start again", which used to be a toolbar button and
+    /// has nowhere else to go now the bar is hidden. It appears only once
+    /// there is a conversation to start again from.
+    private var header: some View {
+        ScreenHeader(
+            title: "Sous Chef",
+            eyebrow: AppBranding.appName,
+            trailing: {
                 if !viewModel.isEmptyConversation {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            viewModel.clear()
-                        } label: {
-                            Image(systemName: "arrow.counterclockwise")
-                                .foregroundStyle(CozyColor.inkSecondary)
-                        }
-                        .accessibilityLabel("Start a new conversation")
+                    HeaderGlyphButton(
+                        systemImage: "arrow.counterclockwise",
+                        accessibilityLabel: "Start a new conversation"
+                    ) {
+                        viewModel.clear()
                     }
                 }
             }
-        }
+        )
     }
 
     // MARK: - Asleep
@@ -323,7 +338,7 @@ struct SousChefView: View {
         }
         .padding(.horizontal, CozySpacing.l)
         .padding(.vertical, CozySpacing.m)
-        .background(.ultraThinMaterial)
+        .background(CozyColor.cream)
     }
 }
 
