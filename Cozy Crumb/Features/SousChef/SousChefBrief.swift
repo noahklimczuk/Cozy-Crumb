@@ -75,9 +75,13 @@ enum SousChefBrief {
         )
 
         let context = RecommendationContext(
+            // P2 replaces this mapping: `PantryEntry` will carry the item's
+            // own confidence and `RecommendationEngine.freshness` goes away,
+            // so there is one decay model rather than the engine's and the
+            // pantry's disagreeing about how long dairy stays believable.
             pantry: pantryItems.map { item in
                 PantryEntry(
-                    name: item.name,
+                    name: item.displayName,
                     category: item.category,
                     addedAt: item.addedAt,
                     expiresAt: item.expiresAt

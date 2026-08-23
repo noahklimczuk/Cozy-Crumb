@@ -28,7 +28,7 @@ struct FridgePhotoReaderTests {
             ("peppers", 3, 0.7)
         ]))
 
-        #expect(items.map(\.name) == ["milk", "peppers", "mustard"])
+        #expect(items.map(\.displayName) == ["milk", "peppers", "mustard"])
     }
 
     @Test("The unsure ones are kept, flagged rather than dropped")
@@ -87,7 +87,7 @@ struct PantryExpiryTests {
 
     private func item(name: String, expiringInDays days: Int?) -> PantryItem {
         PantryItem(
-            name: name,
+            displayName: name,
             expiresAt: days.map { Calendar.current.date(byAdding: .day, value: $0, to: now) ?? now }
         )
     }
@@ -127,7 +127,7 @@ struct PantryGroupingTests {
 
     private func item(_ name: String, _ category: GroceryCategory, expiringInDays days: Int? = nil) -> PantryItem {
         PantryItem(
-            name: name,
+            displayName: name,
             category: category,
             expiresAt: days.map { Calendar.current.date(byAdding: .day, value: $0, to: now) ?? now }
         )
@@ -146,7 +146,7 @@ struct PantryGroupingTests {
         )
 
         #expect(groups.first?.section == .expiring)
-        #expect(try #require(groups.first).items.map(\.name) == ["Yoghurt"])
+        #expect(try #require(groups.first).items.map(\.displayName) == ["Yoghurt"])
     }
 
     @Test("An expiring item isn't also listed under its aisle")
@@ -192,6 +192,6 @@ struct PantryGroupingTests {
             now: now
         )
 
-        #expect(groups.first?.items.map(\.name) == ["Milk", "Yoghurt", "Cream"])
+        #expect(groups.first?.items.map(\.displayName) == ["Milk", "Yoghurt", "Cream"])
     }
 }

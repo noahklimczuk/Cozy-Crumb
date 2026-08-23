@@ -23,7 +23,7 @@ struct PantryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.cozyMotion) private var motion
 
-    @Query(sort: \PantryItem.name) private var items: [PantryItem]
+    @Query(sort: \PantryItem.displayName) private var items: [PantryItem]
 
     @State private var viewModel = PantryViewModel()
     @State private var photoSelection: [PhotosPickerItem] = []
@@ -272,7 +272,7 @@ struct PantryView: View {
         HStack(spacing: CozySpacing.s) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: CozySpacing.xs) {
-                    Text(item.name)
+                    Text(item.displayName)
                         .cozyText(CozyFont.body)
 
                     Spacer(minLength: CozySpacing.s)
@@ -340,7 +340,7 @@ struct PantryView: View {
     }
 
     private func accessibilityLabel(for item: PantryItem) -> String {
-        [amountText(for: item), item.name, caption(for: item)]
+        [amountText(for: item), item.displayName, caption(for: item)]
             .compactMap { $0 }
             .joined(separator: ", ")
     }
@@ -454,7 +454,7 @@ private struct PantryExpirySheet: View {
             }
             .padding(CozySpacing.l)
             .cozyScreenBackground()
-            .navigationTitle(item.name)
+            .navigationTitle(item.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

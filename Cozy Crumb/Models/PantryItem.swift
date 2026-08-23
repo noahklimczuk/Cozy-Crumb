@@ -2,66 +2,220 @@
 //  PantryItem.swift
 //  Cozy Crumb
 //
-//  What the user currently has. Feeds the Sous Chef's "what can I make?" and
-//  is populated by hand, by a confirmed fridge photo, or by checking an item
-//  off the grocery list.
+//  What the user probably has.
+//
+//  "Probably" is the whole design. Every pantry feature ever shipped dies the
+//  same way: week one the user enters everything, week three they stop
+//  updating quantities, week five the app confidently plans dinner around
+//  chicken that was eaten a fortnight ago. At that point the pantry is worse
+//  than useless, because it is actively degrading the recommendations that
+//  depend on it. The failure is never missing features. It is staleness.
+//
+//  So this model does not store "has chicken". It stores evidence: how
+//  strongly something was believed, when it was last confirmed, and what kind
+//  of thing it is. Confidence is derived from those, never stored — a stored
+//  number that is supposed to fall off over time needs something to recompute
+//  it, nothing ever does, and the result is a value that quietly lies. That is
+//  the exact bug this whole feature exists to avoid, and it would be
+//  embarrassing to reproduce it inside the mechanism meant to fix it.
+//
+//  `canonicalName` is computed for the same reason. A stored copy is a cache
+//  of `IngredientCanonicalizer`, and it goes wrong the next time that gets
+//  better at its job.
+//
+//  The decay maths itself is P2. This file carries the evidence.
 //
 
 import Foundation
 import SwiftData
 
-enum PantryItemSource: String, Codable, CaseIterable, Sendable {
+// MARK: - Capture source
+
+/// How an item got here, and how much that is worth believing.
+///
+/// Raw values are unchanged from the three-case `PantryItemSource` this
+/// replaces, so rows written before the revamp still decode.
+nonisolated enum CaptureSource: String, Codable, CaseIterable, Sendable {
     case manual
     case fridgePhoto
     case groceryCheckoff
+    case receiptScan
+    case barcode
+    case voiceShortcut
+    case autoRestock
 
     nonisolated var displayName: String {
         switch self {
         case .manual: "Added by hand"
         case .fridgePhoto: "Spotted in a photo"
         case .groceryCheckoff: "Ticked off the list"
+        case .receiptScan: "Read off a receipt"
+        case .barcode: "Scanned"
+        case .voiceShortcut: "Added by voice"
+        case .autoRestock: "Assumed restocked"
+        }
+    }
+
+    /// How strongly to believe this evidence the moment it lands.
+    ///
+    /// Typing something in is a person telling you a fact. A grocery check-off
+    /// is nearly as good — they were holding it. A photo is the weakest of the
+    /// real signals, because a camera cannot see behind the milk.
+    nonisolated var initialConfidence: Double {
+        switch self {
+        case .manual, .voiceShortcut: 1.0
+        case .barcode: 0.95
+        case .groceryCheckoff: 0.95
+        case .receiptScan: 0.9
+        case .fridgePhoto: 0.85
+        case .autoRestock: 0.5
+        }
+    }
+
+    /// The most this source is ever allowed to claim, however sure the thing
+    /// supplying it says it is. A vision model reporting 0.99 on a carton of
+    /// milk still has not seen what is behind it.
+    nonisolated var confidenceCap: Double {
+        switch self {
+        case .fridgePhoto: 0.85
+        case .receiptScan: 0.9
+        case .autoRestock: 0.5
+        case .manual, .voiceShortcut, .barcode, .groceryCheckoff: 1.0
         }
     }
 }
 
+// MARK: - Item
+
 @Model
 final class PantryItem {
     @Attribute(.unique) var id: UUID
-    var name: String
+
+    /// What the user sees: "Roma tomatoes". The canonical form for matching is
+    /// computed from this — see the extension below.
+    @Attribute(originalName: "name") var displayName: String
+
+    var category: GroceryCategory
+    var tier: PantryTier = PantryTier.stock
+    var location: StorageLocation = StorageLocation.pantry
+
+    // Quantity is deliberately fuzzy. Both of these are optional and it is
+    // normal for both to be nil: you cannot know that half the onion got used,
+    // and pretending otherwise is how the numbers stop meaning anything.
     var quantity: Double?
     var unit: String?
-    var category: GroceryCategory
+    var looseAmount: LooseAmount?
+
+    /// How strongly this item was believed at `lastConfirmedAt`. Set from the
+    /// capture source, or from the source's cap and whatever evidence came
+    /// with it. Decay is applied on read, not written back into this.
+    var confidenceAtConfirmation: Double = 1.0
+
+    /// When someone or something last established that this is really here.
+    ///
+    /// `.distantPast` is the sentinel for a row written before the revamp:
+    /// see `hasBeenBackfilled` below. A real confirmation is never distantPast.
+    var lastConfirmedAt: Date = Date.distantPast
+
     var addedAt: Date
+    @Attribute(originalName: "source") var addedVia: CaptureSource
+
+    /// A date the *user* read off the package. Authoritative where it exists,
+    /// and always preferred over the app's own estimate — the app is guessing
+    /// from a shelf-life table and the package is not.
     var expiresAt: Date?
-    var source: PantryItemSource
+
+    /// When an opened package was opened. Opened things spoil faster, and the
+    /// use-by estimate takes this into account.
+    var openedAt: Date?
+
+    /// "Always assume I have this." Holds confidence at full regardless of
+    /// tier or age.
+    var isPinned: Bool = false
+
+    var notes: String?
 
     init(
         id: UUID = UUID(),
-        name: String,
+        displayName: String,
         quantity: Double? = nil,
         unit: String? = nil,
+        looseAmount: LooseAmount? = nil,
         category: GroceryCategory = .other,
+        tier: PantryTier = .stock,
+        location: StorageLocation? = nil,
+        confidenceAtConfirmation: Double? = nil,
+        lastConfirmedAt: Date? = nil,
         addedAt: Date = .now,
         expiresAt: Date? = nil,
-        source: PantryItemSource = .manual
+        openedAt: Date? = nil,
+        isPinned: Bool = false,
+        notes: String? = nil,
+        addedVia: CaptureSource = .manual
     ) {
         self.id = id
-        self.name = name
+        self.displayName = displayName
         self.quantity = quantity
         self.unit = unit
+        self.looseAmount = looseAmount
         self.category = category
+        self.tier = tier
+        self.location = location ?? StorageLocation.inferred(from: category)
+        self.confidenceAtConfirmation = min(
+            confidenceAtConfirmation ?? addedVia.initialConfidence,
+            addedVia.confidenceCap
+        )
+        // A new row is confirmed by the act of being written. Falling back to
+        // `addedAt` rather than `.now` keeps a backdated import honest.
+        self.lastConfirmedAt = lastConfirmedAt ?? addedAt
         self.addedAt = addedAt
         self.expiresAt = expiresAt
-        self.source = source
+        self.openedAt = openedAt
+        self.isPinned = isPinned
+        self.notes = notes
+        self.addedVia = addedVia
     }
 }
 
+// MARK: - Derived
+
 extension PantryItem {
-    /// Days until expiry, or nil when no date is set.
+    /// The canonical food name, for matching against recipes, the taste
+    /// profile and the shopping list.
+    ///
+    /// Computed, not stored: `IngredientCanonicalizer` is the one place that
+    /// answers this question for the whole app, and a stored copy here would
+    /// be a cache that silently disagrees with it the next time it improves.
+    var canonicalName: String {
+        IngredientCanonicalizer.canonical(displayName)
+    }
+
+    /// False for a row written before the revamp, which has never had a tier,
+    /// a location or a real `lastConfirmedAt` worked out for it.
+    ///
+    /// One marker for the whole row rather than a flag per field: everything
+    /// `PantryBackfill` sets, it sets together, so one sentinel is enough and
+    /// there is no half-migrated state to reason about.
+    var hasBeenBackfilled: Bool {
+        lastConfirmedAt != .distantPast
+    }
+
+    /// How the amount reads on screen, whether it was counted or guessed at.
+    var amountDescription: String? {
+        let measured = FractionFormatter.quantityString(quantity: quantity, unit: unit)
+        if !measured.isEmpty { return measured }
+        return looseAmount?.displayName
+    }
+
+    /// Days until the user's own recorded date, or nil when they never set one.
+    ///
+    /// This is deliberately *not* the shelf-life estimate. The estimate is a
+    /// guess the app makes and labels as a guess; this is a date somebody read
+    /// off a package. P8 adds the estimate alongside, and where both exist
+    /// this one wins.
     func daysUntilExpiry(now: Date = .now) -> Int? {
         guard let expiresAt else { return nil }
-        let days = Calendar.current.dateComponents([.day], from: now, to: expiresAt).day
-        return days
+        return Calendar.current.dateComponents([.day], from: now, to: expiresAt).day
     }
 
     /// Items within three days float to the top with an amber tint (§5.8).

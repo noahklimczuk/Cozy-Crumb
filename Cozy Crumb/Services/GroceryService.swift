@@ -155,27 +155,37 @@ enum GroceryService {
 
     /// Ticking something off optionally means you now own it (§5.5). Merges
     /// into an existing pantry row rather than stacking duplicates.
-    static func addToPantry(_ item: GroceryItem, in context: ModelContext) {
+    static func addToPantry(_ item: GroceryItem, in context: ModelContext, now: Date = .now) {
         let key = GroceryMerge.normalizedName(item.name)
         let existing = (try? context.fetch(FetchDescriptor<PantryItem>()))?
-            .first { GroceryMerge.normalizedName($0.name) == key }
+            .first { GroceryMerge.normalizedName($0.displayName) == key }
 
         if let existing {
-            existing.addedAt = .now
+            // They were holding it. That is a confirmation as much as an
+            // addition, and the strongest evidence short of typing it in.
+            existing.addedAt = now
+            existing.lastConfirmedAt = now
+            existing.confidenceAtConfirmation = max(
+                existing.confidenceAtConfirmation,
+                CaptureSource.groceryCheckoff.initialConfidence
+            )
             if existing.quantity == nil {
                 existing.quantity = item.quantity
                 existing.unit = item.unit
             }
+            PantryLog.record(.added, for: existing, quantityDelta: item.quantity, at: now, in: context)
         } else {
-            context.insert(
-                PantryItem(
-                    name: item.name,
-                    quantity: item.quantity,
-                    unit: item.unit,
-                    category: item.category,
-                    source: .groceryCheckoff
-                )
+            let pantryItem = PantryItem(
+                displayName: item.name,
+                quantity: item.quantity,
+                unit: item.unit,
+                category: item.category,
+                tier: PantryTierClassifier.tier(for: item.name, category: item.category),
+                addedAt: now,
+                addedVia: .groceryCheckoff
             )
+            context.insert(pantryItem)
+            PantryLog.record(.added, for: pantryItem, quantityDelta: item.quantity, at: now, in: context)
         }
 
         save(context, "pantry hand-off")
