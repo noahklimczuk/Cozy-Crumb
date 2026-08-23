@@ -82,14 +82,37 @@ enum CookFactStore {
     }
 
     /// Pulls the food out of "allergic to shellfish" or "peanut allergy".
+    ///
+    /// Matched on word boundaries. A plain substring search reads "buckwheat"
+    /// as wheat and therefore as gluten — which is wrong twice over: buckwheat
+    /// is gluten-free, so it would strip every bread and pasta from someone
+    /// who can eat them, while still not filtering the buckwheat.
     nonisolated static func allergenNames(in statement: String) -> [String] {
         let text = statement.lowercased()
+        let words = Set(
+            text
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { !$0.isEmpty }
+                .map(IngredientCanonicalizer.singularised)
+        )
+
+        func mentions(_ phrase: String) -> Bool {
+            let parts = phrase.components(separatedBy: " ").filter { !$0.isEmpty }
+            // The words were singularised, so the needle has to be too, or
+            // the alias "nuts" stops matching the sentence "allergic to nuts".
+            guard parts.count > 1 else {
+                return words.contains(IngredientCanonicalizer.singularised(phrase))
+            }
+            // Multi-word groups ("tree nut") still match as a phrase.
+            return text.contains(phrase)
+        }
+
         var found: [String] = []
 
-        for group in AllergenIndex.groups.keys where text.contains(group) {
+        for group in AllergenIndex.groups.keys where mentions(group) {
             found.append(group)
         }
-        for (alias, group) in AllergenIndex.aliases where text.contains(alias) {
+        for (alias, group) in AllergenIndex.aliases where mentions(alias) {
             found.append(group)
         }
 

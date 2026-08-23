@@ -102,10 +102,16 @@ enum DurationParser {
     /// saying "rest 5 minutes, then bake 40" should time the thing it opens
     /// with, not the sum of everything in the sentence.
     nonisolated static func seconds(inStepText text: String) -> Int? {
+        // "." and "/" survive the split so "1.5" and "1/2" stay whole, which
+        // also glues a sentence's full stop onto the last word: "20 minutes."
+        // yields the token "minutes.", which matches no unit, so the step
+        // silently loses its timer. Trimming only the edges keeps the
+        // fractions intact.
         let tokens = text
             .lowercased()
             .split(whereSeparator: { !$0.isLetter && !$0.isNumber && $0 != "." && $0 != "/" && !QuantityParser.unicodeFractions.keys.contains($0) })
-            .map(String.init)
+            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "./")) }
+            .filter { !$0.isEmpty }
 
         var index = 0
         while index < tokens.count {
