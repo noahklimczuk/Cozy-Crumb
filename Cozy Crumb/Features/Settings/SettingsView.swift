@@ -50,19 +50,23 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: CozySpacing.l) {
-                    sousChefCard
-                    cookingCard
-                    appearanceCard
-                    groceriesCard
-                    dataCard
-                    aboutCard
+            VStack(spacing: 0) {
+                ScreenHeader(title: "Settings", eyebrow: AppBranding.appName)
+
+                ScrollView {
+                    VStack(spacing: CozySpacing.l) {
+                        sousChefCard
+                        cookingCard
+                        appearanceCard
+                        groceriesCard
+                        dataCard
+                        aboutCard
+                    }
+                    .padding(CozySpacing.l)
                 }
-                .padding(CozySpacing.l)
             }
-            .background { BlobBackground() }
-            .navigationTitle("Settings")
+            .cozyScreenBackground()
+            .toolbar(.hidden, for: .navigationBar)
             .confirmationDialog(
                 "Delete every recipe?",
                 isPresented: $isConfirmingRecipeDeletion,
