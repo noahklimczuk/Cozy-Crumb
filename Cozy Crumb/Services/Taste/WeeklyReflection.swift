@@ -39,9 +39,9 @@ enum WeeklyReflection {
     static let minimumCooks = 2
 
     nonisolated static let schema = GeminiSchema.record(
-        properties: [
-            "observation": .text("One warm sentence about their week's cooking"),
-            "offer": .text("An optional light offer, or null", nullable: true)
+        [
+            ("observation", .text("One warm sentence about their week's cooking")),
+            ("offer", .text("An optional light offer, or null", nullable: true))
         ],
         required: ["observation"]
     )
@@ -87,8 +87,8 @@ enum WeeklyReflection {
                 if let minutes = recipe.totalMinutes { line += " (\(minutes) min)" }
                 if let cuisine = recipe.inferredCuisine { line += " [\(cuisine)]" }
                 if let rating = log.rating { line += " ★\(rating)" }
-                if let tags = recipe.tags.isEmpty ? nil : recipe.tags.prefix(3).joined(separator: ", ") {
-                    line += " — \(tags)"
+                if !recipe.tags.isEmpty {
+                    line += " — " + recipe.tags.prefix(3).joined(separator: ", ")
                 }
                 return line
             }

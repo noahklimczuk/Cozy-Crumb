@@ -137,13 +137,13 @@ nonisolated enum ContextDigestBuilder {
         now: Date = .now,
         calendar: Calendar = .current
     ) -> ContextDigest {
-        let aboutSection = about(profile: profile, now: now, calendar: calendar)
-        let factsSection = self.factsSection(facts)
-        let recentSection = recentlyCooked(recipes, now: now)
-        let aspirationSection = aspirations(recipes, profile: profile)
-        let pantrySection = pantrySection(pantry)
+        let aboutText = about(profile: profile, now: now, calendar: calendar)
+        let factsText = factsSection(facts)
+        let recentText = recentlyCooked(recipes, now: now)
+        let aspirationText = aspirations(recipes, profile: profile)
+        let pantryText = pantrySection(pantry)
 
-        let fixed = [aboutSection, factsSection, recentSection, aspirationSection, pantrySection]
+        let fixed = [aboutText, factsText, recentText, aspirationText, pantryText]
             .filter { !$0.isEmpty }
             .joined(separator: "\n\n")
 

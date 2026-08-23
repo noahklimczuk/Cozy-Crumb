@@ -66,16 +66,16 @@ nonisolated enum FactExtractor {
     // MARK: - The prompt
 
     nonisolated static let schema = GeminiSchema.record(
-        properties: [
-            "facts": .list(of: .record(
-                properties: [
-                    "statement": .text("The fact, written in the third person: \"Partner doesn't eat mushrooms\""),
-                    "category": .text("One of: allergy, dietary, equipment, household, preference, schedule, skill"),
-                    "confidence": .decimal("0–1, honestly"),
-                    "sourceExcerpt": .text("The exact phrase they used", nullable: true)
+        [
+            ("facts", .list(of: .record(
+                [
+                    ("statement", .text("The fact, written in the third person: \"Partner doesn't eat mushrooms\"")),
+                    ("category", .text("One of: allergy, dietary, equipment, household, preference, schedule, skill")),
+                    ("confidence", .decimal("0–1, honestly")),
+                    ("sourceExcerpt", .text("The exact phrase they used", nullable: true))
                 ],
                 required: ["statement", "category", "confidence"]
-            ))
+            )))
         ],
         required: ["facts"]
     )
