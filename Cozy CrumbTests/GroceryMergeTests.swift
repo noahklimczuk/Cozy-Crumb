@@ -198,14 +198,21 @@ struct GroceryMergeTests {
         expectClose(folded[0].quantity, 1)
     }
 
-    @Test("A blank line and a measured one stay apart — no unit to add into")
+    @Test("A blank line folds into a measured one and takes its unit")
     func blankAgainstMeasured() {
+        // This test used to assert the opposite, and so did
+        // GroceryConsolidationTests.keepsKnownAmounts — the two contradicted
+        // each other, and neither had ever run before the test target
+        // existed. Settled in favour of folding: two peppers on a shopping
+        // list is exactly the duplicate row the merge is for.
         let folded = GroceryMerge.folded([
             line("pepper"),
             line("pepper", 1, "tsp")
         ])
 
-        #expect(folded.count == 2)
+        #expect(folded.count == 1)
+        expectClose(folded[0].quantity, 1)
+        #expect(folded[0].unit == "tsp", "a row reading \"1 pepper\" is not a thing to buy")
     }
 
     // MARK: - Carried metadata
