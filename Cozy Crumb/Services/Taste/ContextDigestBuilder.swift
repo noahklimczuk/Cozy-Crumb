@@ -186,7 +186,7 @@ nonisolated enum ContextDigestBuilder {
                 if abs(lhs.score - rhs.score) > 0.000_001 { return lhs.score > rhs.score }
                 return lhs.recipe.title < rhs.recipe.title
             }
-            .map(\.recipe)
+            .map { $0.recipe }
     }
 
     /// Words worth matching on. Drops the scaffolding of a question so
@@ -341,7 +341,7 @@ nonisolated enum ContextDigestBuilder {
         return lines.joined(separator: "\n")
     }
 
-    private nonisolated static func format(_ entry: (name: String, score: Double)) -> String {
+    private nonisolated static func format(_ entry: AffinityEntry) -> String {
         String(format: "%@ (%.2f)", entry.name, entry.score)
     }
 

@@ -160,7 +160,7 @@ struct TasteProfileView: View {
 
     private var tasteCard: some View {
         SettingsCardShim(title: "What you reach for") {
-            ForEach(snapshot.topCuisines(5), id: \.name) { entry in
+            ForEach(snapshot.topCuisines(5)) { entry in
                 inferenceRow(
                     key: ProfileKey.cuisine(entry.name),
                     label: "You seem to enjoy \(entry.name) food",
@@ -168,7 +168,7 @@ struct TasteProfileView: View {
                 )
             }
 
-            ForEach(snapshot.coolerCuisines(3), id: \.name) { entry in
+            ForEach(snapshot.coolerCuisines(3)) { entry in
                 inferenceRow(
                     key: ProfileKey.cuisine(entry.name),
                     label: "You're cooler on \(entry.name) food",
@@ -184,7 +184,7 @@ struct TasteProfileView: View {
 
     private var ingredientsCard: some View {
         SettingsCardShim(title: "Likes and dislikes") {
-            ForEach(snapshot.lovedIngredients(8), id: \.name) { entry in
+            ForEach(snapshot.lovedIngredients(8)) { entry in
                 inferenceRow(
                     key: ProfileKey.ingredient(entry.name),
                     label: "You seem to love \(entry.name)",
@@ -192,7 +192,7 @@ struct TasteProfileView: View {
                 )
             }
 
-            ForEach(snapshot.avoidedIngredients(8), id: \.name) { entry in
+            ForEach(snapshot.avoidedIngredients(8)) { entry in
                 inferenceRow(
                     key: ProfileKey.ingredient(entry.name),
                     label: snapshot.explicitlyDisliked.contains(entry.name)
@@ -210,7 +210,7 @@ struct TasteProfileView: View {
 
     private var techniqueCard: some View {
         SettingsCardShim(title: "What you're up for") {
-            ForEach(snapshot.comfortableTechniques(6), id: \.name) { entry in
+            ForEach(snapshot.comfortableTechniques(6)) { entry in
                 inferenceRow(
                     key: ProfileKey.technique(entry.name),
                     label: "You're comfortable with \(entry.name)",

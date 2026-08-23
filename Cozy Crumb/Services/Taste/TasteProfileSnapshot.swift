@@ -45,6 +45,25 @@ nonisolated struct ProfileEvidence: Sendable, Equatable, Codable {
     }
 }
 
+/// One thing the profile leans toward or away from.
+///
+/// A named type rather than a tuple: these go straight into `ForEach`, and an
+/// Identifiable struct spares every call site an `id:` argument — and spares
+/// the compiler a key path into a tuple element, which is a corner of the
+/// language not worth standing in.
+nonisolated struct AffinityEntry: Sendable, Equatable, Identifiable {
+    var name: String
+    /// −1…1.
+    var score: Double
+
+    nonisolated var id: String { name }
+
+    nonisolated init(name: String, score: Double) {
+        self.name = name
+        self.score = score
+    }
+}
+
 // MARK: - Keys
 
 /// Stable identifiers for one inference, so a value, its evidence, a user
@@ -183,31 +202,23 @@ nonisolated struct TasteProfileSnapshot: Sendable, Equatable {
     }
 
     /// Cuisines they lean toward, strongest first.
-    func topCuisines(_ limit: Int = 3, above threshold: Double = 0.2) -> [(name: String, score: Double)] {
+    func topCuisines(_ limit: Int = 3, above threshold: Double = 0.2) -> [AffinityEntry] {
         ranked(cuisineAffinity, limit: limit, above: threshold)
     }
 
-    func coolerCuisines(_ limit: Int = 2, below threshold: Double = -0.15) -> [(name: String, score: Double)] {
-        cuisineAffinity
-            .filter { $0.value <= threshold }
-            .sorted { $0.value < $1.value }
-            .prefix(limit)
-            .map { (name: $0.key, score: $0.value) }
+    func coolerCuisines(_ limit: Int = 2, below threshold: Double = -0.15) -> [AffinityEntry] {
+        lowest(cuisineAffinity, limit: limit, below: threshold)
     }
 
-    func lovedIngredients(_ limit: Int = 6, above threshold: Double = 0.3) -> [(name: String, score: Double)] {
+    func lovedIngredients(_ limit: Int = 6, above threshold: Double = 0.3) -> [AffinityEntry] {
         ranked(ingredientAffinity, limit: limit, above: threshold)
     }
 
-    func avoidedIngredients(_ limit: Int = 5, below threshold: Double = -0.3) -> [(name: String, score: Double)] {
-        ingredientAffinity
-            .filter { $0.value <= threshold }
-            .sorted { $0.value < $1.value }
-            .prefix(limit)
-            .map { (name: $0.key, score: $0.value) }
+    func avoidedIngredients(_ limit: Int = 5, below threshold: Double = -0.3) -> [AffinityEntry] {
+        lowest(ingredientAffinity, limit: limit, below: threshold)
     }
 
-    func comfortableTechniques(_ limit: Int = 5, above threshold: Double = 0.2) -> [(name: String, score: Double)] {
+    func comfortableTechniques(_ limit: Int = 5, above threshold: Double = 0.2) -> [AffinityEntry] {
         ranked(techniqueComfort, limit: limit, above: threshold)
     }
 
@@ -225,14 +236,28 @@ nonisolated struct TasteProfileSnapshot: Sendable, Equatable {
         _ values: [String: Double],
         limit: Int,
         above threshold: Double
-    ) -> [(name: String, score: Double)] {
+    ) -> [AffinityEntry] {
         values
             .filter { $0.value >= threshold }
             .sorted { lhs, rhs in
                 lhs.value == rhs.value ? lhs.key < rhs.key : lhs.value > rhs.value
             }
             .prefix(limit)
-            .map { (name: $0.key, score: $0.value) }
+            .map { AffinityEntry(name: $0.key, score: $0.value) }
+    }
+
+    private func lowest(
+        _ values: [String: Double],
+        limit: Int,
+        below threshold: Double
+    ) -> [AffinityEntry] {
+        values
+            .filter { $0.value <= threshold }
+            .sorted { lhs, rhs in
+                lhs.value == rhs.value ? lhs.key < rhs.key : lhs.value < rhs.value
+            }
+            .prefix(limit)
+            .map { AffinityEntry(name: $0.key, score: $0.value) }
     }
 
     /// Minutes they typically spend on a given weekday, falling back to the

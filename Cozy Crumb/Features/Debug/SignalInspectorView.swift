@@ -67,7 +67,7 @@ struct SignalInspectorView: View {
             )
             .monospacedDigit()
 
-            ForEach(countsByKind, id: \.kind) { entry in
+            ForEach(countsByKind) { entry in
                 LabeledContent(entry.kind.debugDescription, value: "\(entry.count)")
                     .monospacedDigit()
             }
@@ -114,9 +114,15 @@ struct SignalInspectorView: View {
         signals.reduce(0) { $0 + $1.effectiveWeight(at: now) }
     }
 
-    private var countsByKind: [(kind: SignalKind, count: Int)] {
+    private struct KindTally: Identifiable {
+        var kind: SignalKind
+        var count: Int
+        var id: String { kind.rawValue }
+    }
+
+    private var countsByKind: [KindTally] {
         Dictionary(grouping: signals, by: \.kind)
-            .map { (kind: $0.key, count: $0.value.count) }
+            .map { KindTally(kind: $0.key, count: $0.value.count) }
             .sorted { $0.count > $1.count }
     }
 
