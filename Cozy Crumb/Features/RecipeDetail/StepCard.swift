@@ -14,6 +14,8 @@
 import SwiftUI
 
 struct StepCard: View {
+    @Environment(\.accentPalette) private var accent
+
     let step: RecipeStep
     let number: Int
     /// Named on the timer's notification, so an alert that arrives an hour
@@ -43,13 +45,12 @@ struct StepCard: View {
 
     private var numberBadge: some View {
         Text("\(number)")
-            .font(.system(.subheadline, design: .rounded, weight: .bold))
+            .font(CozyFont.numeralSmall)
             .foregroundStyle(CozyColor.inkPrimary)
             .frame(width: 28, height: 28)
-            .background(CozyColor.blushSoft, in: .circle)
-            .overlay {
-                Circle().strokeBorder(CozyColor.outline, lineWidth: 1)
-            }
+            // The deep accent, not the soft one: the number is what you look
+            // for when you glance back at the page to find your place.
+            .background(accent.deep, in: .circle)
             .accessibilityHidden(true)
     }
 }
@@ -65,6 +66,6 @@ struct StepCard: View {
         }
         .padding()
     }
-    .background { BlobBackground() }
+    .cozyScreenBackground()
     .environment(KitchenTimers(usesNotifications: false))
 }

@@ -31,14 +31,6 @@ struct RecipeDetailView: View {
 
     private static let scrollSpace = "recipeScroll"
 
-    /// The hero is sized against the screen rather than pinned to one number,
-    /// so it reads as a proper photo on a big phone without swallowing a small
-    /// one. The floor keeps it generous on an SE; the ceiling stops it turning
-    /// into a poster on an iPad.
-    private static func heroHeight(inContainerOf height: CGFloat) -> CGFloat {
-        min(max(height * 0.42, 300), 520)
-    }
-
     init(recipe: Recipe) {
         self.recipe = recipe
         _viewModel = State(initialValue: RecipeDetailViewModel(recipe: recipe))
@@ -48,20 +40,14 @@ struct RecipeDetailView: View {
         MeasurementSystem(rawValue: systemRaw) ?? .asWritten
     }
 
+    /// The hero used to be a share of the screen's height, measured by an
+    /// outer `GeometryReader`. It is one number now: a proportional hero left
+    /// the title sitting at a different place on every device, and this screen
+    /// is read from the title down, not looked at from the top.
     var body: some View {
-        // The outer reader is only here to measure the screen, so the hero can
-        // be a share of it rather than one number that's too small on a Pro
-        // Max and too greedy on an SE.
-        GeometryReader { screen in
-            content(heroHeight: Self.heroHeight(inContainerOf: screen.size.height))
-        }
-        .ignoresSafeArea(edges: .top)
-    }
-
-    private func content(heroHeight: CGFloat) -> some View {
         ScrollView {
             VStack(spacing: CozySpacing.l) {
-                hero(height: heroHeight)
+                hero(height: CozyMetrics.recipeHeroHeight)
                 heading
                 cookModeButton
                 servingsCard
@@ -76,8 +62,9 @@ struct RecipeDetailView: View {
             }
             .padding(.bottom, CozySpacing.xxl)
         }
+        .ignoresSafeArea(edges: .top)
         .coordinateSpace(.named(Self.scrollSpace))
-        .background { BlobBackground() }
+        .cozyScreenBackground()
         .navigationTitle(recipe.title)
         // Opening a recipe is a weak signal; staying on it is a better one.
         // The sleep is cancelled when the screen goes away, so backing
@@ -296,7 +283,7 @@ struct RecipeDetailView: View {
             }
 
             Text("\(viewModel.servings)")
-                .font(.system(.title2, design: .rounded, weight: .bold))
+                .font(CozyFont.numeral)
                 .foregroundStyle(CozyColor.inkPrimary)
                 .contentTransition(.numericText())
                 .frame(minWidth: 36)
