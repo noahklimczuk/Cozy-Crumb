@@ -18,6 +18,10 @@ import SwiftData
 import SwiftUI
 
 struct MealPlanView: View {
+    /// Which half of the Groceries tab is showing. Owned by `GroceriesView`;
+    /// this screen only draws the switch in its header.
+    var mode: Binding<GroceryTabMode> = .constant(.plan)
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accentPalette) private var accent
     @Environment(\.cozyMotion) private var motion
@@ -45,10 +49,15 @@ struct MealPlanView: View {
     }
 
     var body: some View {
-        ScrollView {
-            week
+        VStack(spacing: 0) {
+            header
+
+            ScrollView {
+                week
+            }
         }
-        .background { BlobBackground() }
+        .cozyScreenBackground()
+        .toolbar(.hidden, for: .navigationBar)
         .safeAreaInset(edge: .bottom) { shopBar }
         .sheet(item: $addingTo) { target in
             RecipePickerSheet(day: target.day, slot: target.slot) { recipe, slot, servings in
@@ -82,6 +91,23 @@ struct MealPlanView: View {
             Text("Your recipes stay in the cookbook — only the plan goes.")
         }
         .overlay(alignment: .bottom) { toastBanner }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        ScreenHeader(
+            title: "Groceries",
+            eyebrow: AppBranding.appName,
+            caption: summary,
+            below: { GroceryModePicker(mode: mode) }
+        )
+    }
+
+    private var summary: String? {
+        let count = weekMeals.count
+        guard count > 0 else { return nil }
+        return "\(count) meal\(count == 1 ? "" : "s") planned"
     }
 
     // MARK: - Week
@@ -140,7 +166,7 @@ struct MealPlanView: View {
                 }
             }
         }
-        .padding(.top, CozySpacing.s)
+        .padding(.top, CozySpacing.m)
     }
 
     // MARK: - Days
@@ -247,7 +273,7 @@ struct MealPlanView: View {
             }
             .padding(.horizontal, CozySpacing.l)
             .padding(.vertical, CozySpacing.m)
-            .background(.ultraThinMaterial)
+            .background(CozyColor.cream)
         }
     }
 
@@ -382,7 +408,7 @@ private struct RecipePickerSheet: View {
                     .searchable(text: $search, prompt: "Find a recipe")
                 }
             }
-            .background { BlobBackground() }
+            .cozyScreenBackground()
             .navigationTitle(day.formatted(.dateTime.weekday(.wide)))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

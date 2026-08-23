@@ -9,6 +9,13 @@
 //  button, walk the aisles — and splitting them across tabs would hide the
 //  connection.
 //
+//  The switch between the two used to sit in the navigation bar's principal
+//  slot. With the bar hidden it moves into each half's own `ScreenHeader`,
+//  under the title, which is where the header's `below:` strip is for. That
+//  means this shell owns the mode and hands a binding down rather than drawing
+//  anything itself — whichever half is on screen draws the switch, so it can
+//  sit in the same block as that half's title and controls.
+//
 
 import Foundation
 // SwiftData is only used by the preview's `.modelContainer`, but SE-0444
@@ -16,43 +23,45 @@ import Foundation
 import SwiftData
 import SwiftUI
 
-struct GroceriesView: View {
-    private enum Mode: String, CaseIterable, Identifiable {
-        case plan
-        case list
+/// Which half of the Groceries tab is showing.
+enum GroceryTabMode: String, CaseIterable, Identifiable {
+    case plan
+    case list
 
-        var id: String { rawValue }
+    var id: String { rawValue }
 
-        var title: String {
-            switch self {
-            case .plan: "This week"
-            case .list: "Shopping"
-            }
+    var title: String {
+        switch self {
+        case .plan: "This week"
+        case .list: "Shopping"
         }
     }
+}
 
-    @State private var mode: Mode = .list
+/// The switch between the two halves. One definition, drawn by both, so they
+/// can't drift into two slightly different segmented controls.
+struct GroceryModePicker: View {
+    @Binding var mode: GroceryTabMode
+
+    var body: some View {
+        Picker("View", selection: $mode) {
+            ForEach(GroceryTabMode.allCases) { mode in
+                Text(mode.title).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityLabel("Which list")
+    }
+}
+
+struct GroceriesView: View {
+    @State private var mode: GroceryTabMode = .list
 
     var body: some View {
         NavigationStack {
-            Group {
-                switch mode {
-                case .plan: MealPlanView()
-                case .list: ShoppingListView()
-                }
-            }
-            .navigationTitle(mode.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Picker("View", selection: $mode) {
-                        ForEach(Mode.allCases) { mode in
-                            Text(mode.title).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 240)
-                }
+            switch mode {
+            case .plan: MealPlanView(mode: $mode)
+            case .list: ShoppingListView(mode: $mode)
             }
         }
     }

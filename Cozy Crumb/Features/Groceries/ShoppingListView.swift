@@ -17,6 +17,11 @@ import SwiftUI
 import os
 
 struct ShoppingListView: View {
+    /// Which half of the Groceries tab is showing. Owned by `GroceriesView`;
+    /// this screen only draws the switch in its header. Defaults to a constant
+    /// so the previews below can stand the screen up on its own.
+    var mode: Binding<GroceryTabMode> = .constant(.list)
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accentPalette) private var accent
     @Environment(\.cozyMotion) private var motion
@@ -45,44 +50,107 @@ struct ShoppingListView: View {
     }
 
     var body: some View {
-        content
-            .background { BlobBackground() }
-            .toolbar { clearMenu }
-            .safeAreaInset(edge: .top) { addField }
-            .safeAreaInset(edge: .bottom) { exportBar }
-            .task { ensureList() }
-            .confirmationDialog(
-                "Clear the ticked-off items?",
-                isPresented: $isConfirmingClearCompleted,
-                titleVisibility: .visible
-            ) {
-                Button("Clear them", role: .destructive) { clearCompleted() }
-                Button("Keep them", role: .cancel) {}
-            } message: {
-                Text("Everything still to buy stays put.")
+        VStack(spacing: 0) {
+            header
+            content
+        }
+        .cozyScreenBackground()
+        .toolbar(.hidden, for: .navigationBar)
+        .safeAreaInset(edge: .bottom) { exportBar }
+        .task { ensureList() }
+        .confirmationDialog(
+            "Clear the ticked-off items?",
+            isPresented: $isConfirmingClearCompleted,
+            titleVisibility: .visible
+        ) {
+            Button("Clear them", role: .destructive) { clearCompleted() }
+            Button("Keep them", role: .cancel) {}
+        } message: {
+            Text("Everything still to buy stays put.")
+        }
+        .confirmationDialog(
+            "Clear the whole list?",
+            isPresented: $isConfirmingClearAll,
+            titleVisibility: .visible
+        ) {
+            Button("Clear everything", role: .destructive) { clearAll() }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            Text("Every item goes, ticked off or not.")
+        }
+        .alert(
+            "Couldn't send that over",
+            isPresented: .init(
+                get: { exportError != nil },
+                set: { if !$0 { exportError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { exportError = nil }
+        } message: {
+            Text(exportError?.friendlyMessage ?? "")
+        }
+        .overlay(alignment: .bottom) { toastBanner }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        ScreenHeader(
+            title: "Groceries",
+            eyebrow: AppBranding.appName,
+            caption: summary,
+            trailing: { listMenu },
+            below: {
+                VStack(spacing: CozySpacing.m) {
+                    GroceryModePicker(mode: mode)
+                    addField
+                }
             }
-            .confirmationDialog(
-                "Clear the whole list?",
-                isPresented: $isConfirmingClearAll,
-                titleVisibility: .visible
-            ) {
-                Button("Clear everything", role: .destructive) { clearAll() }
-                Button("Keep it", role: .cancel) {}
-            } message: {
-                Text("Every item goes, ticked off or not.")
+        )
+    }
+
+    /// The live line under the title. Nil rather than "0 to buy" on an empty
+    /// list — the empty state already says that, in better words.
+    private var summary: String? {
+        guard let list, !list.items.isEmpty else { return nil }
+
+        let toBuy = list.outstandingItems.count
+        let got = list.completedItems.count
+
+        var parts = ["\(toBuy) to buy"]
+        if got > 0 {
+            parts.append("\(got) in the basket")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Everything that used to be two separate toolbar buttons. One glyph in
+    /// the header, because the header has room for exactly one and clearing
+    /// the list is not something to put a finger's width from the quick-add.
+    private var listMenu: some View {
+        Menu {
+            Toggle("Round up to shop sizes", isOn: $roundUpAmounts)
+            Toggle("Ticking adds to Pantry", isOn: $checkOffAddsToPantry)
+
+            Divider()
+
+            Button(role: .destructive) {
+                isConfirmingClearCompleted = true
+            } label: {
+                Label("Clear ticked-off", systemImage: "checkmark.circle")
             }
-            .alert(
-                "Couldn't send that over",
-                isPresented: .init(
-                    get: { exportError != nil },
-                    set: { if !$0 { exportError = nil } }
-                )
-            ) {
-                Button("OK", role: .cancel) { exportError = nil }
-            } message: {
-                Text(exportError?.friendlyMessage ?? "")
+            .disabled(list?.completedItems.isEmpty ?? true)
+
+            Button(role: .destructive) {
+                isConfirmingClearAll = true
+            } label: {
+                Label("Clear the whole list", systemImage: "trash")
             }
-            .overlay(alignment: .bottom) { toastBanner }
+            .disabled(list?.items.isEmpty ?? true)
+        } label: {
+            HeaderGlyphLabel(systemImage: "ellipsis")
+        }
+        .accessibilityLabel("List options")
     }
 
     // MARK: - Content
@@ -238,9 +306,6 @@ struct ShoppingListView: View {
                 .transition(.scale.combined(with: .opacity))
             }
         }
-        .padding(.horizontal, CozySpacing.l)
-        .padding(.vertical, CozySpacing.m)
-        .background(.ultraThinMaterial)
         .cozyAnimation(Motion.snappy, value: newItemText.isEmpty)
     }
 
@@ -277,7 +342,7 @@ struct ShoppingListView: View {
             }
             .padding(.horizontal, CozySpacing.l)
             .padding(.vertical, CozySpacing.m)
-            .background(.ultraThinMaterial)
+            .background(CozyColor.cream)
         }
     }
 
@@ -298,37 +363,6 @@ struct ShoppingListView: View {
         .overlay {
             RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
                 .strokeBorder(isProminent ? accent.deep : CozyColor.creamDeep, lineWidth: 1.5)
-        }
-    }
-
-    @ToolbarContentBuilder
-    private var clearMenu: some ToolbarContent {
-        ToolbarItemGroup(placement: .topBarTrailing) {
-            if let list, !list.items.isEmpty {
-                Button(role: .destructive) {
-                    isConfirmingClearAll = true
-                } label: {
-                    Image(systemName: "trash")
-                }
-                .accessibilityLabel("Clear list")
-            }
-
-            Menu {
-                Toggle("Round up to shop sizes", isOn: $roundUpAmounts)
-                Toggle("Ticking adds to Pantry", isOn: $checkOffAddsToPantry)
-
-                Divider()
-
-                Button(role: .destructive) {
-                    isConfirmingClearCompleted = true
-                } label: {
-                    Label("Clear ticked-off", systemImage: "checkmark.circle")
-                }
-                .disabled(list?.completedItems.isEmpty ?? true)
-            } label: {
-                Image(systemName: "ellipsis.circle")
-            }
-            .accessibilityLabel("List options")
         }
     }
 
