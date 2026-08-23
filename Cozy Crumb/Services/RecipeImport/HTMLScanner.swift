@@ -39,6 +39,16 @@ struct HTMLElement: Sendable, Equatable {
         HTMLScanner.plainText(innerHTML)
     }
 
+    /// Text with one line per block-level element.
+    ///
+    /// `text` flattens everything to a single line, which is right for a
+    /// title or an ingredient but loses the only thing that separates one
+    /// instruction from the next when a method is marked up as a run of
+    /// `<p>` or `<li>`.
+    nonisolated var blockSeparatedText: String {
+        HTMLScanner.blockSeparatedText(innerHTML)
+    }
+
     /// Microdata often carries the value in `content=` on a void element.
     nonisolated var contentAttribute: String? {
         HTMLScanner.attributeValue("content", in: openTag)
@@ -359,5 +369,55 @@ struct HTMLScanner: Sendable {
         text
             .split(whereSeparator: { $0.isWhitespace })
             .joined(separator: " ")
+    }
+
+    /// Tags that end a chunk of prose. A `<span>` inside a sentence does not;
+    /// a `<p>` between two sentences does.
+    nonisolated static let blockTags: Set<String> = [
+        "p", "li", "div", "br", "tr", "td", "section", "article",
+        "h1", "h2", "h3", "h4", "h5", "h6", "ol", "ul", "dd", "dt", "blockquote"
+    ]
+
+    /// Like `plainText`, but keeps block boundaries as line breaks.
+    ///
+    /// Separate from `plainText` rather than replacing it: `text` is read by
+    /// every extractor for titles, ingredients and yields, all of which want
+    /// one flat line. Only the method needs its blocks kept apart.
+    nonisolated static func blockSeparatedText(_ markup: String) -> String {
+        var output = ""
+        output.reserveCapacity(markup.count)
+
+        var tagBuffer = ""
+        var insideTag = false
+
+        for character in markup {
+            if character == "<" {
+                insideTag = true
+                tagBuffer = ""
+            } else if character == ">" {
+                insideTag = false
+                output.append(isBlockTag(tagBuffer) ? "\n" : " ")
+            } else if insideTag {
+                tagBuffer.append(character)
+            } else {
+                output.append(character)
+            }
+        }
+
+        return decodeEntities(output)
+            .components(separatedBy: .newlines)
+            .map(collapseWhitespace)
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+    }
+
+    /// Reads the tag name out of the inside of a tag, opening or closing.
+    private nonisolated static func isBlockTag(_ tagBody: String) -> Bool {
+        let name = tagBody
+            .drop { $0 == "/" }
+            .prefix { $0.isLetter || $0.isNumber }
+            .lowercased()
+
+        return blockTags.contains(name)
     }
 }

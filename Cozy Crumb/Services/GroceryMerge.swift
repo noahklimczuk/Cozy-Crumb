@@ -173,7 +173,20 @@ enum GroceryMerge {
     /// and guessing would put a wrong number on a shopping list.
     nonisolated static func canMerge(_ a: GroceryLineItem, _ b: GroceryLineItem) -> Bool {
         guard normalizedName(a.name) == normalizedName(b.name) else { return false }
+
+        // "Salt" with no amount and no unit is "salt, to taste". It measures
+        // nothing, so it conflicts with nothing, and it should fold into the
+        // line that does have an amount rather than sitting beside it as a
+        // second salt. `merging` was already written for this case; without
+        // this the two lines never reached it.
+        if isAmountless(a) || isAmountless(b) { return true }
+
         return unitsAreCompatible(a.unit, b.unit)
+    }
+
+    /// A line carrying no number and no unit.
+    nonisolated static func isAmountless(_ item: GroceryLineItem) -> Bool {
+        item.quantity == nil && normalizedUnit(item.unit) == nil
     }
 
     nonisolated static func unitsAreCompatible(_ a: String?, _ b: String?) -> Bool {
@@ -195,6 +208,13 @@ enum GroceryMerge {
     /// shows so a row doesn't change shape under the user mid-shop.
     nonisolated static func merging(_ existing: GroceryLineItem, with incoming: GroceryLineItem) -> GroceryLineItem {
         var merged = existing
+
+        // When the row on the list is the amount-less one, it has no unit to
+        // keep, so it takes the incoming line's. Otherwise "salt" plus "1 tsp
+        // salt" would come out as "1 salt", which is not a thing to buy.
+        if isAmountless(existing), !isAmountless(incoming) {
+            merged.unit = incoming.unit
+        }
 
         // An amount-less line ("salt, to taste") adds nothing we can count,
         // but it must not wipe out an amount the list already has either.
