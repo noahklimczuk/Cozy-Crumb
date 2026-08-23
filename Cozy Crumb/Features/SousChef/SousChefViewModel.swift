@@ -39,11 +39,20 @@ final class SousChefViewModel {
         let id: UUID
         var author: Author
         var text: String
+        /// Cards for saved recipes the Sous Chef picked, parsed out of the
+        /// fenced block §7.1 asks for. The block itself never reaches `text`.
+        var recommendations: [SousChefRecommendation]
 
-        nonisolated init(id: UUID = UUID(), author: Author, text: String) {
+        nonisolated init(
+            id: UUID = UUID(),
+            author: Author,
+            text: String,
+            recommendations: [SousChefRecommendation] = []
+        ) {
             self.id = id
             self.author = author
             self.text = text
+            self.recommendations = recommendations
         }
     }
 
@@ -51,6 +60,17 @@ final class SousChefViewModel {
     var draft = ""
     private(set) var isThinking = false
     private(set) var failure: CozyError?
+
+    /// An allergy the extractor thinks it heard, waiting on a yes or no.
+    ///
+    /// §5: never applied silently in either direction. A false positive
+    /// removes food they can eat; a false negative is a safety issue. So it
+    /// sits here as a card until a person decides.
+    private(set) var pendingAllergyConfirmation: CookFact?
+
+    /// Everything the user has said this session, for the background
+    /// extractor to read.
+    private var userTurns: [String] = []
 
     /// How many times the model may ask for a function before we insist on an
     /// answer.
@@ -106,28 +126,39 @@ final class SousChefViewModel {
         failure = nil
         messages.append(Message(author: .user, text: question))
         history.append(GeminiContent(role: "user", parts: [.text(question)]))
+        userTurns.append(question)
         isThinking = true
         defer { isThinking = false }
 
-        await runTurn(in: modelContext)
+        await runTurn(in: modelContext, question: question)
+
+        // After the answer, not before it: the user is waiting on dinner
+        // advice, not on bookkeeping.
+        await learn(from: question, in: modelContext)
     }
 
     func clear() {
         messages.removeAll()
         history.removeAll()
+        userTurns.removeAll()
+        pendingAllergyConfirmation = nil
         failure = nil
     }
 
     // MARK: - The loop
 
-    private func runTurn(in modelContext: ModelContext) async {
+    private func runTurn(in modelContext: ModelContext, question: String) async {
         let runner = SousChefToolRunner(context: modelContext)
 
         for round in 0..<Self.maximumToolRounds {
             // Rebuilt every round: a tool may have just changed the data the
-            // digest describes.
+            // brief describes, and the ranking is cheap enough to redo.
+            let brief = SousChefBrief.assemble(query: question, in: modelContext)
+
             let systemInstruction = Prompts.sousChefSystem(
-                context: buildContext(in: modelContext).promptText,
+                digest: brief.digest.text,
+                appState: brief.appState,
+                candidates: brief.candidatesBlock,
                 today: Date.now
             )
 
@@ -148,8 +179,21 @@ final class SousChefViewModel {
                 return
 
             case .success(let reply):
-                if let text = reply.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
-                    messages.append(Message(author: .sousChef, text: text))
+                if let raw = reply.text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty {
+                    // The fenced block is an instruction to the app, not a
+                    // sentence, so it is taken out before anything is shown.
+                    let parsed = RecommendationBlockParser.parse(
+                        raw,
+                        knownRecipeIDs: brief.offeredRecipeIDs
+                    )
+
+                    if !parsed.prose.isEmpty || !parsed.recommendations.isEmpty {
+                        messages.append(Message(
+                            author: .sousChef,
+                            text: parsed.prose,
+                            recommendations: parsed.recommendations
+                        ))
+                    }
                 }
 
                 guard !reply.functionCalls.isEmpty else {
@@ -182,6 +226,71 @@ final class SousChefViewModel {
                 history.append(GeminiContent(role: "user", parts: responses))
             }
         }
+    }
+
+    // MARK: - Learning from the conversation
+
+    /// Reads the session for durable facts, in the background, and only when
+    /// something in it looks like a durable fact. See FactExtractor.
+    private func learn(from question: String, in modelContext: ModelContext) async {
+        guard FactExtractor.isWorthExtracting(from: question) else { return }
+
+        let known = CookFactStore.active(in: modelContext).map(\.statement)
+
+        let extracted = await FactExtractor.extract(
+            exchange: Array(userTurns.suffix(4)),
+            existingFacts: known,
+            client: client
+        )
+
+        guard !extracted.isEmpty else { return }
+
+        for fact in extracted {
+            let category = fact.factCategory
+
+            // Something that disagrees with what we had. The Sous Chef asks
+            // rather than deciding — this single behaviour does more to make
+            // the app feel like it is learning than any amount of scoring.
+            if let existing = CookFactStore.contradiction(
+                of: fact.statement,
+                category: category,
+                in: modelContext
+            ), !existing.isUserEdited {
+                messages.append(Message(
+                    author: .action,
+                    text: "I had you down as: \(existing.statement). Has that changed?"
+                ))
+                continue
+            }
+
+            let stored = CookFactStore.add(
+                statement: fact.statement,
+                category: category,
+                confidence: fact.confidence,
+                source: .extractedFromChat,
+                excerpt: fact.sourceExcerpt,
+                in: modelContext
+            )
+
+            if let stored, stored.needsConfirmation, pendingAllergyConfirmation == nil {
+                pendingAllergyConfirmation = stored
+            }
+        }
+    }
+
+    // MARK: - Confirmation cards
+
+    func confirmPendingAllergy(in modelContext: ModelContext) {
+        guard let fact = pendingAllergyConfirmation else { return }
+        CookFactStore.confirm(fact, in: modelContext)
+        messages.append(Message(author: .action, text: "Noted — I'll keep that out from now on."))
+        pendingAllergyConfirmation = nil
+    }
+
+    func rejectPendingAllergy(in modelContext: ModelContext) {
+        guard let fact = pendingAllergyConfirmation else { return }
+        CookFactStore.reject(fact, in: modelContext)
+        pendingAllergyConfirmation = nil
     }
 
     private func buildContext(in modelContext: ModelContext) -> SousChefContext {

@@ -82,29 +82,45 @@ nonisolated struct SousChefContext: Sendable {
     /// The digest as the model sees it. Terse on purpose: this is read by a
     /// machine, and every line costs budget the actual question could use.
     nonisolated var promptText: String {
-        var lines: [String] = []
+        [cookbookText, pantryText, appStateText].joined(separator: "\n\n")
+    }
 
-        lines.append("THE USER'S COOKBOOK (\(totalRecipeCount) recipes saved)")
+    /// The cookbook, as the tool-calling loop needs to see it.
+    ///
+    /// Superseded for the Sous Chef's own prompt by `ContextDigestBuilder`,
+    /// which chooses its slice by relevance to the question rather than by
+    /// recency. Kept because the tools still need a plain list of what
+    /// exists, and because it is the fallback when a digest cannot be built.
+    nonisolated var cookbookText: String {
+        var lines = ["THE USER'S COOKBOOK (\(totalRecipeCount) recipes saved)"]
 
         if recipes.isEmpty {
             lines.append("- empty. They haven't saved anything yet.")
-        } else {
-            for recipe in recipes {
-                lines.append("- \(describe(recipe))")
-            }
-
-            if totalRecipeCount > recipes.count {
-                lines.append("- …and \(totalRecipeCount - recipes.count) more not listed here. "
-                    + "Use find_recipes to search the rest rather than assuming they don't exist.")
-            }
+            return lines.joined(separator: "\n")
         }
 
-        lines.append("")
-        lines.append("IN THE PANTRY")
-        lines.append(pantry.isEmpty ? "- nothing recorded" : "- " + pantry.joined(separator: ", "))
+        for recipe in recipes {
+            lines.append("- \(describe(recipe))")
+        }
 
-        lines.append("")
-        lines.append("ON THE SHOPPING LIST")
+        if totalRecipeCount > recipes.count {
+            lines.append("- …and \(totalRecipeCount - recipes.count) more not listed here. "
+                + "Use find_recipes to search the rest rather than assuming they don't exist.")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    nonisolated var pantryText: String {
+        "IN THE PANTRY\n" + (pantry.isEmpty ? "- nothing recorded" : "- " + pantry.joined(separator: ", "))
+    }
+
+    /// The parts of the app's state the digest does not cover: the shopping
+    /// list, the week's plan, and how they read measurements. These go
+    /// alongside the digest rather than inside it — the digest is about the
+    /// cook, and this is about the app.
+    nonisolated var appStateText: String {
+        var lines = ["ON THE SHOPPING LIST"]
         lines.append(groceries.isEmpty ? "- nothing yet" : "- " + groceries.joined(separator: ", "))
 
         lines.append("")

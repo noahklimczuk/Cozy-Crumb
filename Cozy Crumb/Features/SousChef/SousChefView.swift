@@ -100,6 +100,14 @@ struct SousChefView: View {
                             .id(message.id)
                     }
 
+                    if let pending = viewModel.pendingAllergyConfirmation {
+                        AllergyConfirmationCard(
+                            statement: pending.statement,
+                            onConfirm: { viewModel.confirmPendingAllergy(in: modelContext) },
+                            onReject: { viewModel.rejectPendingAllergy(in: modelContext) }
+                        )
+                    }
+
                     if viewModel.isThinking {
                         thinking
                             .id(Self.thinkingID)
@@ -192,21 +200,30 @@ struct SousChefView: View {
             }
 
         case .sousChef:
-            HStack(alignment: .top, spacing: CozySpacing.s) {
-                MascotView(pose: .idle, size: 30)
-                    .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: CozySpacing.s) {
+                HStack(alignment: .top, spacing: CozySpacing.s) {
+                    MascotView(pose: .idle, size: 30)
+                        .accessibilityHidden(true)
 
-                Text(message.text)
-                    .cozyText(CozyFont.body)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(CozySpacing.m)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
-                            .strokeBorder(CozyColor.outline, lineWidth: 1)
-                    }
-                    .textSelection(.enabled)
+                    Text(message.text)
+                        .cozyText(CozyFont.body)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(CozySpacing.m)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
+                                .strokeBorder(CozyColor.outline, lineWidth: 1)
+                        }
+                        .textSelection(.enabled)
+                }
+
+                // The recipes it actually picked, as things you can tap
+                // rather than titles you have to go and find.
+                ForEach(message.recommendations) { recommendation in
+                    RecommendedRecipeCard(recommendation: recommendation)
+                        .padding(.leading, 38)
+                }
             }
 
         case .action:
@@ -280,4 +297,117 @@ struct SousChefView: View {
 #Preview("Sous Chef") {
     SousChefView()
         .modelContainer(PreviewData.container)
+}
+
+// MARK: - Recommendation card
+
+/// A recipe the Sous Chef picked, with the one line it gave for why.
+///
+/// The card is looked up by id rather than rendered from what the model said
+/// about it. That is deliberate: the title, time and photo come from the
+/// store, so a reply that misremembers a recipe cannot put wrong information
+/// on screen — and if the id matches nothing, the card simply doesn't appear
+/// and the prose stands on its own.
+private struct RecommendedRecipeCard: View {
+    let recommendation: SousChefRecommendation
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.accentPalette) private var accent
+
+    @State private var recipe: Recipe?
+
+    var body: some View {
+        Group {
+            if let recipe {
+                NavigationLink {
+                    RecipeDetailView(recipe: recipe)
+                } label: {
+                    card(for: recipe)
+                }
+                .buttonStyle(.squishy)
+            }
+        }
+        .task(id: recommendation.recipeID) {
+            recipe = lookUp(recommendation.recipeID)
+        }
+    }
+
+    private func card(for recipe: Recipe) -> some View {
+        HStack(spacing: CozySpacing.m) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(recipe.title)
+                    .cozyText(CozyFont.bodyEmphasis)
+                    .multilineTextAlignment(.leading)
+
+                if !recommendation.why.isEmpty {
+                    Text(recommendation.why)
+                        .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let time = recipe.totalTimeDisplay {
+                    Text(time)
+                        .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Image(systemName: "chevron.right")
+                .font(CozyFont.caption)
+                .foregroundStyle(CozyColor.inkSecondary)
+        }
+        .padding(CozySpacing.m)
+        .background(accent.soft.opacity(0.5), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
+                .strokeBorder(accent.deep.opacity(0.3), lineWidth: 1)
+        }
+    }
+
+    private func lookUp(_ id: UUID) -> Recipe? {
+        var descriptor = FetchDescriptor<Recipe>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try? modelContext.fetch(descriptor).first
+    }
+}
+
+// MARK: - Allergy confirmation
+
+/// §5. An allergy heard in conversation is never applied on its own.
+///
+/// Both mistakes are bad in different ways — a false positive silently takes
+/// away food someone can eat, a false negative is a safety issue — so neither
+/// is left to a background inference. The card asks, plainly, once.
+struct AllergyConfirmationCard: View {
+    let statement: String
+    let onConfirm: () -> Void
+    let onReject: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CozySpacing.s) {
+            Label(statement, systemImage: "exclamationmark.triangle.fill")
+                .font(CozyFont.bodyEmphasis)
+                .foregroundStyle(CozyColor.inkPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("Want me to keep that out of everything I suggest?")
+                .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: CozySpacing.s) {
+                Button("Yes, filter it out", action: onConfirm)
+                    .buttonStyle(.squishy)
+
+                Button("No, I'm fine with it", action: onReject)
+                    .buttonStyle(.squishy)
+            }
+            .font(CozyFont.caption)
+        }
+        .padding(CozySpacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(CozyColor.warning.opacity(0.35),
+                    in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+        .accessibilityElement(children: .contain)
+    }
 }
