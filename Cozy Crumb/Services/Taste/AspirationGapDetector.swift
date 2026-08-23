@@ -29,10 +29,15 @@ import os
 enum AspirationGapDetector {
 
     /// How long a recipe has to sit unmade before it counts.
-    static let ageDays: Double = 90
+    ///
+    /// nonisolated, along with `minimumViews`: the enum is @MainActor for the
+    /// half that touches the store, but `identify` is pure so it can be
+    /// tested without one, and a main-actor constant is unreachable from
+    /// there.
+    nonisolated static let ageDays: Double = 90
 
     /// How many separate looks it takes. One is a glance; two is intent.
-    static let minimumViews = 2
+    nonisolated static let minimumViews = 2
 
     /// Runs at most once a day.
     static let minimumInterval: TimeInterval = 24 * 60 * 60
