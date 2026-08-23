@@ -28,6 +28,10 @@ enum SousChefBrief {
         /// The ids the model was actually offered. Anything it quotes back
         /// that is not in here gets dropped rather than shown.
         var offeredRecipeIDs: Set<UUID>
+        /// §8's "Why this?" per candidate — the app's own reasoning, kept
+        /// separate from whatever the model says about its pick. One is the
+        /// score; the other is a sentence. They should not be confused.
+        var reasoning: [UUID: [String]]
     }
 
     /// Reads the store and does all the scoring for one question.
@@ -99,7 +103,11 @@ enum SousChefBrief {
             digest: digest,
             appState: appContext.appStateText,
             candidatesBlock: RankedCandidatesBlock.render(ranked, now: now),
-            offeredRecipeIDs: Set(ranked.map(\.recipe.id))
+            offeredRecipeIDs: Set(ranked.map(\.recipe.id)),
+            reasoning: Dictionary(
+                ranked.map { ($0.recipe.id, $0.whyThis) },
+                uniquingKeysWith: { first, _ in first }
+            )
         )
     }
 

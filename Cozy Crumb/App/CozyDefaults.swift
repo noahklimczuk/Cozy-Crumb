@@ -37,4 +37,8 @@ nonisolated enum CozyDefaultsKey {
     static let lastSignalPruneAt = "taste.lastSignalPruneAt"
     /// When the app last looked for saved-but-never-cooked recipes.
     static let lastAspirationScanAt = "taste.lastAspirationScanAt"
+    /// Whether the 45-second taste onboarding has been offered.
+    static let hasSeenTasteOnboarding = "taste.hasSeenOnboarding"
+    /// When the weekly reflection last ran.
+    static let lastWeeklyReflectionAt = "taste.lastWeeklyReflectionAt"
 }

@@ -23,9 +23,19 @@ import Foundation
 
 nonisolated struct SousChefRecommendation: Sendable, Equatable, Identifiable {
     var recipeID: UUID
+    /// The model's sentence about why it picked this.
     var why: String
+    /// The app's own reasoning, from the score. Shown behind "Why this?" so
+    /// the two are never confused for each other.
+    var reasoning: [String]
 
     nonisolated var id: UUID { recipeID }
+
+    nonisolated init(recipeID: UUID, why: String, reasoning: [String] = []) {
+        self.recipeID = recipeID
+        self.why = why
+        self.reasoning = reasoning
+    }
 }
 
 nonisolated enum RecommendationBlockParser {
@@ -52,7 +62,8 @@ nonisolated enum RecommendationBlockParser {
     /// only right in tests.
     nonisolated static func parse(
         _ reply: String,
-        knownRecipeIDs: Set<UUID> = []
+        knownRecipeIDs: Set<UUID> = [],
+        reasoning: [UUID: [String]] = [:]
     ) -> Result {
         guard let fence = lastJSONFence(in: reply) else {
             return Result(prose: reply.trimmingCharacters(in: .whitespacesAndNewlines), recommendations: [])
@@ -80,7 +91,8 @@ nonisolated enum RecommendationBlockParser {
 
             recommendations.append(SousChefRecommendation(
                 recipeID: id,
-                why: (item.why ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                why: (item.why ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+                reasoning: reasoning[id] ?? []
             ))
         }
 

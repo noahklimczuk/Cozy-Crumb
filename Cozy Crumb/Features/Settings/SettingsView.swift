@@ -253,6 +253,18 @@ struct SettingsView: View {
             }
             .buttonStyle(.squishy)
 
+            Divider().overlay(CozyColor.outline)
+
+            NavigationLink {
+                TasteProfileView()
+            } label: {
+                SettingsRowLabel(
+                    title: "What I've picked up",
+                    detail: "Everything the Sous Chef thinks it knows about your cooking — and how to correct it."
+                )
+            }
+            .buttonStyle(.squishy)
+
             #if DEBUG
             Divider().overlay(CozyColor.outline)
 

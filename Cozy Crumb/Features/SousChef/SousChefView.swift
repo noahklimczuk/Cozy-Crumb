@@ -22,6 +22,9 @@ struct SousChefView: View {
     @Environment(\.accentPalette) private var accent
 
     @State private var viewModel = SousChefViewModel()
+    @State private var isShowingOnboarding = false
+
+    @AppStorage(CozyDefaultsKey.hasSeenTasteOnboarding) private var hasSeenOnboarding = false
 
     var body: some View {
         NavigationStack {
@@ -34,6 +37,12 @@ struct SousChefView: View {
             }
             .background { BlobBackground() }
             .navigationTitle("Sous Chef")
+            .task {
+                await viewModel.loadReflection(in: modelContext)
+            }
+            .sheet(isPresented: $isShowingOnboarding) {
+                TasteOnboardingView()
+            }
             .toolbar {
                 if !viewModel.isEmptyConversation {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -144,6 +153,30 @@ struct SousChefView: View {
 
     private var opener: some View {
         VStack(alignment: .leading, spacing: CozySpacing.m) {
+            // §7.5. A week of silent learning, said out loud once.
+            if let reflection = viewModel.reflection {
+                WeeklyReflectionCard(
+                    reflection: reflection,
+                    onDismiss: { viewModel.dismissReflection() }
+                )
+            }
+
+            // §9. Offered, never insisted on, and only before there is
+            // anything real to go on.
+            if !hasSeenOnboarding {
+                Button {
+                    isShowingOnboarding = true
+                } label: {
+                    Label("Tell me roughly what you like (45 seconds)", systemImage: "sparkles")
+                        .cozyText(CozyFont.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(CozySpacing.m)
+                        .background(accent.soft.opacity(0.6),
+                                    in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+                }
+                .buttonStyle(.squishy)
+            }
+
             HStack(spacing: CozySpacing.m) {
                 MascotView(pose: .cooking, size: 72)
 
@@ -315,6 +348,7 @@ private struct RecommendedRecipeCard: View {
     @Environment(\.accentPalette) private var accent
 
     @State private var recipe: Recipe?
+    @State private var isShowingWhy = false
 
     var body: some View {
         Group {
@@ -346,9 +380,25 @@ private struct RecommendedRecipeCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                if let time = recipe.totalTimeDisplay {
-                    Text(time)
-                        .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
+                HStack(spacing: CozySpacing.s) {
+                    if let time = recipe.totalTimeDisplay {
+                        Text(time)
+                            .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
+                    }
+
+                    // §8. The app's own reasoning, in plain language, on
+                    // every recommendation — not the model's sentence, the
+                    // actual score.
+                    if !recommendation.reasoning.isEmpty {
+                        Button {
+                            isShowingWhy = true
+                        } label: {
+                            Text("Why this?")
+                                .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
+                                .underline()
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -356,6 +406,10 @@ private struct RecommendedRecipeCard: View {
             Image(systemName: "chevron.right")
                 .font(CozyFont.caption)
                 .foregroundStyle(CozyColor.inkSecondary)
+        }
+        .popover(isPresented: $isShowingWhy) {
+            WhyThisView(title: recipe.title, reasons: recommendation.reasoning)
+                .presentationCompactAdaptation(.popover)
         }
         .padding(CozySpacing.m)
         .background(accent.soft.opacity(0.5), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
@@ -409,5 +463,89 @@ struct AllergyConfirmationCard: View {
         .background(CozyColor.warning.opacity(0.35),
                     in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
         .accessibilityElement(children: .contain)
+    }
+}
+
+// MARK: - Why this?
+
+/// §8. The score breakdown, in words.
+///
+/// Shown because a recommendation nobody can interrogate is a recommendation
+/// nobody can correct. These lines come from the components that actually
+/// carried the score, so this is the reasoning itself rather than a
+/// plausible-sounding account of it.
+private struct WhyThisView: View {
+    let title: String
+    let reasons: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CozySpacing.s) {
+            Text(title)
+                .cozyText(CozyFont.bodyEmphasis)
+
+            ForEach(reasons, id: \.self) { reason in
+                Label(reason, systemImage: "circle.fill")
+                    .labelStyle(BulletLabelStyle())
+                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+            }
+        }
+        .padding(CozySpacing.l)
+        .frame(maxWidth: 300, alignment: .leading)
+    }
+}
+
+private struct BulletLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: CozySpacing.s) {
+            configuration.icon
+                .font(.system(size: 4))
+                .foregroundStyle(CozyColor.inkSecondary)
+            configuration.title
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+// MARK: - Weekly reflection
+
+/// §7.5. One observation about the week, as a card.
+///
+/// It exists because every other part of the learning system is invisible by
+/// design — it improves a ranking whose internals nobody sees. This is the
+/// one place a week of it becomes a sentence, which is most of where the
+/// feeling of being noticed comes from.
+private struct WeeklyReflectionCard: View {
+    let reflection: WeeklyReflectionText
+    let onDismiss: () -> Void
+
+    var body: some View {
+        CrumbCard {
+            VStack(alignment: .leading, spacing: CozySpacing.s) {
+                HStack(alignment: .top) {
+                    Label("Your week", systemImage: "calendar")
+                        .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+
+                    Spacer()
+
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(CozyFont.caption2)
+                            .foregroundStyle(CozyColor.inkSecondary)
+                    }
+                    .accessibilityLabel("Dismiss this week's note")
+                }
+
+                Text(reflection.observation)
+                    .cozyText(CozyFont.body)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let offer = reflection.offer, !offer.isEmpty {
+                    Text(offer)
+                        .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }

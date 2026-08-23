@@ -72,6 +72,11 @@ final class SousChefViewModel {
     /// extractor to read.
     private var userTurns: [String] = []
 
+    /// §7.5. A short observation about the week, shown as a card on the empty
+    /// screen. The cheapest way to make a fortnight of silent learning
+    /// visible.
+    private(set) var reflection: WeeklyReflectionText?
+
     /// How many times the model may ask for a function before we insist on an
     /// answer.
     private static let maximumToolRounds = 3
@@ -137,6 +142,17 @@ final class SousChefViewModel {
         await learn(from: question, in: modelContext)
     }
 
+    /// Looks for a weekly observation, at most once a week. Silent when
+    /// there is nothing worth saying.
+    func loadReflection(in modelContext: ModelContext) async {
+        guard isAwake, reflection == nil else { return }
+        reflection = await WeeklyReflection.run(in: modelContext, client: client)
+    }
+
+    func dismissReflection() {
+        reflection = nil
+    }
+
     func clear() {
         messages.removeAll()
         history.removeAll()
@@ -184,7 +200,8 @@ final class SousChefViewModel {
                     // sentence, so it is taken out before anything is shown.
                     let parsed = RecommendationBlockParser.parse(
                         raw,
-                        knownRecipeIDs: brief.offeredRecipeIDs
+                        knownRecipeIDs: brief.offeredRecipeIDs,
+                        reasoning: brief.reasoning
                     )
 
                     if !parsed.prose.isEmpty || !parsed.recommendations.isEmpty {

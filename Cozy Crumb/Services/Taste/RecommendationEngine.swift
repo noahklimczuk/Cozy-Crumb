@@ -297,6 +297,53 @@ nonisolated struct ScoredRecipe: Sendable, Equatable, Identifiable {
         missing.max { $0.severity < $1.severity }
     }
 
+    /// §8's "Why this?", in plain language.
+    ///
+    /// Built from the components that actually carried the score rather than
+    /// from a generic template, so it is the real reasoning and not a story
+    /// about it. Anything that contributed almost nothing is left out — a
+    /// list of seven half-reasons explains less than two real ones.
+    var whyThis: [String] {
+        var reasons: [String] = []
+
+        let total = have.count + missing.count
+        if missing.isEmpty, total > 0 {
+            reasons.append("You've got everything for it")
+        } else if breakdown.pantryMatch > 0.5 {
+            reasons.append("You've got \(have.count) of \(total) ingredients")
+        }
+
+        if breakdown.tasteAffinity > 0.65 {
+            if let cuisine = recipe.cuisine {
+                reasons.append("you've liked \(cuisine) before")
+            } else {
+                reasons.append("it's the sort of thing you go for")
+            }
+        }
+
+        if breakdown.effortFit >= 1, let minutes = recipe.totalMinutes {
+            reasons.append("\(minutes) min fits the day you're having")
+        }
+
+        if breakdown.recency < 0.5 {
+            reasons.append("though you did make it recently")
+        }
+
+        if let rating = recipe.rating, rating >= 4 {
+            reasons.append("you gave it \(rating) stars")
+        }
+
+        if reason == .stretch {
+            reasons.append("a bit outside your usual, on purpose")
+        }
+
+        if breakdown.seasonality > 0.75, breakdown.seasonality != Seasonality.neutral {
+            reasons.append("it's the right time of year for it")
+        }
+
+        return reasons
+    }
+
     var hasEverything: Bool {
         missing.isEmpty
     }
