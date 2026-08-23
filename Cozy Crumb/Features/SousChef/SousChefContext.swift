@@ -85,12 +85,13 @@ nonisolated struct SousChefContext: Sendable {
         [cookbookText, pantryText, appStateText].joined(separator: "\n\n")
     }
 
-    /// The cookbook, as the tool-calling loop needs to see it.
+    /// The cookbook, rendered the way it was before the digest existed.
     ///
-    /// Superseded for the Sous Chef's own prompt by `ContextDigestBuilder`,
-    /// which chooses its slice by relevance to the question rather than by
-    /// recency. Kept because the tools still need a plain list of what
-    /// exists, and because it is the fallback when a digest cannot be built.
+    /// Superseded for the Sous Chef's prompt by `ContextDigestBuilder`, which
+    /// picks its slice by relevance to the question rather than by recency.
+    /// Nothing in the app sends this any more — `appStateText` is the half
+    /// that still ships — and it is kept only because the existing tests
+    /// pin its shape. A later tidy-up can delete it and them together.
     nonisolated var cookbookText: String {
         var lines = ["THE USER'S COOKBOOK (\(totalRecipeCount) recipes saved)"]
 
