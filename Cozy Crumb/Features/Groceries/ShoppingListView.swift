@@ -199,6 +199,9 @@ struct ShoppingListView: View {
         ))
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
+                // Logged before the delete, while the item still has a name.
+                SignalLog.groceryDeleted(item, in: modelContext)
+
                 withAnimation(motion(Motion.gentle)) {
                     GroceryService.delete(item, in: modelContext)
                 }
@@ -406,6 +409,8 @@ struct ShoppingListView: View {
             } else {
                 GroceryService.save(modelContext, "tick")
             }
+
+            SignalLog.groceryPurchased(item, in: modelContext)
         }
     }
 

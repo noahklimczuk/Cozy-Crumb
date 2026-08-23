@@ -22,6 +22,9 @@ struct SousChefView: View {
     @Environment(\.accentPalette) private var accent
 
     @State private var viewModel = SousChefViewModel()
+    @State private var isShowingOnboarding = false
+
+    @AppStorage(CozyDefaultsKey.hasSeenTasteOnboarding) private var hasSeenOnboarding = false
 
     var body: some View {
         NavigationStack {
@@ -34,6 +37,12 @@ struct SousChefView: View {
             }
             .background { BlobBackground() }
             .navigationTitle("Sous Chef")
+            .task {
+                await viewModel.loadReflection(in: modelContext)
+            }
+            .sheet(isPresented: $isShowingOnboarding) {
+                TasteOnboardingView()
+            }
             .toolbar {
                 if !viewModel.isEmptyConversation {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -100,6 +109,14 @@ struct SousChefView: View {
                             .id(message.id)
                     }
 
+                    if let pending = viewModel.pendingAllergyConfirmation {
+                        AllergyConfirmationCard(
+                            statement: pending.statement,
+                            onConfirm: { viewModel.confirmPendingAllergy(in: modelContext) },
+                            onReject: { viewModel.rejectPendingAllergy(in: modelContext) }
+                        )
+                    }
+
                     if viewModel.isThinking {
                         thinking
                             .id(Self.thinkingID)
@@ -136,6 +153,30 @@ struct SousChefView: View {
 
     private var opener: some View {
         VStack(alignment: .leading, spacing: CozySpacing.m) {
+            // §7.5. A week of silent learning, said out loud once.
+            if let reflection = viewModel.reflection {
+                WeeklyReflectionCard(
+                    reflection: reflection,
+                    onDismiss: { viewModel.dismissReflection() }
+                )
+            }
+
+            // §9. Offered, never insisted on, and only before there is
+            // anything real to go on.
+            if !hasSeenOnboarding {
+                Button {
+                    isShowingOnboarding = true
+                } label: {
+                    Label("Tell me roughly what you like (45 seconds)", systemImage: "sparkles")
+                        .cozyText(CozyFont.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(CozySpacing.m)
+                        .background(accent.soft.opacity(0.6),
+                                    in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+                }
+                .buttonStyle(.squishy)
+            }
+
             HStack(spacing: CozySpacing.m) {
                 MascotView(pose: .cooking, size: 72)
 
@@ -192,21 +233,30 @@ struct SousChefView: View {
             }
 
         case .sousChef:
-            HStack(alignment: .top, spacing: CozySpacing.s) {
-                MascotView(pose: .idle, size: 30)
-                    .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: CozySpacing.s) {
+                HStack(alignment: .top, spacing: CozySpacing.s) {
+                    MascotView(pose: .idle, size: 30)
+                        .accessibilityHidden(true)
 
-                Text(message.text)
-                    .cozyText(CozyFont.body)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(CozySpacing.m)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
-                            .strokeBorder(CozyColor.outline, lineWidth: 1)
-                    }
-                    .textSelection(.enabled)
+                    Text(message.text)
+                        .cozyText(CozyFont.body)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(CozySpacing.m)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
+                                .strokeBorder(CozyColor.outline, lineWidth: 1)
+                        }
+                        .textSelection(.enabled)
+                }
+
+                // The recipes it actually picked, as things you can tap
+                // rather than titles you have to go and find.
+                ForEach(message.recommendations) { recommendation in
+                    RecommendedRecipeCard(recommendation: recommendation)
+                        .padding(.leading, 38)
+                }
             }
 
         case .action:
@@ -280,4 +330,222 @@ struct SousChefView: View {
 #Preview("Sous Chef") {
     SousChefView()
         .modelContainer(PreviewData.container)
+}
+
+// MARK: - Recommendation card
+
+/// A recipe the Sous Chef picked, with the one line it gave for why.
+///
+/// The card is looked up by id rather than rendered from what the model said
+/// about it. That is deliberate: the title, time and photo come from the
+/// store, so a reply that misremembers a recipe cannot put wrong information
+/// on screen — and if the id matches nothing, the card simply doesn't appear
+/// and the prose stands on its own.
+private struct RecommendedRecipeCard: View {
+    let recommendation: SousChefRecommendation
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.accentPalette) private var accent
+
+    @State private var recipe: Recipe?
+    @State private var isShowingWhy = false
+
+    var body: some View {
+        Group {
+            if let recipe {
+                NavigationLink {
+                    RecipeDetailView(recipe: recipe)
+                } label: {
+                    card(for: recipe)
+                }
+                .buttonStyle(.squishy)
+            }
+        }
+        .task(id: recommendation.recipeID) {
+            recipe = lookUp(recommendation.recipeID)
+        }
+    }
+
+    private func card(for recipe: Recipe) -> some View {
+        HStack(spacing: CozySpacing.m) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(recipe.title)
+                    .cozyText(CozyFont.bodyEmphasis)
+                    .multilineTextAlignment(.leading)
+
+                if !recommendation.why.isEmpty {
+                    Text(recommendation.why)
+                        .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack(spacing: CozySpacing.s) {
+                    if let time = recipe.totalTimeDisplay {
+                        Text(time)
+                            .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
+                    }
+
+                    // §8. The app's own reasoning, in plain language, on
+                    // every recommendation — not the model's sentence, the
+                    // actual score.
+                    if !recommendation.reasoning.isEmpty {
+                        Button {
+                            isShowingWhy = true
+                        } label: {
+                            Text("Why this?")
+                                .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
+                                .underline()
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Image(systemName: "chevron.right")
+                .font(CozyFont.caption)
+                .foregroundStyle(CozyColor.inkSecondary)
+        }
+        .popover(isPresented: $isShowingWhy) {
+            WhyThisView(title: recipe.title, reasons: recommendation.reasoning)
+                .presentationCompactAdaptation(.popover)
+        }
+        .padding(CozySpacing.m)
+        .background(accent.soft.opacity(0.5), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
+                .strokeBorder(accent.deep.opacity(0.3), lineWidth: 1)
+        }
+    }
+
+    private func lookUp(_ id: UUID) -> Recipe? {
+        var descriptor = FetchDescriptor<Recipe>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try? modelContext.fetch(descriptor).first
+    }
+}
+
+// MARK: - Allergy confirmation
+
+/// §5. An allergy heard in conversation is never applied on its own.
+///
+/// Both mistakes are bad in different ways — a false positive silently takes
+/// away food someone can eat, a false negative is a safety issue — so neither
+/// is left to a background inference. The card asks, plainly, once.
+struct AllergyConfirmationCard: View {
+    let statement: String
+    let onConfirm: () -> Void
+    let onReject: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CozySpacing.s) {
+            Label(statement, systemImage: "exclamationmark.triangle.fill")
+                .font(CozyFont.bodyEmphasis)
+                .foregroundStyle(CozyColor.inkPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("Want me to keep that out of everything I suggest?")
+                .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: CozySpacing.s) {
+                Button("Yes, filter it out", action: onConfirm)
+                    .buttonStyle(.squishy)
+
+                Button("No, I'm fine with it", action: onReject)
+                    .buttonStyle(.squishy)
+            }
+            .font(CozyFont.caption)
+        }
+        .padding(CozySpacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(CozyColor.warning.opacity(0.35),
+                    in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+        .accessibilityElement(children: .contain)
+    }
+}
+
+// MARK: - Why this?
+
+/// §8. The score breakdown, in words.
+///
+/// Shown because a recommendation nobody can interrogate is a recommendation
+/// nobody can correct. These lines come from the components that actually
+/// carried the score, so this is the reasoning itself rather than a
+/// plausible-sounding account of it.
+private struct WhyThisView: View {
+    let title: String
+    let reasons: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CozySpacing.s) {
+            Text(title)
+                .cozyText(CozyFont.bodyEmphasis)
+
+            ForEach(reasons, id: \.self) { reason in
+                Label(reason, systemImage: "circle.fill")
+                    .labelStyle(BulletLabelStyle())
+                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+            }
+        }
+        .padding(CozySpacing.l)
+        .frame(maxWidth: 300, alignment: .leading)
+    }
+}
+
+private struct BulletLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: CozySpacing.s) {
+            configuration.icon
+                .font(.system(size: 4))
+                .foregroundStyle(CozyColor.inkSecondary)
+            configuration.title
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+// MARK: - Weekly reflection
+
+/// §7.5. One observation about the week, as a card.
+///
+/// It exists because every other part of the learning system is invisible by
+/// design — it improves a ranking whose internals nobody sees. This is the
+/// one place a week of it becomes a sentence, which is most of where the
+/// feeling of being noticed comes from.
+private struct WeeklyReflectionCard: View {
+    let reflection: WeeklyReflectionText
+    let onDismiss: () -> Void
+
+    var body: some View {
+        CrumbCard {
+            VStack(alignment: .leading, spacing: CozySpacing.s) {
+                HStack(alignment: .top) {
+                    Label("Your week", systemImage: "calendar")
+                        .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+
+                    Spacer()
+
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(CozyFont.caption2)
+                            .foregroundStyle(CozyColor.inkSecondary)
+                    }
+                    .accessibilityLabel("Dismiss this week's note")
+                }
+
+                Text(reflection.observation)
+                    .cozyText(CozyFont.body)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let offer = reflection.offer, !offer.isEmpty {
+                    Text(offer)
+                        .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
 }

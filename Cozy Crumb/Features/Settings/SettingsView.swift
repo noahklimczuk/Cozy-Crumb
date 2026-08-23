@@ -255,6 +255,32 @@ struct SettingsView: View {
 
             Divider().overlay(CozyColor.outline)
 
+            NavigationLink {
+                TasteProfileView()
+            } label: {
+                SettingsRowLabel(
+                    title: "What I've picked up",
+                    detail: "Everything the Sous Chef thinks it knows about your cooking — and how to correct it."
+                )
+            }
+            .buttonStyle(.squishy)
+
+            #if DEBUG
+            Divider().overlay(CozyColor.outline)
+
+            NavigationLink {
+                SignalInspectorView()
+            } label: {
+                SettingsRowLabel(
+                    title: "Taste signals",
+                    detail: "The raw learning log, with the decay arithmetic. Debug builds only."
+                )
+            }
+            .buttonStyle(.squishy)
+            #endif
+
+            Divider().overlay(CozyColor.outline)
+
             VStack(spacing: CozySpacing.xs) {
                 Text(AppBranding.tagline)
                     .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)

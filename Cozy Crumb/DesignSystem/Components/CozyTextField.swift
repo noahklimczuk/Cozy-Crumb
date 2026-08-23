@@ -19,7 +19,9 @@ struct CozyTextField: View {
     var isSecure: Bool = false
     var showsClearButton: Bool = true
     var submitLabel: SubmitLabel = .return
-    var onSubmit: (() -> Void)?
+    /// Explicitly main-actor: callers hand this closure work that touches
+    /// the store, and a bare function type would strip the isolation.
+    var onSubmit: (@MainActor () -> Void)?
 
     var body: some View {
         HStack(spacing: CozySpacing.s) {

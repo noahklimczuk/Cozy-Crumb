@@ -24,7 +24,10 @@ struct MicrodataExtractor: RecipeExtracting {
         let ingredientLines = values(in: scanner, itemprops: ["recipeIngredient", "ingredients"])
             + classValues(in: scanner, classes: ["ingredient"])
 
-        let instructionLines = values(in: scanner, itemprops: ["recipeInstructions", "instructions"])
+        // Instructions read their blocks apart: a method marked up as a run
+        // of <p> tags is several steps, and flattening it to one line loses
+        // the only thing that says so.
+        let instructionLines = blockValues(in: scanner, itemprops: ["recipeInstructions", "instructions"])
             + classValues(in: scanner, classes: ["instruction"])
 
         let ingredients = ingredientLines
@@ -68,6 +71,16 @@ struct MicrodataExtractor: RecipeExtracting {
             scanner
                 .elements(withAttribute: "itemprop", value: itemprop)
                 .compactMap(\.microdataValue)
+                .filter { !$0.isEmpty }
+        }
+    }
+
+    /// As `values`, but keeping block boundaries so a method can be split.
+    private nonisolated func blockValues(in scanner: HTMLScanner, itemprops: [String]) -> [String] {
+        itemprops.flatMap { itemprop in
+            scanner
+                .elements(withAttribute: "itemprop", value: itemprop)
+                .map(\.blockSeparatedText)
                 .filter { !$0.isEmpty }
         }
     }

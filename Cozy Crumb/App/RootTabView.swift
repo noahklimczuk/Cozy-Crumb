@@ -128,6 +128,15 @@ struct RootTabView: View {
             // Re-reads ingredient lines saved before the caption parsing
             // fixes, so recipes already in the library start scaling too.
             IngredientRepair.run(in: modelContext)
+            // Drops taste signals old enough that decay has already made them
+            // worthless. Once a day at most; see SignalRetention.
+            SignalRetention.runIfDue(in: modelContext)
+            // Recipes saved before the classifier existed have no cuisine,
+            // and cuisine is most of what the taste profile talks about.
+            CuisineBackfill.run(in: modelContext)
+            // The recipes they mean to make and never do. Once a day.
+            AspirationGapDetector.runIfDue(in: modelContext)
+            TasteProfileStore.rebuildIfStale(in: modelContext)
         }
     }
 }

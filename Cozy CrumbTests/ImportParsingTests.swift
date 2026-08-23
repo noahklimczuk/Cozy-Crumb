@@ -5,6 +5,7 @@
 //  The small parsers the cascade is built on.
 //
 
+import Foundation
 import Testing
 
 @testable import Cozy_Crumb
