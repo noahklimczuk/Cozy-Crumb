@@ -95,6 +95,21 @@ enum CozyColor {
     nonisolated static let block = Color(light: Color(hex: "E7D3C5"), dark: Color(hex: "1C1716"))
 }
 
+// MARK: - Mixing
+
+extension Color {
+    /// Pales a pastel toward the page colour without going translucent.
+    ///
+    /// This exists because of `cozyBlockShadow`. A block is drawn behind the
+    /// view it belongs to, so a fill with any transparency lets its own offset
+    /// show through and the card reads as smudged rather than stamped. Every
+    /// `tint.opacity(0.55)` on a surface that carries a block is one of these
+    /// instead.
+    nonisolated func cozyPaled(_ amount: Double = 0.45) -> Color {
+        mix(with: CozyColor.cream, by: amount)
+    }
+}
+
 // MARK: - Accent picker
 
 /// User-selectable app accent (§5.9). Held in the environment so components

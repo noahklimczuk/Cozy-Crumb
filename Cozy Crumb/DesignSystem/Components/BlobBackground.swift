@@ -5,6 +5,12 @@
 //  Soft pastel blobs drifting slowly behind content (§7.2). Frozen entirely
 //  when Reduce Motion is on — the blobs still draw, they just stop moving.
 //
+//  No screen wears this any more; `TileBackground` is the page now, and the
+//  reasoning for the swap is at the top of that file. It is kept because it is
+//  a finished piece of the design system and the decision to retire it for
+//  good is a separate one from the redesign — but there is deliberately no
+//  `cozyBackground()` modifier left, so nothing can pick it up by accident.
+//
 
 import Foundation
 import SwiftUI
@@ -78,13 +84,6 @@ struct BlobBackground: View {
                 x: baseX + CGFloat(sin(t)) * amplitude,
                 y: baseY + CGFloat(cos(t * 0.8)) * amplitude
             )
-    }
-}
-
-/// Convenience: put the blobs behind any screen.
-extension View {
-    func cozyBackground() -> some View {
-        background { BlobBackground() }
     }
 }
 
