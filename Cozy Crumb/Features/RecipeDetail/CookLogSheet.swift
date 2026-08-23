@@ -64,7 +64,7 @@ struct CookLogSheet: View {
                 }
                 .padding(CozySpacing.l)
             }
-            .background { BlobBackground() }
+            .cozyScreenBackground()
             .navigationTitle("I made this")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

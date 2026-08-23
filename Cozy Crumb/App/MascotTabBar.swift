@@ -53,6 +53,12 @@ struct MascotTabBar: View {
             .shadow(color: CozyColor.block, radius: 0, x: 0, y: -CozyDepth.small)
             .ignoresSafeArea(edges: .bottom)
         }
+        // Five labels across the narrowest phone cannot also grow to AX5:
+        // past about AX1 they truncate however hard `minimumScaleFactor`
+        // works, and a bar of "Sou…" and "Grocer…" helps nobody. VoiceOver
+        // still reads each label in full, and every screen the bar leads to
+        // scales all the way up.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isTabBar)
     }
@@ -72,9 +78,7 @@ struct MascotTabBar: View {
                 Text(tab.title)
                     .font(CozyFont.caption2.weight(isSelected ? .bold : .medium))
                     .lineLimit(1)
-                    // Five labels across the narrowest supported phone at an
-                    // accessibility text size is the tight spot on this screen.
-                    // Shrinking a little beats truncating "Sous Chef" to "Sou…".
+                    // Takes up the last of the slack inside the cap above.
                     .minimumScaleFactor(0.85)
             }
             .foregroundStyle(isSelected ? CozyColor.inkPrimary : CozyColor.inkSecondary)

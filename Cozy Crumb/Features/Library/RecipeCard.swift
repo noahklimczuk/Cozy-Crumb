@@ -35,11 +35,7 @@ struct RecipeCard: View {
         // title wraps to two lines and the other doesn't.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.card, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: CozyRadius.card, style: .continuous)
-                .strokeBorder(CozyColor.outline, lineWidth: CozyBorder.card)
-        }
-        .cozyCardShadow()
+        .cozyBlockShadow()
         .opacity(hasAppeared ? 1 : 0)
         .offset(y: hasAppeared ? 0 : 18)
         .animation(entrance, value: hasAppeared)
@@ -166,5 +162,5 @@ struct RecipeCard: View {
         }
         .padding(CozySpacing.l)
     }
-    .background { BlobBackground() }
+    .cozyScreenBackground()
 }

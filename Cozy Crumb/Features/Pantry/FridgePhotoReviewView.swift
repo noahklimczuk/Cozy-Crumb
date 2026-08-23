@@ -68,7 +68,7 @@ struct FridgePhotoReviewView: View {
                 }
                 .padding(CozySpacing.l)
             }
-            .background { BlobBackground() }
+            .cozyScreenBackground()
             .navigationTitle("In the fridge")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -115,7 +115,7 @@ struct FridgePhotoReviewView: View {
             .foregroundStyle(CozyColor.inkPrimary)
             .padding(.horizontal, CozySpacing.m)
             .padding(.vertical, CozySpacing.s)
-            .background(tint.opacity(0.55), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+            .background(tint.cozyPaled(), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
 
             CrumbCard(padding: CozySpacing.s) {
                 VStack(spacing: 0) {
@@ -194,7 +194,7 @@ struct FridgePhotoReviewView: View {
         .opacity(keptItems.isEmpty ? 0.5 : 1)
         .padding(.horizontal, CozySpacing.l)
         .padding(.vertical, CozySpacing.m)
-        .background(.ultraThinMaterial)
+        .background(CozyColor.cream)
     }
 }
 

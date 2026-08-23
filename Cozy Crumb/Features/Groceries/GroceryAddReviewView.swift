@@ -81,7 +81,7 @@ struct GroceryAddReviewView: View {
                     list
                 }
             }
-            .background { BlobBackground() }
+            .cozyScreenBackground()
             .navigationTitle("Add to list")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -157,7 +157,7 @@ struct GroceryAddReviewView: View {
         .foregroundStyle(CozyColor.inkPrimary)
         .padding(.horizontal, CozySpacing.m)
         .padding(.vertical, CozySpacing.s)
-        .background(category.tint.opacity(0.55), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+        .background(category.tint.cozyPaled(), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
     }
 
     private func row(for entry: GroceryLineEntry) -> some View {
@@ -286,7 +286,7 @@ struct GroceryAddReviewView: View {
         }
         .padding(.horizontal, CozySpacing.l)
         .padding(.vertical, CozySpacing.m)
-        .background(.ultraThinMaterial)
+        .background(CozyColor.cream)
     }
 
     private func add() {

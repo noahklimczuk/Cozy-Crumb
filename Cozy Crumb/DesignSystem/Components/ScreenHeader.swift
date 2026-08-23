@@ -32,6 +32,7 @@ import SwiftUI
 
 struct ScreenHeader<Trailing: View, Below: View>: View {
     @Environment(\.accentPalette) private var accent
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     let title: String
     /// The small tracked line above the title. Usually the app's name on a
@@ -90,7 +91,10 @@ struct ScreenHeader<Trailing: View, Below: View>: View {
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 2) {
-            if let eyebrow {
+            // The eyebrow says the app's name, which nobody needs and which
+            // at an accessibility size costs a line of a block that is already
+            // carrying a title, a caption and a strip on a phone-sized screen.
+            if let eyebrow, !typeSize.isAccessibilitySize {
                 Text(eyebrow)
                     .cozyEyebrow()
             }

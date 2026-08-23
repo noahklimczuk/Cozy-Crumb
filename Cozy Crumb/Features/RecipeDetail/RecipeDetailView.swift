@@ -227,7 +227,7 @@ struct RecipeDetailView: View {
                     .cozyText(CozyFont.caption, color: CozyColor.inkPrimary)
                     .padding(CozySpacing.s)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(CozyColor.warning.opacity(0.45),
+                    .background(CozyColor.warning.cozyPaled(0.55),
                                 in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
             }
         }

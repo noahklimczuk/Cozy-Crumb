@@ -97,11 +97,7 @@ struct SousChefView: View {
                 .padding(.horizontal, CozySpacing.xl)
                 .frame(minHeight: CozyMetrics.minimumTouchTarget + 6)
                 .background(accent.color, in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: CozyRadius.button, style: .continuous)
-                        .strokeBorder(accent.deep, lineWidth: 1.5)
-                }
-                .cozyLiftShadow()
+                .cozyBlockShadow()
             }
             .buttonStyle(.squishy)
         }
@@ -186,7 +182,7 @@ struct SousChefView: View {
                         .cozyText(CozyFont.caption)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(CozySpacing.m)
-                        .background(accent.soft.opacity(0.6),
+                        .background(accent.soft,
                                     in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
                 }
                 .buttonStyle(.squishy)
@@ -281,7 +277,7 @@ struct SousChefView: View {
                 .padding(.horizontal, CozySpacing.m)
                 .padding(.vertical, CozySpacing.s)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(CozyColor.success.opacity(0.4),
+                .background(CozyColor.success.cozyPaled(0.6),
                             in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
                 .accessibilityLabel("Done: \(message.text)")
         }
@@ -302,7 +298,7 @@ struct SousChefView: View {
             .foregroundStyle(CozyColor.inkPrimary)
             .padding(CozySpacing.m)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(CozyColor.warning.opacity(0.45),
+            .background(CozyColor.warning.cozyPaled(0.55),
                         in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
     }
 
@@ -328,8 +324,7 @@ struct SousChefView: View {
                     .frame(width: CozyMetrics.minimumTouchTarget + 6,
                            height: CozyMetrics.minimumTouchTarget + 6)
                     .background(accent.color, in: .circle)
-                    .overlay { Circle().strokeBorder(accent.deep, lineWidth: 1.5) }
-                    .cozyLiftShadow()
+                    .cozyBlockShadow(CozyDepth.small)
             }
             .buttonStyle(.squishy)
             .disabled(!viewModel.canSend)
@@ -427,7 +422,7 @@ private struct RecommendedRecipeCard: View {
                 .presentationCompactAdaptation(.popover)
         }
         .padding(CozySpacing.m)
-        .background(accent.soft.opacity(0.5), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+        .background(accent.soft, in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
                 .strokeBorder(accent.deep.opacity(0.3), lineWidth: 1)
@@ -475,7 +470,7 @@ struct AllergyConfirmationCard: View {
         }
         .padding(CozySpacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(CozyColor.warning.opacity(0.35),
+        .background(CozyColor.warning.cozyPaled(0.65),
                     in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
         .accessibilityElement(children: .contain)
     }

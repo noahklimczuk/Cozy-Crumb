@@ -67,7 +67,7 @@ struct TasteProfileView: View {
             }
             .padding(CozySpacing.l)
         }
-        .background { BlobBackground() }
+        .cozyScreenBackground()
         .navigationTitle("What I've picked up")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: Binding(
