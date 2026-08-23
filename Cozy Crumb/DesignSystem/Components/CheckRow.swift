@@ -79,7 +79,7 @@ struct CheckRow<Accessory: View>: View {
 
                     if let subtitle, !subtitle.isEmpty {
                         Text(subtitle)
-                            .cozyText(CozyFont.caption2, color: CozyColor.inkTertiary)
+                            .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 

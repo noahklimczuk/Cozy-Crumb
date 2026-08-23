@@ -6,6 +6,13 @@
 //  chosen system. Section headers ("For the sauce:") render as headers rather
 //  than as tickable items.
 //
+//  The tickable line is a `CheckRow`. What is left here is the part that is
+//  actually about ingredients: working out what the line says at these
+//  servings in these units, and warning when the scaled amount is awkward to
+//  measure. The circle, the swept strikethrough and the VoiceOver wording are
+//  shared with the shopping list, which is where they had already drifted
+//  apart from these.
+//
 
 import SwiftUI
 
@@ -43,65 +50,26 @@ struct IngredientRow: View {
     }
 
     private var row: some View {
-        Button(action: onToggle) {
-            HStack(alignment: .top, spacing: CozySpacing.m) {
-                tickCircle
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(displayText)
-                        .cozyText(CozyFont.body)
-                        .strikethrough(isChecked, color: CozyColor.inkSecondary)
-                        .opacity(isChecked ? 0.5 : 1)
-                        .multilineTextAlignment(.leading)
-                        .contentTransition(.numericText())
-
-                    if let note = ingredient.note, !note.isEmpty {
-                        Text(note)
-                            .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                            .opacity(isChecked ? 0.5 : 1)
-                    }
-
-                    if let awkward = scaled.awkwardNote {
-                        Text(awkward)
-                            .cozyText(CozyFont.caption, color: CozyColor.inkPrimary)
-                            .padding(.horizontal, CozySpacing.s)
-                            .padding(.vertical, 3)
-                            .background(CozyColor.warning.opacity(0.5),
-                                        in: .rect(cornerRadius: 8, style: .continuous))
-                            .padding(.top, 2)
-                    }
-                }
-
-                Spacer(minLength: 0)
+        CheckRow(
+            title: displayText,
+            subtitle: ingredient.note,
+            isChecked: isChecked,
+            action: onToggle
+        ) {
+            if let awkward = scaled.awkwardNote {
+                Text(awkward)
+                    .cozyText(CozyFont.caption, color: CozyColor.inkPrimary)
+                    .padding(.horizontal, CozySpacing.s)
+                    .padding(.vertical, 3)
+                    .background(CozyColor.warning.cozyPaled(0.3),
+                                in: .rect(cornerRadius: 8, style: .continuous))
+                    .padding(.top, 2)
             }
-            .frame(minHeight: CozyMetrics.minimumTouchTarget)
-            .contentShape(.rect)
         }
-        .buttonStyle(.plain)
-        .cozyAnimation(Motion.bouncy, value: isChecked)
+        // The tick's own animation lives in CheckRow. This one is for the
+        // quantity re-scaling under the servings stepper, which is this
+        // screen's business and nothing to do with ticking.
         .cozyAnimation(Motion.snappy, value: targetServings)
-        .accessibilityLabel(displayText)
-        .accessibilityValue(isChecked ? "ticked off" : "not ticked off")
-        .accessibilityHint("Double tap to tick off")
-    }
-
-    private var tickCircle: some View {
-        ZStack {
-            Circle()
-                .strokeBorder(isChecked ? CozyColor.success : CozyColor.outlineStrong,
-                              lineWidth: CozyBorder.card)
-                .frame(width: 22, height: 22)
-
-            if isChecked {
-                Circle()
-                    .fill(CozyColor.success)
-                    .frame(width: 22, height: 22)
-                Image(systemName: "checkmark")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(CozyColor.inkPrimary)
-            }
-        }
-        .padding(.top, 2)
     }
 
     /// Scaled amount plus the ingredient name. Falls back to the original

@@ -175,19 +175,12 @@ struct ShoppingListView: View {
                             row(for: item)
                         }
                     } header: {
-                        HStack(spacing: CozySpacing.xs) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.caption.weight(.semibold))
-                            Text("Got it")
-                                .font(CozyFont.caption.weight(.semibold))
-                            Spacer()
-                            Text("\(list.completedItems.count)")
-                                .font(CozyFont.caption2)
-                        }
-                        .foregroundStyle(CozyColor.inkSecondary)
-                        .padding(.horizontal, CozySpacing.m)
-                        .padding(.vertical, CozySpacing.s)
-                        .background(CozyColor.creamDeep, in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+                        AisleTag(
+                            title: "Got it",
+                            systemImage: "checkmark.circle.fill",
+                            count: list.completedItems.count,
+                            tint: CozyColor.creamDeep
+                        )
                         .textCase(nil)
                         .listRowInsets(EdgeInsets(
                             top: CozySpacing.xl,
@@ -227,19 +220,12 @@ struct ShoppingListView: View {
     }
 
     private func categoryHeader(_ category: GroceryCategory, count: Int) -> some View {
-        HStack(spacing: CozySpacing.xs) {
-            Image(systemName: category.symbol)
-                .font(.caption.weight(.semibold))
-            Text(category.displayName)
-                .font(CozyFont.caption.weight(.semibold))
-            Spacer()
-            Text("\(count)")
-                .font(CozyFont.caption2)
-        }
-        .foregroundStyle(CozyColor.inkPrimary)
-        .padding(.horizontal, CozySpacing.m)
-        .padding(.vertical, CozySpacing.s)
-        .background(category.tint.opacity(0.55), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+        AisleTag(
+            title: category.displayName,
+            systemImage: category.symbol,
+            count: count,
+            tint: category.tint.cozyPaled()
+        )
         .textCase(nil)
         .listRowInsets(EdgeInsets(
             top: CozySpacing.m,
@@ -498,6 +484,9 @@ struct ShoppingListView: View {
 
 // MARK: - Row
 
+/// A grocery line as a `CheckRow`. What is left here is the shopping-specific
+/// part: rounding an exact amount up to something you can actually buy, and
+/// saying what the recipes asked for when the two differ.
 private struct GroceryRow: View {
     let item: GroceryItem
     let isStruckThrough: Bool
@@ -529,49 +518,24 @@ private struct GroceryRow: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    var body: some View {
-        Button(action: onToggle) {
-            HStack(alignment: .top, spacing: CozySpacing.s) {
-                Image(systemName: isStruckThrough ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(isStruckThrough ? item.category.tint : CozyColor.inkSecondary)
-                    .contentTransition(.symbolEffect(.replace))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    label
-                    if let caption {
-                        Text(caption)
-                            .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer(minLength: 0)
-            }
-            .padding(.vertical, 2)
-            .frame(minHeight: CozyMetrics.minimumTouchTarget - CozySpacing.s)
-            .contentShape(.rect)
-            .opacity(isStruckThrough ? 0.55 : 1)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(amount.isEmpty ? item.name : "\(amount) \(item.name)")
-        .accessibilityValue(item.isChecked ? "Got it" : "Still to buy")
-        .accessibilityHint("Double-tap to tick off")
+    private var title: String {
+        amount.isEmpty ? item.name : "\(amount) \(item.name)"
     }
 
-    /// The strikethrough is drawn rather than toggled so it sweeps across the
-    /// text instead of appearing all at once.
-    private var label: some View {
-        Text(amount.isEmpty ? item.name : "\(amount) \(item.name)")
-            .cozyText(CozyFont.body)
-            .fixedSize(horizontal: false, vertical: true)
-            .overlay(alignment: .leading) {
-                Capsule()
-                    .fill(CozyColor.inkSecondary)
-                    .frame(height: 1.5)
-                    .scaleEffect(x: isStruckThrough ? 1 : 0, anchor: .leading)
-                    .cozyAnimation(Motion.snappy, value: isStruckThrough)
-            }
+    var body: some View {
+        CheckRow(
+            title: title,
+            subtitle: caption,
+            // The strike leads the tick by a beat — see `toggle(_:)` above —
+            // so the row reads from this rather than from `item.isChecked`.
+            isChecked: isStruckThrough,
+            // A ticked row keeps its aisle colour, so a glance at the "Got it"
+            // section still says which shelf each thing came off.
+            tint: item.category.tint,
+            checkedValue: "got it",
+            uncheckedValue: "still to buy",
+            action: onToggle
+        )
     }
 }
 
