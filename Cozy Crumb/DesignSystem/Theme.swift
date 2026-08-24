@@ -46,7 +46,25 @@ enum CozyColor {
     nonisolated static let peach = Color(light: Color(hex: "FFD9C4"), dark: Color(hex: "A3785F"))
     nonisolated static let sage = Color(light: Color(hex: "D9E4C8"), dark: Color(hex: "7E8C68"))
 
+    /// The deep step of each accent, hoisted out of `AccentPalette` so the
+    /// rotation can reach them too.
+    ///
+    /// A recipe with no photo is drawn as a two-stop gradient from its
+    /// rotation colour to that colour's deep, and the rotation runs over six
+    /// colours while the accent picker only offers five. Deriving the second
+    /// stop by mixing toward the ink instead would work and look wrong: it
+    /// desaturates, so every placeholder would fade toward the same brown.
+    nonisolated static let mintDeep = Color(light: Color(hex: "A3D3BB"), dark: Color(hex: "5B7F6D"))
+    nonisolated static let butterDeep = Color(light: Color(hex: "F0DFA2"), dark: Color(hex: "84774E"))
+    nonisolated static let skyDeep = Color(light: Color(hex: "AECDE6"), dark: Color(hex: "5A7183"))
+    nonisolated static let lavenderDeep = Color(light: Color(hex: "C7B9E0"), dark: Color(hex: "6A5F80"))
+    nonisolated static let peachDeep = Color(light: Color(hex: "F0B392"), dark: Color(hex: "8A6350"))
+    nonisolated static let sageDeep = Color(light: Color(hex: "B9CDA2"), dark: Color(hex: "697557"))
+
     nonisolated static let accentRotation: [Color] = [mint, butter, sky, lavender, peach, sage]
+    nonisolated static let accentDeepRotation: [Color] = [
+        mintDeep, butterDeep, skyDeep, lavenderDeep, peachDeep, sageDeep
+    ]
 
     /// Deterministic accent for a name, so a given collection or category keeps
     /// the same colour across launches.
@@ -55,11 +73,21 @@ enum CozyColor {
     /// process, so `hashValue` would hand out a different colour on every
     /// launch. `&*` and `&+` wrap instead of trapping on overflow.
     nonisolated static func rotatedAccent(for key: String) -> Color {
+        accentRotation[rotationIndex(for: key)]
+    }
+
+    /// The matching deep step, so the two stops of a placeholder gradient are
+    /// always the same colour twice rather than two colours.
+    nonisolated static func rotatedAccentDeep(for key: String) -> Color {
+        accentDeepRotation[rotationIndex(for: key)]
+    }
+
+    nonisolated private static func rotationIndex(for key: String) -> Int {
         var hash: UInt64 = 5381
         for byte in key.utf8 {
             hash = (hash &* 33) &+ UInt64(byte)
         }
-        return accentRotation[Int(hash % UInt64(accentRotation.count))]
+        return Int(hash % UInt64(accentRotation.count))
     }
 
     // Ink — never pure black
@@ -200,10 +228,10 @@ enum AccentPalette: String, CaseIterable, Identifiable, Sendable {
     nonisolated var deep: Color {
         switch self {
         case .blush: CozyColor.blushDeep
-        case .mint: Color(light: Color(hex: "A3D3BB"), dark: Color(hex: "5B7F6D"))
-        case .butter: Color(light: Color(hex: "F0DFA2"), dark: Color(hex: "84774E"))
-        case .sky: Color(light: Color(hex: "AECDE6"), dark: Color(hex: "5A7183"))
-        case .lavender: Color(light: Color(hex: "C7B9E0"), dark: Color(hex: "6A5F80"))
+        case .mint: CozyColor.mintDeep
+        case .butter: CozyColor.butterDeep
+        case .sky: CozyColor.skyDeep
+        case .lavender: CozyColor.lavenderDeep
         }
     }
 
