@@ -68,7 +68,21 @@ private struct TileGrid: Shape {
 
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        guard tile > 1, rect.width > 0, rect.height > 0 else { return path }
+
+        // `.isFinite` is the load-bearing half of this guard, and it is not
+        // paranoia: a Shape can be handed an unbounded proposal, `.infinity > 0`
+        // is perfectly true, and `Int(.infinity)` is a hard trap rather than an
+        // error — the app would go down with "Double value cannot be converted
+        // to Int because it is either infinite or NaN". The `while` below would
+        // never terminate on an infinite `maxX` either.
+        //
+        // This grid is the background of every screen in the app, so the one
+        // place it must not do is take the whole app down with it if some
+        // layout hands it a rect it wasn't expecting.
+        guard tile > 1,
+              rect.width.isFinite, rect.height.isFinite,
+              rect.width > 0, rect.height > 0
+        else { return path }
 
         let courses = Int((rect.height / courseHeight).rounded(.up)) + 1
 
