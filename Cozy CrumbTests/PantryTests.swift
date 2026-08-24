@@ -28,7 +28,7 @@ struct FridgePhotoReaderTests {
             ("peppers", 3, 0.7)
         ]))
 
-        #expect(items.map(\.displayName) == ["milk", "peppers", "mustard"])
+        #expect(items.map(\.name) == ["milk", "peppers", "mustard"])
     }
 
     @Test("The unsure ones are kept, flagged rather than dropped")
