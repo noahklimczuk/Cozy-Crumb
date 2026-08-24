@@ -31,8 +31,13 @@ enum CozyFont {
 
     /// PostScript names, not file names. These are what the font actually
     /// calls itself once registered; the filenames are irrelevant to lookup.
-    private static let displayFaceName = "BricolageGrotesque-ExtraBold"
-    private static let displaySoftFaceName = "BricolageGrotesque-SemiBold"
+    ///
+    /// `nonisolated` because everything that reads them is: the target
+    /// defaults types to MainActor, so an unannotated constant here is
+    /// main-actor isolated and `hasDisplayFace` below — which is explicitly
+    /// nonisolated — cannot see it.
+    nonisolated private static let displayFaceName = "BricolageGrotesque-ExtraBold"
+    nonisolated private static let displaySoftFaceName = "BricolageGrotesque-SemiBold"
 
     /// Whether the display face is actually installed in this build.
     ///
