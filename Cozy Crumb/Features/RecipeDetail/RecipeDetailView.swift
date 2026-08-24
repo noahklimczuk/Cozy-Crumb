@@ -14,6 +14,8 @@ import os
 struct RecipeDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.cozyMotion) private var motion
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     @AppStorage(CozyDefaultsKey.measurementSystem)
     private var systemRaw = MeasurementSystem.asWritten.rawValue
@@ -45,14 +47,30 @@ struct RecipeDetailView: View {
     /// the title sitting at a different place on every device, and this screen
     /// is read from the title down, not looked at from the top.
     var body: some View {
+        // The controls sit in a layer of their own rather than in the scroll
+        // view, so they stay put while the recipe moves under them — a back
+        // button that scrolls away is a back button you have to scroll back up
+        // to find. The ZStack keeps the safe area; only the scroll view opts
+        // out of it, which is what lets the hero bleed under the status bar.
+        ZStack(alignment: .top) {
+            scroller
+            floatingControls
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationTitle(recipe.title)
+        .navigationBarBackButtonHidden()
+    }
+
+    private var scroller: some View {
         ScrollView {
             VStack(spacing: CozySpacing.l) {
                 hero(height: CozyMetrics.recipeHeroHeight)
-                heading
+                if !titleOnHero { heading(onHero: false) }
+                reviewBanner
                 cookModeButton
-                servingsCard
-                ingredientsCard
+                ingredientsSection
                 addToGroceriesButton
+                unitsCard
                 stepsSection
                 notesCard
                 madeThisSection
@@ -65,7 +83,6 @@ struct RecipeDetailView: View {
         .ignoresSafeArea(edges: .top)
         .coordinateSpace(.named(Self.scrollSpace))
         .cozyScreenBackground()
-        .navigationTitle(recipe.title)
         // Opening a recipe is a weak signal; staying on it is a better one.
         // The sleep is cancelled when the screen goes away, so backing
         // straight out records only the glance.
@@ -79,11 +96,6 @@ struct RecipeDetailView: View {
             }
 
             SignalLog.readProperly(recipe, in: modelContext)
-        }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            favoriteButton
-            editButton
         }
         .sheet(isPresented: $isEditing) {
             viewModel.resync(with: recipe)
@@ -127,7 +139,7 @@ struct RecipeDetailView: View {
     /// heading rather than at the bottom, because someone about to cook should
     /// not have to scroll past the shopping controls to start.
     private var cookModeButton: some View {
-        SquishyButton(title: "Start cooking", systemImage: "flame") {
+        SquishyButton(title: "Start cooking", systemImage: "flame", minHeight: 58) {
             isCooking = true
         }
         .padding(.horizontal, CozySpacing.l)
@@ -140,7 +152,12 @@ struct RecipeDetailView: View {
     /// Sends the ingredient list — at whatever servings the user has dialled
     /// to, not the recipe's original — over to the grocery list.
     private var addToGroceriesButton: some View {
-        SquishyButton(title: "Add to groceries", systemImage: "checklist", emphasis: .secondary) {
+        SquishyButton(
+            title: "Add to groceries",
+            systemImage: "checklist",
+            emphasis: .secondary,
+            minHeight: 50
+        ) {
             addToGroceries()
         }
         .padding(.horizontal, CozySpacing.l)
@@ -184,6 +201,12 @@ struct RecipeDetailView: View {
 
     // MARK: - Hero
 
+    /// The picture and the title, as one thing.
+    ///
+    /// The title used to sit on the page below the image, under an inline
+    /// navigation bar carrying it a second time. Setting it *on* the hero buys
+    /// back a whole screen-width of vertical space, and at 44pt in the display
+    /// face it is the recipe's name rather than a caption for the photograph.
     private func hero(height: CGFloat) -> some View {
         GeometryReader { proxy in
             let minY = proxy.frame(in: .named(Self.scrollSpace)).minY
@@ -195,90 +218,186 @@ struct RecipeDetailView: View {
                 .offset(y: -stretch)
         }
         .frame(height: height)
+        .overlay(alignment: .bottomLeading) {
+            if titleOnHero { heading(onHero: true) }
+        }
+        .clipped()
     }
 
-    private var heading: some View {
+    /// Whether the title is set on the picture or on the page under it.
+    ///
+    /// The hero is a fixed 330pt, and a 44pt title at an accessibility size is
+    /// not: two lines of AX5 plus a summary and two pills is taller than the
+    /// image they are supposed to sit on, and `.clipped()` would take the top
+    /// off the recipe's name. So past AX1 the heading comes off the hero and
+    /// goes back on the page, where it can be as tall as it needs to be.
+    private var titleOnHero: Bool { !typeSize.isAccessibilitySize }
+
+    private func heading(onHero: Bool) -> some View {
         VStack(alignment: .leading, spacing: CozySpacing.s) {
+            // Still the source *pill*, and still a link when there is one to
+            // follow — it just isn't shaped like a chip any more.
+            if let sourceLabel = SourcePill.label(for: recipe) {
+                SourcePill(
+                    name: sourceLabel,
+                    symbol: recipe.sourceKind.symbol,
+                    url: recipe.sourceURL
+                )
+            }
+
             Text(recipe.title)
-                .cozyText(CozyFont.title)
+                .cozyText(CozyFont.display, color: onHero ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
+                .cozyDisplayTracking(CozyTracking.display)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let summary = recipe.summary {
                 Text(summary)
-                    .cozyText(CozyFont.subheadline, color: CozyColor.inkSecondary)
+                    .cozyText(CozyFont.subheadline,
+                              color: onHero ? CozyColor.inkOnBlush : CozyColor.inkSecondary)
+                    .lineLimit(onHero ? 2 : nil)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            // Translucent white on the picture, creamDeep on the page: an
+            // opaque pill on a photograph is a sticker, and a translucent one
+            // on cream is barely a pill at all.
             HStack(spacing: CozySpacing.xs) {
                 if let time = recipe.totalTimeDisplay {
-                    PillTag(text: time, systemImage: "clock")
+                    PillTag(text: time, tint: pillFill, ink: pillInk)
                 }
-                if let sourceLabel = SourcePill.label(for: recipe) {
-                    SourcePill(
-                        name: sourceLabel,
-                        symbol: recipe.sourceKind.symbol,
-                        url: recipe.sourceURL
-                    )
-                }
-            }
-
-            if recipe.needsReview {
-                Text("I did my best guess here — worth a quick look.")
-                    .cozyText(CozyFont.caption, color: CozyColor.inkPrimary)
-                    .padding(CozySpacing.s)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(CozyColor.warning.cozyPaled(0.55),
-                                in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+                PillTag(text: "Serves \(viewModel.servings)", tint: pillFill, ink: pillInk)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, CozySpacing.l)
+        .padding(.bottom, onHero ? CozySpacing.l : 0)
+        .background(alignment: .bottom) {
+            // The hero can be a photograph, and ink on an unknown photograph is
+            // a coin toss. A scrim under the text costs nothing on the
+            // procedural placeholders and is the only thing making a 44pt
+            // title readable over a bright picture.
+            if onHero {
+                LinearGradient(
+                    colors: [CozyColor.cardOnBlush.opacity(0), CozyColor.cardOnBlush],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 260)
+                .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private var pillFill: Color {
+        titleOnHero ? CozyColor.cardOnBlush : CozyColor.creamDeep
+    }
+
+    private var pillInk: Color {
+        titleOnHero ? CozyColor.inkOnBlush : CozyColor.inkSecondary
+    }
+
+    /// The "I guessed at this one" warning.
+    ///
+    /// It came off the hero with the rest of the heading and landed here
+    /// instead of on the picture: it is a thing to act on, and the one place it
+    /// must not be is set in ink over a photograph.
+    @ViewBuilder
+    private var reviewBanner: some View {
+        if recipe.needsReview {
+            Text("I did my best guess here — worth a quick look.")
+                .cozyText(CozyFont.caption, color: CozyColor.inkPrimary)
+                .padding(CozySpacing.m)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(CozyColor.warning.cozyPaled(0.55),
+                            in: .rect(cornerRadius: CozyRadius.field, style: .continuous))
+                .padding(.horizontal, CozySpacing.l)
+        }
+    }
+
+    /// Back, favourite and edit, floating on the hero.
+    ///
+    /// The navigation bar is hidden, so these are the only way out of the
+    /// screen besides the swipe — which is why the back button is drawn first,
+    /// full size, and never conditionally.
+    private var floatingControls: some View {
+        HStack(spacing: CozySpacing.s) {
+            heroControl(systemImage: "chevron.left", label: "Back") { dismiss() }
+
+            Spacer()
+
+            heroControl(
+                systemImage: recipe.isFavorite ? "heart.fill" : "heart",
+                label: recipe.isFavorite ? "Remove from favourites" : "Add to favourites",
+                isOn: recipe.isFavorite,
+                isSelected: recipe.isFavorite
+            ) {
+                toggleFavorite()
+            }
+
+            heroControl(systemImage: "square.and.pencil", label: "Edit this recipe") {
+                isEditing = true
+            }
+        }
+        .padding(.horizontal, CozySpacing.l)
+        .padding(.top, CozySpacing.s)
+    }
+
+    private func heroControl(
+        systemImage: String,
+        label: String,
+        isOn: Bool = false,
+        isSelected: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(CozyColor.inkOnBlush)
+                .frame(width: 40, height: 40)
+                .background(isOn ? CozyColor.butter : CozyColor.cardOnBlush,
+                            in: .rect(cornerRadius: CozyRadius.control, style: .continuous))
+                // Draws at 40, stays tappable at 44.
+                .frame(width: CozyMetrics.minimumTouchTarget,
+                       height: CozyMetrics.minimumTouchTarget)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.squishy)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     // MARK: - Servings & units
 
-    private var servingsCard: some View {
+    /// Units only. The servings stepper moved out of here and onto the
+    /// Ingredients heading, which is the list it actually changes — sitting in
+    /// a card of its own, two sections above the quantities, it read as a
+    /// setting rather than as a control over the thing right below it.
+    private var unitsCard: some View {
         CrumbCard {
-            VStack(spacing: CozySpacing.m) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Servings")
-                            .cozyText(CozyFont.headline)
-                        if let description = viewModel.scaleDescription {
-                            Text(description)
-                                .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                        } else if viewModel.isScaled {
-                            Text("written for \(viewModel.originalServings)")
-                                .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                        }
+            VStack(alignment: .leading, spacing: CozySpacing.s) {
+                Text("Units")
+                    .cozyText(CozyFont.headline)
+                Picker("Units", selection: $systemRaw) {
+                    ForEach(MeasurementSystem.allCases, id: \.rawValue) { option in
+                        Text(option.displayName).tag(option.rawValue)
                     }
-
-                    Spacer()
-
-                    stepper
                 }
-
-                Divider().overlay(CozyColor.outline)
-
-                VStack(alignment: .leading, spacing: CozySpacing.s) {
-                    Text("Units")
-                        .cozyText(CozyFont.headline)
-                    Picker("Units", selection: $systemRaw) {
-                        ForEach(MeasurementSystem.allCases, id: \.rawValue) { option in
-                            Text(option.displayName).tag(option.rawValue)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .pickerStyle(.segmented)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, CozySpacing.l)
     }
 
+    /// Minus, value and plus as one pill rather than three floating circles.
+    ///
+    /// The value keeps `CozyFont.numeral`'s monospaced digits even though the
+    /// rest of the app's numbers went to the display face — 8 and 12 have to
+    /// be the same width or the two buttons either side of them shuffle every
+    /// time the count crosses ten.
     private var stepper: some View {
-        HStack(spacing: CozySpacing.m) {
-            SquishyIconButton(systemImage: "minus", accessibilityLabel: "Fewer servings") {
+        HStack(spacing: 0) {
+            stepperButton(systemImage: "minus", label: "Fewer servings") {
                 viewModel.decreaseServings()
             }
 
@@ -286,33 +405,57 @@ struct RecipeDetailView: View {
                 .font(CozyFont.numeral)
                 .foregroundStyle(CozyColor.inkPrimary)
                 .contentTransition(.numericText())
-                .frame(minWidth: 36)
+                .frame(minWidth: 30)
                 .cozyAnimation(Motion.bouncy, value: viewModel.servings)
 
-            SquishyIconButton(systemImage: "plus", accessibilityLabel: "More servings") {
+            stepperButton(systemImage: "plus", label: "More servings") {
                 viewModel.increaseServings()
             }
         }
+        .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.control, style: .continuous))
+        .cozyBlockShadow(CozyDepth.small)
         .accessibilityElement(children: .contain)
         .accessibilityValue("\(viewModel.servings) servings")
     }
 
+    private func stepperButton(
+        systemImage: String,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(CozyColor.inkPrimary)
+                .frame(width: 42, height: 42)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.squishy)
+        .accessibilityLabel(label)
+    }
+
     // MARK: - Ingredients
 
-    private var ingredientsCard: some View {
-        CrumbCard {
-            VStack(alignment: .leading, spacing: CozySpacing.s) {
-                HStack {
-                    Text("Ingredients")
-                        .cozyText(CozyFont.title2)
-                    Spacer()
-                    if viewModel.isScaled {
-                        Button("Reset", action: viewModel.resetServings)
-                            .font(CozyFont.caption)
-                            .foregroundStyle(CozyColor.inkSecondary)
-                    }
-                }
+    /// No card around the list any more. Each row carries its own surface now,
+    /// so a card behind them was a tray under a set of tiles — two edges doing
+    /// one edge's job, and the ticked rows lost their colour to it.
+    private var ingredientsSection: some View {
+        VStack(alignment: .leading, spacing: CozySpacing.m) {
+            HStack(alignment: .center, spacing: CozySpacing.s) {
+                Text("Ingredients")
+                    .cozyText(CozyFont.title2)
+                    .cozyDisplayTracking(CozyTracking.title2, relativeTo: .title2)
+                Spacer()
+                stepper
+            }
 
+            if let description = viewModel.scaleDescription {
+                scaleNote(description)
+            } else if viewModel.isScaled {
+                scaleNote("written for \(viewModel.originalServings)")
+            }
+
+            VStack(spacing: 6) {
                 ForEach(recipe.orderedIngredients) { ingredient in
                     IngredientRow(
                         ingredient: ingredient,
@@ -324,14 +467,26 @@ struct RecipeDetailView: View {
                         viewModel.toggle(ingredient)
                     }
                 }
-
-                Text("Ticks reset when you leave.")
-                    .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
-                    .padding(.top, CozySpacing.xs)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("Ticks reset when you leave.")
+                .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, CozySpacing.l)
+    }
+
+    private func scaleNote(_ text: String) -> some View {
+        HStack(spacing: CozySpacing.s) {
+            Text(text)
+                .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+
+            if viewModel.isScaled {
+                Button("Reset", action: viewModel.resetServings)
+                    .font(CozyFont.caption.weight(.semibold))
+                    .foregroundStyle(CozyColor.inkPrimary)
+            }
+        }
     }
 
     // MARK: - Steps
@@ -340,6 +495,7 @@ struct RecipeDetailView: View {
         VStack(alignment: .leading, spacing: CozySpacing.m) {
             Text("Method")
                 .cozyText(CozyFont.title2)
+                .cozyDisplayTracking(CozyTracking.title2, relativeTo: .title2)
                 .padding(.horizontal, CozySpacing.l)
 
             ForEach(Array(recipe.orderedSteps.enumerated()), id: \.element.id) { index, step in
@@ -430,38 +586,14 @@ struct RecipeDetailView: View {
         .padding(.horizontal, CozySpacing.l)
     }
 
-    // MARK: - Toolbar
-
-    @ToolbarContentBuilder
-    private var editButton: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                isEditing = true
-            } label: {
-                Image(systemName: "square.and.pencil")
-                    .foregroundStyle(CozyColor.inkSecondary)
-            }
-            .accessibilityLabel("Edit this recipe")
-        }
-    }
-
-    @ToolbarContentBuilder
-    private var favoriteButton: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                recipe.isFavorite.toggle()
-                recipe.touch()
-                save("favourite")
-                SignalLog.favorited(recipe, isNowFavorite: recipe.isFavorite, in: modelContext)
-            } label: {
-                Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
-                    .foregroundStyle(recipe.isFavorite ? CozyColor.blushDeep : CozyColor.inkSecondary)
-            }
-            .accessibilityLabel(recipe.isFavorite ? "Remove from favourites" : "Add to favourites")
-        }
-    }
-
     // MARK: - Actions
+
+    private func toggleFavorite() {
+        recipe.isFavorite.toggle()
+        recipe.touch()
+        save("favourite")
+        SignalLog.favorited(recipe, isNowFavorite: recipe.isFavorite, in: modelContext)
+    }
 
     private func logCook(rating: Int?, notes: String?) {
         // Counted before the new log is attached: one prior cook or more is

@@ -23,7 +23,7 @@ struct StepCard: View {
     var recipeTitle: String = ""
 
     var body: some View {
-        CrumbCard {
+        CrumbCard(padding: CozySpacing.m, cornerRadius: CozyRadius.button) {
             HStack(alignment: .top, spacing: CozySpacing.m) {
                 numberBadge
 
@@ -43,14 +43,18 @@ struct StepCard: View {
         .accessibilityLabel("Step \(number). \(step.text)")
     }
 
+    /// A rounded square rather than a circle, and set in the display face.
+    ///
+    /// The number is what you look for when you glance back at the page to
+    /// find your place, so it takes the deep accent and the heaviest type in
+    /// the app at that size. Squaring it off is what makes it read as a
+    /// stamped tile rather than a bullet.
     private var numberBadge: some View {
         Text("\(number)")
-            .font(CozyFont.numeralSmall)
-            .foregroundStyle(CozyColor.inkPrimary)
-            .frame(width: 28, height: 28)
-            // The deep accent, not the soft one: the number is what you look
-            // for when you glance back at the page to find your place.
-            .background(accent.deep, in: .circle)
+            .cozyText(CozyFont.title3, color: CozyColor.inkOnBlush)
+            .frame(width: 34, height: 34)
+            .background(accent.deep,
+                        in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
             .accessibilityHidden(true)
     }
 }
