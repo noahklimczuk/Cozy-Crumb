@@ -14,11 +14,19 @@
 
 import SwiftUI
 
-/// Read-only metadata chip.
+/// Read-only metadata chip — "1h 15m", "8".
+///
+/// Flat, borderless and small. The hairline is gone because these sit in twos
+/// and threes under a card title, where an outline each turned a line of
+/// metadata into a row of little boxes; and the icons are gone with it,
+/// because a clock beside "1h 15m" was saying the same word twice.
 struct PillTag: View {
     let text: String
     var systemImage: String?
     var tint: Color = CozyColor.creamDeep
+    /// Ink for the text. Defaults to the quiet one, since metadata is what you
+    /// read *after* the title; a pill on a coloured surface passes its own.
+    var ink: Color = CozyColor.inkSecondary
 
     var body: some View {
         HStack(spacing: CozySpacing.xs) {
@@ -27,16 +35,12 @@ struct PillTag: View {
                     .font(.caption2.weight(.semibold))
             }
             Text(text)
-                .font(CozyFont.caption)
+                .font(CozyFont.caption.weight(.semibold))
         }
-        .foregroundStyle(CozyColor.inkPrimary)
-        .padding(.horizontal, CozySpacing.m)
-        .padding(.vertical, CozySpacing.s)
-        .background(tint, in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
-                .strokeBorder(CozyColor.outline, lineWidth: 1)
-        }
+        .foregroundStyle(ink)
+        .padding(.horizontal, CozySpacing.s)
+        .padding(.vertical, 5)
+        .background(tint, in: .rect(cornerRadius: CozyRadius.pill, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }
@@ -50,28 +54,34 @@ struct AisleTag: View {
     var systemImage: String?
     var count: Int?
     var tint: Color = CozyColor.creamDeep
+    /// What the count is counting. "3 items", "2 going off".
+    var countNoun: String = "items"
 
     var body: some View {
-        HStack(spacing: CozySpacing.xs) {
-            if let systemImage {
-                Image(systemName: systemImage)
-                    .font(.caption.weight(.semibold))
+        HStack(spacing: CozySpacing.s) {
+            HStack(spacing: CozySpacing.xs) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.caption2.weight(.bold))
+                }
+                Text(title)
             }
-            Text(title)
-                .font(CozyFont.caption.weight(.semibold))
+            .cozyEyebrow(color: CozyColor.inkOnBlush, tracking: CozyTracking.eyebrowTight)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 5)
+            .background(tint, in: .rect(cornerRadius: CozyRadius.pill, style: .continuous))
 
+            // Outside the tag rather than inside it. The tag names a shelf and
+            // is a fixed, coloured, tracked-out label; the count is live and
+            // changes as things are ticked off, and the two stopped reading as
+            // one object the moment the tag became a small hard-edged tile.
             if let count {
-                Spacer(minLength: CozySpacing.s)
-                Text("\(count)")
-                    .font(CozyFont.numeralSmall)
+                Text("\(count) \(countNoun)")
+                    .cozyText(CozyFont.caption.weight(.semibold), color: CozyColor.inkSecondary)
             }
         }
-        .foregroundStyle(CozyColor.inkPrimary)
-        .padding(.horizontal, CozySpacing.m)
-        .padding(.vertical, CozySpacing.s)
-        .background(tint, in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(count.map { "\(title), \($0)" } ?? title)
+        .accessibilityLabel(count.map { "\(title), \($0) \(countNoun)" } ?? title)
         .accessibilityAddTraits(.isHeader)
     }
 }
@@ -101,41 +111,28 @@ struct SelectableChip: View {
                         .font(.caption.weight(.semibold))
                 }
                 Text(text)
-                    .font(CozyFont.caption)
+                    .font(CozyFont.caption.weight(.semibold))
             }
-            .foregroundStyle(CozyColor.inkPrimary)
+            .foregroundStyle(isSelected ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
             .padding(.horizontal, CozySpacing.l)
-            .padding(.vertical, CozySpacing.s)
-            .background(
-                isSelected ? selectedFill : CozyColor.card,
-                in: .rect(cornerRadius: CozyRadius.chip, style: .continuous)
-            )
+            .padding(.vertical, 9)
+            .background(isSelected ? selectedFill : CozyColor.card, in: .capsule)
             // Draws compact, but stays comfortably tappable (§7.6).
             .frame(minHeight: CozyMetrics.minimumTouchTarget)
-            .contentShape(.rect)
-            // Selected chips sit up off the page on a block. Unselected ones
-            // lie flat and need the hairline, because card-on-cream is nearly
-            // the same colour and the shape would otherwise disappear.
-            .modifier(ChipEdge(isSelected: isSelected))
+            .contentShape(.capsule)
+            // An unselected chip is a drawn outline; a selected one is filled
+            // and needs none. Neither carries a block: these come in a row of
+            // five or six, and a row of little blocks is a row of buttons.
+            .overlay {
+                if !isSelected {
+                    Capsule().strokeBorder(CozyColor.outlineStrong,
+                                           lineWidth: CozyBorder.illustrative)
+                }
+            }
         }
         .buttonStyle(.squishy)
         .accessibilityLabel(text)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-    }
-}
-
-private struct ChipEdge: ViewModifier {
-    let isSelected: Bool
-
-    func body(content: Content) -> some View {
-        if isSelected {
-            content.cozyBlockShadow(CozyDepth.small)
-        } else {
-            content.overlay {
-                RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
-                    .strokeBorder(CozyColor.outline, lineWidth: 1)
-            }
-        }
     }
 }
 

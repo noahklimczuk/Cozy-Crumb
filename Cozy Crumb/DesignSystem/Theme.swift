@@ -116,6 +116,19 @@ enum CozyColor {
     nonisolated static let outline = Color(light: Color(hex: "E4D5CB"), dark: Color(hex: "4A3E39"))
     nonisolated static let outlineStrong = Color(light: Color(hex: "C9B4A8"), dark: Color(hex: "63534B"))
 
+    /// A surface floating on a blush one — a quick-add field on a header slab,
+    /// a speech bubble in Cook Mode, a suggestion row on Sous Chef.
+    ///
+    /// White at 80% in both appearances rather than `card`, for the same
+    /// reason as `inkOnBlush`: what it floats on is light after dark too, so
+    /// `card`'s #362D2A would read as a hole cut in the slab. Translucent so
+    /// the tile grid still runs faintly underneath and the thing looks laid on
+    /// the surface rather than punched into it.
+    ///
+    /// Nothing wearing this may carry a block — a block needs an opaque fill
+    /// or its own offset shows through. See `cozyPaled`.
+    nonisolated static let cardOnBlush = Color.white.opacity(0.8)
+
     /// The grout in the tile grid where it runs over a blush ground.
     ///
     /// `outline` flips light in dark mode, which is right over cream and wrong

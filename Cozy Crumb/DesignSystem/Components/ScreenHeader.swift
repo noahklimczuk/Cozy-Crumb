@@ -42,6 +42,11 @@ struct ScreenHeader<Trailing: View, Below: View>: View {
     /// by the screen, because only the screen knows the count.
     var caption: String?
 
+    /// Set by `heroTitle(spokenAs:)`. See the note there.
+    fileprivate var titleFont: Font = CozyFont.display
+    fileprivate var titleTracking: CGFloat = CozyTracking.display
+    fileprivate var spokenTitle: String?
+
     let trailing: Trailing
     let below: Below
 
@@ -74,13 +79,18 @@ struct ScreenHeader<Trailing: View, Below: View>: View {
         .padding(.bottom, CozySpacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
+            // Solid accent, not a tint of it, and square at the bottom: this
+            // is a painted slab that meets the page, not a card lying on it.
+            //
+            // No block either. An offset under a full-bleed slab is a beige
+            // line ruled across the screen, which is a seam rather than an
+            // edge — the colour change is all the separation it needs.
             UnevenRoundedRectangle(
                 bottomLeadingRadius: CozyRadius.header,
                 bottomTrailingRadius: CozyRadius.header,
                 style: .continuous
             )
-            .fill(accent.soft)
-            .cozyBlockShadow(CozyDepth.deep)
+            .fill(accent.color)
             .ignoresSafeArea(edges: .top)
         }
         // The block is chrome, not content: it must not be squeezed by a
@@ -90,28 +100,57 @@ struct ScreenHeader<Trailing: View, Below: View>: View {
     }
 
     private var titleBlock: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: CozySpacing.s) {
             // The eyebrow says the app's name, which nobody needs and which
             // at an accessibility size costs a line of a block that is already
             // carrying a title, a caption and a strip on a phone-sized screen.
             if let eyebrow, !typeSize.isAccessibilitySize {
                 Text(eyebrow)
-                    .cozyEyebrow()
+                    .cozyEyebrow(color: CozyColor.inkOnBlush, tracking: CozyTracking.eyebrowWide)
             }
 
             Text(title)
-                .cozyText(CozyFont.display)
+                .cozyText(titleFont, color: CozyColor.inkOnBlush)
+                .cozyDisplayTracking(titleTracking)
                 .lineLimit(2)
                 .minimumScaleFactor(0.7)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
+                // A title broken onto two lines with a hard newline reads as
+                // "Cook, book" otherwise.
+                .accessibilityLabel(spokenTitle ?? title)
 
+            // Sentence-case caption no longer: on a slab this is a tracked
+            // label under a big title, the same weight of thing as the eyebrow
+            // above it.
             if let caption {
                 Text(caption)
-                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                    .cozyEyebrow(color: CozyColor.inkOnBlush)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+}
+
+// MARK: - The Cookbook's title
+
+extension ScreenHeader {
+    /// Sets the title larger than every other screen's and lets it break onto
+    /// two lines — "Cook / book".
+    ///
+    /// A method rather than another initialiser parameter because there are
+    /// already four initialisers here, covering which of the two slots are
+    /// filled, and threading two more arguments through all of them to serve
+    /// one screen is how a component starts collapsing under its own options.
+    ///
+    /// `spoken` is what VoiceOver reads, since the title itself carries a hard
+    /// line break that would otherwise be announced as a pause.
+    func heroTitle(spokenAs spoken: String) -> ScreenHeader {
+        var copy = self
+        copy.titleFont = CozyFont.displayHero
+        copy.titleTracking = CozyTracking.displayHero
+        copy.spokenTitle = spoken
+        return copy
     }
 }
 
@@ -153,25 +192,32 @@ extension ScreenHeader where Trailing == EmptyView, Below == EmptyView {
 
 // MARK: - Controls that live in a header
 
-/// The loud one. Filled with the accent, the size of the Cookbook's add
-/// button, and there is at most one per screen.
+/// The loud one. There is at most one per screen.
+///
+/// A rounded square in the accent's *deep* step rather than a circle in its
+/// flat one: it sits on a slab already painted `accent.color`, so a circle in
+/// the same colour would have been invisible, and squaring it off lets it
+/// line up with the search field beside it.
 struct HeaderActionButton: View {
     @Environment(\.accentPalette) private var accent
 
     let systemImage: String
     let accessibilityLabel: String
     var accessibilityHint: String = ""
+    /// Overrides the fill. The Pantry's camera is butter, because it opens a
+    /// different kind of thing than a plus does.
+    var fill: Color?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(CozyColor.inkPrimary)
+                .foregroundStyle(CozyColor.inkOnBlush)
                 .frame(width: CozyMetrics.headerActionSize,
                        height: CozyMetrics.headerActionSize)
-                .background(accent.color, in: .circle)
-                .cozyBlockShadow()
+                .background(fill ?? accent.deep,
+                            in: .rect(cornerRadius: CozyRadius.field, style: .continuous))
         }
         .buttonStyle(.squishy)
         .accessibilityLabel(accessibilityLabel)
@@ -190,13 +236,13 @@ struct HeaderGlyphLabel: View {
 
     var body: some View {
         Image(systemName: systemImage)
-            .font(.system(size: 16, weight: .bold))
-            .foregroundStyle(CozyColor.inkPrimary)
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(CozyColor.inkOnBlush)
             .frame(width: CozyMetrics.headerGlyphDiameter,
                    height: CozyMetrics.headerGlyphDiameter)
-            .background(CozyColor.card, in: .circle)
-            .overlay { Circle().strokeBorder(CozyColor.outline, lineWidth: 1) }
-            .cozyBlockShadow(CozyDepth.small)
+            // A bare glyph now. The white disc and its hairline were there to
+            // separate the control from a pale tinted header; against a solid
+            // slab they made a quiet action look like a second primary one.
             // Draws at 40pt, stays tappable at 44 (§7.6).
             .frame(width: CozyMetrics.minimumTouchTarget,
                    height: CozyMetrics.minimumTouchTarget)
@@ -229,13 +275,15 @@ struct HeaderMascotBadge: View {
 
     var pose: MascotView.Pose = .idle
     var diameter: CGFloat = CozyMetrics.headerMascotDiameter
+    /// Thick enough to read as a drawn ring rather than a stroke. It has to
+    /// hold its own against an 88pt cupcake and a 52pt title.
+    var ring: CGFloat = 5
 
     var body: some View {
-        MascotView(pose: pose, size: diameter * 0.78)
+        MascotView(pose: pose, size: diameter * 0.75)
             .frame(width: diameter, height: diameter)
             .background(CozyColor.card, in: .circle)
-            .overlay { Circle().strokeBorder(accent.deep, lineWidth: CozyBorder.illustrative) }
-            .cozyBlockShadow(CozyDepth.small)
+            .overlay { Circle().strokeBorder(accent.deep, lineWidth: ring) }
             .accessibilityHidden(true)
     }
 }
