@@ -86,26 +86,49 @@ nonisolated struct CandidateRecipe: Sendable, Equatable, Identifiable {
 }
 
 /// Something in the pantry, with enough context to judge how much to trust it.
+///
+/// Carries the *evidence* rather than a finished number, and asks
+/// `PantryConfidence` to turn it into one. That is what makes this a snapshot
+/// of a `PantryItem` rather than a second opinion about it: the engine used to
+/// own a `freshness` function with its own per-category half-lives, which
+/// disagreed with the pantry's about how long dairy stays believable, and a
+/// recipe would score differently depending on which one asked.
 nonisolated struct PantryEntry: Sendable, Equatable {
     var name: String
     var category: GroceryCategory
-    var addedAt: Date
-    var expiresAt: Date?
+    var evidence: PantryEvidence
 
     nonisolated init(
         name: String,
         category: GroceryCategory = .other,
-        addedAt: Date = .now,
-        expiresAt: Date? = nil
+        lastConfirmedAt: Date = .now,
+        strength: Double = 1.0,
+        expiresAt: Date? = nil,
+        neverDecays: Bool = false
     ) {
         self.name = name
         self.category = category
-        self.addedAt = addedAt
-        self.expiresAt = expiresAt
+        self.evidence = PantryEvidence(
+            canonicalName: IngredientCanonicalizer.canonical(name),
+            category: category,
+            strength: strength,
+            confirmedAt: lastConfirmedAt,
+            expiresAt: expiresAt,
+            neverDecays: neverDecays
+        )
     }
 
-    var canonicalName: String {
-        IngredientCanonicalizer.canonical(name)
+    /// The real path: a snapshot of a row the user actually has.
+    nonisolated init(item displayName: String, category: GroceryCategory, evidence: PantryEvidence) {
+        self.name = displayName
+        self.category = category
+        self.evidence = evidence
+    }
+
+    var canonicalName: String { evidence.canonicalName }
+
+    nonisolated func confidence(at date: Date) -> Double {
+        PantryConfidence.confidence(of: evidence, at: date)
     }
 }
 
@@ -504,21 +527,28 @@ nonisolated enum RecommendationEngine {
     /// Two refinements over a plain fraction. Staples count for a fraction of
     /// a real ingredient, so a recipe is not marked "missing 3" because
     /// nobody thought to add salt to their pantry. And each pantry item is
-    /// discounted by how long it has been sitting there, at a rate that
-    /// depends on what it is — nothing consumes pantry items when you cook, so
-    /// three-week-old spinach is a claim the score should not fully believe.
+    /// weighted by the app's confidence that it is still there, which falls
+    /// off at a rate that depends on what it is — three-week-old spinach is a
+    /// claim the score should not fully believe, three-week-old rice is fine.
     nonisolated static func pantryMatch(
         _ recipe: CandidateRecipe,
         in context: RecommendationContext
     ) -> (score: Double, have: Set<String>, missing: [MissingIngredient]) {
         guard !recipe.ingredients.isEmpty else { return (0.5, [], []) }
 
-        var freshnessByFood: [String: Double] = [:]
+        // Confidence comes off the entry, which got it from the same engine
+        // the pantry screen and the Sous Chef's digest use. Two jars of the
+        // same thing: believe the one you are surest of.
+        var confidenceByFood: [String: Double] = [:]
         for entry in context.pantry {
             let name = entry.canonicalName
             guard !name.isEmpty else { continue }
-            let freshness = self.freshness(of: entry, on: context.date)
-            freshnessByFood[name] = max(freshnessByFood[name] ?? 0, freshness)
+            let confidence = entry.confidence(at: context.date)
+            // Below the probable band the app has no business planning a meal
+            // around it. It stays in the pantry and the sweep will ask, but a
+            // recipe does not get credit for it.
+            guard PantryConfidence.band(for: confidence).countsTowardsRecipes else { continue }
+            confidenceByFood[name] = max(confidenceByFood[name] ?? 0, confidence)
         }
 
         var earned = 0.0
@@ -531,8 +561,8 @@ nonisolated enum RecommendationEngine {
             let weight = isStaple ? stapleWeight : 1.0
             possible += weight
 
-            if let freshness = freshnessByFood[ingredient] {
-                earned += weight * freshness
+            if let confidence = confidenceByFood[ingredient] {
+                earned += weight * confidence
                 have.insert(ingredient)
             } else if isStaple {
                 // Assumed present. Someone who has cooked anything has salt,
@@ -550,38 +580,6 @@ nonisolated enum RecommendationEngine {
 
         let score = possible > 0 ? earned / possible : 0
         return (min(1, max(0, score)), have, missing)
-    }
-
-    /// How much to believe that a pantry item is still there.
-    ///
-    /// Nothing deducts from the pantry when a recipe is cooked, so an old
-    /// entry is a claim rather than a fact. Perishables lose credibility
-    /// quickly and cupboard things barely at all, which is the difference
-    /// between three-week-old spinach and three-week-old rice.
-    nonisolated static func freshness(of entry: PantryEntry, on date: Date) -> Double {
-        if let expiresAt = entry.expiresAt, expiresAt < date {
-            // Explicitly past its date. Not removed — they might have used it
-            // in time, or it might be fine — but not counted on either.
-            return 0.25
-        }
-
-        let days = max(0, date.timeIntervalSince(entry.addedAt) / 86_400)
-        let halfLife = halfLifeDays(for: entry.category)
-        return max(0.3, pow(0.5, days / halfLife))
-    }
-
-    /// How long each aisle stays believable, in days.
-    nonisolated static func halfLifeDays(for category: GroceryCategory) -> Double {
-        switch category {
-        case .produce: 14
-        case .bakery: 7
-        case .meat: 14
-        case .dairy: 21
-        case .frozen: 180
-        case .pantry: 365
-        case .condiment: 365
-        case .other: 60
-        }
     }
 
     /// 0–1 from the cuisine, ingredient and technique affinities.

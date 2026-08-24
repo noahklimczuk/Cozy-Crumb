@@ -202,9 +202,25 @@ final class PantryViewModel {
 
     /// "I've used that up" — the everyday action, and the one that keeps the
     /// pantry honest enough for the Sous Chef to trust.
+    ///
+    /// Archives rather than deletes. The row leaves the shelf either way, but
+    /// keeping it means the gap between this jar and the next one is still
+    /// there to be measured, which is the whole basis of restock prediction.
     func useUp(_ item: PantryItem, in context: ModelContext) {
         Haptics.notify(.success)
-        remove(item, in: context, logging: .depleted)
+        PantryDecay.markGone(item, in: context)
+    }
+
+    /// "Still got it." Puts confidence back to full and resets the clock.
+    func confirm(_ item: PantryItem, in context: ModelContext) {
+        Haptics.soft()
+        PantryDecay.confirm(item, in: context)
+    }
+
+    /// Brings an archived row back to the shelf.
+    func restore(_ item: PantryItem, in context: ModelContext) {
+        Haptics.soft()
+        PantryDecay.restore(item, in: context)
     }
 
     // MARK: - Fridge photos
@@ -256,8 +272,14 @@ final class PantryViewModel {
 
     // MARK: - Store
 
+    /// Active rows only.
+    ///
+    /// This is what `add` merges against, and the archive being excluded is
+    /// deliberate: buying tahini again after the old jar decayed away should
+    /// make a fresh row with a fresh history, not resurrect a year-old one and
+    /// hide the gap that restock prediction needs to see.
     private func fetchAll(in context: ModelContext) -> [PantryItem] {
-        (try? context.fetch(FetchDescriptor<PantryItem>())) ?? []
+        PantryDecay.activeItems(in: context)
     }
 
     private func save(_ context: ModelContext, _ what: String) {

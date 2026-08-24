@@ -23,7 +23,14 @@ struct PantryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.cozyMotion) private var motion
 
-    @Query(sort: \PantryItem.displayName) private var items: [PantryItem]
+    // Archived rows are excluded here rather than filtered downstream: a
+    // @Query that returns them would put decayed-away food back on the screen
+    // in whichever view forgot to filter.
+    @Query(
+        filter: #Predicate<PantryItem> { $0.archivedAt == nil },
+        sort: \PantryItem.displayName
+    )
+    private var items: [PantryItem]
 
     @State private var viewModel = PantryViewModel()
     @State private var photoSelection: [PhotosPickerItem] = []

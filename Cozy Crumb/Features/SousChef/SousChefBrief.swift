@@ -42,7 +42,10 @@ enum SousChefBrief {
         calendar: Calendar = .current
     ) -> Assembled {
         let recipes = (try? modelContext.fetch(FetchDescriptor<Recipe>())) ?? []
-        let pantryItems = (try? modelContext.fetch(FetchDescriptor<PantryItem>())) ?? []
+        // Active rows only. An archived row is one the app stopped believing
+        // in; handing it to the Sous Chef would be the staleness bug wearing a
+        // different hat.
+        let pantryItems = PantryDecay.activeItems(in: modelContext)
         let groceries = (try? modelContext.fetch(FetchDescriptor<GroceryItem>())) ?? []
         let plannedMeals = (try? modelContext.fetch(FetchDescriptor<PlannedMeal>())) ?? []
 
@@ -75,16 +78,11 @@ enum SousChefBrief {
         )
 
         let context = RecommendationContext(
-            // P2 replaces this mapping: `PantryEntry` will carry the item's
-            // own confidence and `RecommendationEngine.freshness` goes away,
-            // so there is one decay model rather than the engine's and the
-            // pantry's disagreeing about how long dairy stays believable.
             pantry: pantryItems.map { item in
                 PantryEntry(
-                    name: item.displayName,
+                    item: item.displayName,
                     category: item.category,
-                    addedAt: item.addedAt,
-                    expiresAt: item.expiresAt
+                    evidence: item.evidence
                 )
             },
             profile: profile,

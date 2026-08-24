@@ -79,7 +79,7 @@ private enum Kitchen {
             PantryEntry(
                 name: $0,
                 category: category,
-                addedAt: tuesday.addingTimeInterval(-daysOld * 86_400)
+                lastConfirmedAt: tuesday.addingTimeInterval(-daysOld * 86_400)
             )
         }
     }
@@ -418,20 +418,25 @@ struct ScoringTests {
         let spinach = PantryEntry(
             name: "spinach",
             category: .produce,
-            addedAt: Kitchen.tuesday.addingTimeInterval(-21 * 86_400)
+            lastConfirmedAt: Kitchen.tuesday.addingTimeInterval(-21 * 86_400)
         )
         let rice = PantryEntry(
             name: "rice",
             category: .pantry,
-            addedAt: Kitchen.tuesday.addingTimeInterval(-21 * 86_400)
+            lastConfirmedAt: Kitchen.tuesday.addingTimeInterval(-21 * 86_400)
         )
 
-        let spinachFreshness = RecommendationEngine.freshness(of: spinach, on: Kitchen.tuesday)
-        let riceFreshness = RecommendationEngine.freshness(of: rice, on: Kitchen.tuesday)
+        // The engine no longer owns this maths — `PantryConfidence` does, and
+        // the pantry screen reads the same function. That is the point of the
+        // unification, and it moved the numbers: the old table gave cupboard
+        // goods a 365-day half-life, the pantry's gives them 90, so rice at
+        // three weeks is 0.85 rather than 0.96. Still comfortably believed.
+        let spinachConfidence = spinach.confidence(at: Kitchen.tuesday)
+        let riceConfidence = rice.confidence(at: Kitchen.tuesday)
 
-        #expect(spinachFreshness < riceFreshness)
-        #expect(riceFreshness > 0.9, "rice does not go off in three weeks")
-        #expect(spinachFreshness < 0.7, "nothing deducts the pantry when you cook, so old greens are a claim")
+        #expect(spinachConfidence < riceConfidence)
+        #expect(riceConfidence > 0.8, "rice does not go off in three weeks")
+        #expect(spinachConfidence < 0.2, "three-week-old leaves are not dinner")
     }
 
     @Test("Something expired is not counted on")
@@ -439,11 +444,15 @@ struct ScoringTests {
         let yogurt = PantryEntry(
             name: "yogurt",
             category: .dairy,
-            addedAt: Kitchen.tuesday.addingTimeInterval(-5 * 86_400),
+            lastConfirmedAt: Kitchen.tuesday.addingTimeInterval(-5 * 86_400),
             expiresAt: Kitchen.tuesday.addingTimeInterval(-1 * 86_400)
         )
 
-        #expect(RecommendationEngine.freshness(of: yogurt, on: Kitchen.tuesday) < 0.3)
+        // Past the user's own date the app stops counting on it, but does not
+        // decide the food is bad and does not remove it — it drops to the top
+        // of the doubtful band, where the sweep will ask about it.
+        #expect(yogurt.confidence(at: Kitchen.tuesday) <= PantryConfidence.doubtfulFloor)
+        #expect(yogurt.confidence(at: Kitchen.tuesday) < 0.3)
     }
 
     @Test("A recipe cooked two days ago is pushed down")

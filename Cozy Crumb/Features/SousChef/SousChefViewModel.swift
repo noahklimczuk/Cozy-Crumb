@@ -312,7 +312,7 @@ final class SousChefViewModel {
 
     private func buildContext(in modelContext: ModelContext) -> SousChefContext {
         let recipes = (try? modelContext.fetch(FetchDescriptor<Recipe>())) ?? []
-        let pantry = (try? modelContext.fetch(FetchDescriptor<PantryItem>())) ?? []
+        let pantry = PantryDecay.activeItems(in: modelContext)
         let groceries = (try? modelContext.fetch(FetchDescriptor<GroceryItem>())) ?? []
         let plannedMeals = (try? modelContext.fetch(FetchDescriptor<PlannedMeal>())) ?? []
 
