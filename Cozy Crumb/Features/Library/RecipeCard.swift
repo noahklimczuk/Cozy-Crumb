@@ -13,6 +13,7 @@ import SwiftUI
 
 struct RecipeCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accentPalette) private var accent
 
     let recipe: Recipe
     /// Position in the grid, used to stagger the entrance.
@@ -69,7 +70,16 @@ struct RecipeCard: View {
             }
             .overlay(alignment: .bottomLeading) {
                 if recipe.needsReview {
-                    PillTag(text: "Check me", systemImage: "questionmark.circle", tint: CozyColor.warning)
+                    // Bottom-left, opposite the heart, and tracked-out capitals
+                    // rather than a sentence with an icon: it is a stamp on the
+                    // picture, not a label on the recipe.
+                    Text("Check me")
+                        .cozyEyebrow(color: CozyColor.inkOnBlush,
+                                     tracking: CozyTracking.eyebrowTight)
+                        .padding(.horizontal, CozySpacing.s)
+                        .padding(.vertical, 4)
+                        .background(accent.color,
+                                    in: .rect(cornerRadius: CozyRadius.pill, style: .continuous))
                         .padding(CozySpacing.s)
                 }
             }
@@ -80,12 +90,16 @@ struct RecipeCard: View {
             onToggleFavorite()
             heartPop = true
         } label: {
+            // Butter when it's on, translucent white when it isn't. A filled
+            // heart in blush on a blush-ish photo was doing the same job as
+            // the picture behind it; butter is the one colour on a recipe card
+            // that means nothing else.
             Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
                 .font(.footnote.weight(.bold))
-                .foregroundStyle(recipe.isFavorite ? CozyColor.blushDeep : CozyColor.inkSecondary)
-                .frame(width: 30, height: 30)
-                .background(CozyColor.card.opacity(0.92), in: .circle)
-                .overlay { Circle().strokeBorder(CozyColor.outline, lineWidth: 1) }
+                .foregroundStyle(recipe.isFavorite ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
+                .frame(width: 26, height: 26)
+                .background(recipe.isFavorite ? CozyColor.butter : CozyColor.cardOnBlush,
+                            in: .circle)
                 .scaleEffect(heartPop ? 1.25 : 1)
                 .animation(reduceMotion ? Motion.reduced : Motion.bouncy, value: heartPop)
                 // Keep a full-size hit area behind the small drawn circle.
@@ -107,8 +121,12 @@ struct RecipeCard: View {
 
     private var details: some View {
         VStack(alignment: .leading, spacing: CozySpacing.s) {
+            // The display face, not SF Rounded semibold. A card's title is the
+            // thing the grid is read for, and in the old weight it was losing
+            // to the picture above it and competing with the pills below.
             Text(recipe.title)
-                .cozyText(CozyFont.headline)
+                .cozyText(CozyFont.cardTitle)
+                .cozyDisplayTracking(CozyTracking.cardTitle, relativeTo: .headline)
                 .lineLimit(2, reservesSpace: true)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -124,12 +142,16 @@ struct RecipeCard: View {
         .padding(CozySpacing.m)
     }
 
+    /// Bare numbers, no icons and no "Serves". On a half-width card the icons
+    /// took as much room as the values and said the same thing twice; the
+    /// accessibility label below still spells both out in full, which is where
+    /// "serves 8" actually needed to be all along.
     @ViewBuilder
     private var pills: some View {
         if let time = recipe.totalTimeDisplay {
-            PillTag(text: time, systemImage: "clock")
+            PillTag(text: time)
         }
-        PillTag(text: "\(recipe.servings)", systemImage: "person.2", tint: CozyColor.creamDeep)
+        PillTag(text: "\(recipe.servings)")
     }
 
     // MARK: - Detail

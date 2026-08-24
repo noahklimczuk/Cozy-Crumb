@@ -2,7 +2,15 @@
 //  LibraryView.swift
 //  Cozy Crumb
 //
-//  The home tab: searchable recipes and editable collection folders.
+//  The home tab: one grid of recipes, narrowed by a search field and a row of
+//  collection chips.
+//
+//  Collections used to be a grid of folder cards above the recipes, which cost
+//  a push and a back tap to answer "show me just the baking" and pushed the
+//  actual cookbook below the fold on a phone. They are filters now. The folder
+//  screen is still here — it is where a collection is renamed, deleted, or has
+//  a recipe taken out of it — reached by long-pressing a chip, or from the
+//  sort menu for anyone who never thinks to try that.
 //
 
 import Foundation
@@ -20,6 +28,7 @@ private struct QuickPastedLink: Identifiable {
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.cozyMotion) private var motion
 
     @Query private var recipes: [Recipe]
     @Query(sort: \RecipeCollection.createdAt) private var collections: [RecipeCollection]
@@ -34,13 +43,25 @@ struct LibraryView: View {
     @State private var isImporting = false
     @State private var clipboardHadNoLink = false
     @State private var pasteLinkText = ""
+    /// Set by the "Open" item on a chip's long-press menu, and by the sort
+    /// menu's list. The folder screen is no longer reached by tapping a card,
+    /// so the push has to be driven from state rather than a NavigationLink.
+    @State private var openedCollection: RecipeCollection?
 
     private var columns: [GridItem] {
         CozyGrid.recipeColumns(for: horizontalSizeClass)
     }
 
+    /// The lit chip, resolved against what actually exists. A collection
+    /// deleted while its chip was selected simply stops matching, and the grid
+    /// falls back to every recipe rather than filtering on a ghost.
+    private var selectedCollection: RecipeCollection? {
+        guard let id = viewModel.selectedCollectionID else { return nil }
+        return collections.first { $0.id == id }
+    }
+
     private var visibleRecipes: [Recipe] {
-        viewModel.visibleRecipes(from: recipes)
+        viewModel.visibleRecipes(from: recipes, in: selectedCollection?.id)
     }
 
     var body: some View {
@@ -53,6 +74,9 @@ struct LibraryView: View {
             // The header is the title now. Leaving the navigation bar on as
             // well would put "Cookbook" on the screen twice.
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(item: $openedCollection) { collection in
+                CollectionFolderView(collection: collection, sort: viewModel.sort)
+            }
             .sheet(isPresented: $isImporting) {
                 importSheet
             }
@@ -117,7 +141,11 @@ struct LibraryView: View {
     /// anything taller than it is and the add button is meant to be
     /// unmissable. `ScreenHeader` is that bar, with the title in it.
     private var header: some View {
-        ScreenHeader(title: "Cookbook", eyebrow: AppBranding.appName) {
+        // "Cook / book", broken by hand rather than left to wrap: at 52pt it
+        // would break there anyway on a phone, and hard-coding it means the
+        // two lines are the design on every width instead of only the narrow
+        // ones. `heroTitle` hands VoiceOver the unbroken word.
+        ScreenHeader(title: "Cook\nbook", eyebrow: AppBranding.appName) {
             HeaderMascotBadge(pose: .peeking)
         } below: {
             HStack(spacing: CozySpacing.m) {
@@ -141,6 +169,7 @@ struct LibraryView: View {
                 }
             }
         }
+        .heroTitle(spokenAs: "Cookbook")
     }
 
     /// Sheet for importing a recipe with inline paste button
@@ -171,6 +200,27 @@ struct LibraryView: View {
                     )
                 }
             }
+
+            // The discoverable half of collection management. Long-pressing a
+            // chip is faster and is what someone who knows the app will use,
+            // but a gesture with nothing on screen to advertise it cannot be
+            // the only way in — and once the folder cards are gone, opening a
+            // collection is the only route to renaming or deleting one.
+            Section("Collections") {
+                Button {
+                    isNamingCollection = true
+                } label: {
+                    Label("New collection", systemImage: "folder.badge.plus")
+                }
+
+                ForEach(collections) { collection in
+                    Button {
+                        openedCollection = collection
+                    } label: {
+                        Label(collection.name, systemImage: "folder")
+                    }
+                }
+            }
         } label: {
             HStack(spacing: CozySpacing.xs) {
                 Image(systemName: "arrow.up.arrow.down")
@@ -199,6 +249,12 @@ struct LibraryView: View {
 
     // MARK: - Content
 
+    /// The empty cookbook comes first, before the chip row is drawn: a row of
+    /// filters over nothing is furniture in an empty room.
+    ///
+    /// Everything else is one branch now. Searching and browsing differed only
+    /// in which recipes the grid held once the folder cards went, and keeping
+    /// them apart meant two copies of a heading, a sort control and a grid.
     @ViewBuilder
     private var content: some View {
         if recipes.isEmpty && collections.isEmpty {
@@ -210,39 +266,29 @@ struct LibraryView: View {
                 action: { isImporting = true }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if viewModel.hasSearch && visibleRecipes.isEmpty {
-            EmptyStateView(
-                title: "Nothing matches.",
-                message: "Try a different word, or clear your search and start again.",
-                pose: .idle,
-                actionTitle: "Clear search",
-                action: clearFilters
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if viewModel.hasSearch {
-            grid
         } else {
-            cookbookHome
+            cookbook
         }
     }
 
-    private var cookbookHome: some View {
+    private var cookbook: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: CozySpacing.xl) {
-                collectionFolders
+            VStack(alignment: .leading, spacing: CozySpacing.l) {
+                collectionChips
 
                 VStack(alignment: .leading, spacing: CozySpacing.m) {
                     HStack(spacing: CozySpacing.s) {
-                        Text("All recipes")
+                        Text(headingTitle)
                             .cozyText(CozyFont.title2)
+                            .cozyDisplayTracking(CozyTracking.title2, relativeTo: .title2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         Spacer()
                         sortControl
                     }
 
                     if visibleRecipes.isEmpty {
-                        Text("No recipes yet.")
-                            .cozyText(CozyFont.body, color: CozyColor.inkSecondary)
-                            .padding(.vertical, CozySpacing.s)
+                        emptyResults
                     } else {
                         recipeGrid(recipes: visibleRecipes)
                     }
@@ -252,46 +298,95 @@ struct LibraryView: View {
         }
     }
 
-    private var collectionFolders: some View {
-        VStack(alignment: .leading, spacing: CozySpacing.m) {
-            Text("Collections")
-                .cozyText(CozyFont.title2)
+    /// What the grid is showing, said once above it. With the folder grid gone
+    /// this heading is the only thing that names the filter in force — the lit
+    /// chip is above it and scrolls away.
+    private var headingTitle: String {
+        if viewModel.hasSearch {
+            let count = visibleRecipes.count
+            return "\(count) \(count == 1 ? "match" : "matches")"
+        }
+        return selectedCollection?.name ?? "All recipes"
+    }
 
-            LazyVGrid(columns: columns, spacing: CozySpacing.m) {
-                ForEach(collections) { collection in
-                    NavigationLink {
-                        CollectionFolderView(collection: collection, sort: viewModel.sort)
-                    } label: {
-                        CollectionFolderCard(collection: collection)
-                    }
-                    .buttonStyle(.plain)
-                    .contextMenu { collectionMenu(for: collection) }
-                }
-
-                Button { isNamingCollection = true } label: {
-                    NewCollectionFolderCard()
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Create a new collection")
-            }
+    @ViewBuilder
+    private var emptyResults: some View {
+        // Two different dead ends, and the way out of each is different: a
+        // search that found nothing wants the query cleared, an empty
+        // collection wants the filter dropped. Offering "clear search" to
+        // someone who never typed anything is the sort of thing that makes an
+        // empty screen feel broken.
+        if viewModel.hasSearch {
+            EmptyStateView(
+                title: "Nothing matches.",
+                message: selectedCollection.map {
+                    "Nothing in \($0.name) matches that. Try another word, or look in the whole cookbook."
+                } ?? "Try a different word, or clear your search and start again.",
+                pose: .idle,
+                actionTitle: "Clear search",
+                action: clearSearch
+            )
+            .frame(maxWidth: .infinity)
+        } else if let selectedCollection {
+            EmptyStateView(
+                title: "Nothing filed here yet.",
+                message: "Add recipes to \(selectedCollection.name) from a recipe's menu and they'll show up here.",
+                pose: .idle,
+                actionTitle: "Show all recipes",
+                action: { select(nil) }
+            )
+            .frame(maxWidth: .infinity)
+        } else {
+            Text("No recipes yet.")
+                .cozyText(CozyFont.body, color: CozyColor.inkSecondary)
+                .padding(.vertical, CozySpacing.s)
         }
     }
 
-    /// Search results.
-    private var grid: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: CozySpacing.m) {
-                HStack(spacing: CozySpacing.s) {
-                    Text("\(visibleRecipes.count) \(visibleRecipes.count == 1 ? "match" : "matches")")
-                        .cozyText(CozyFont.title2)
-                    Spacer()
-                    sortControl
+    /// Collections, as a row of filters rather than a grid of folders.
+    ///
+    /// Each chip carries the long-press menu that used to hang off its card,
+    /// which is the only fast route to renaming or deleting a collection now.
+    /// It is a hidden gesture, so the sort menu carries the same list in the
+    /// open — see the note there.
+    private var collectionChips: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: CozySpacing.s) {
+                SelectableChip(
+                    text: "All \(recipes.count)",
+                    isSelected: selectedCollection == nil
+                ) {
+                    select(nil)
                 }
 
-                recipeGrid(recipes: visibleRecipes)
+                ForEach(collections) { collection in
+                    // Deliberately the accent rather than `collection.tint`:
+                    // the chips are a set of five or six sitting in a row, and
+                    // if each lights up a different colour then "selected"
+                    // stops being a thing the row says and becomes something
+                    // you work out per chip.
+                    SelectableChip(
+                        text: collection.name,
+                        isSelected: selectedCollection?.id == collection.id
+                    ) {
+                        select(selectedCollection?.id == collection.id ? nil : collection.id)
+                    }
+                    .contextMenu { collectionMenu(for: collection) }
+                }
+
+                SelectableChip(text: "New collection", systemImage: "plus", isSelected: false) {
+                    isNamingCollection = true
+                }
             }
-            .padding(CozySpacing.l)
+            // Room for the chips' hit areas without clipping them against the
+            // scroll view's edges.
+            .padding(.horizontal, 2)
+            .padding(.vertical, 2)
         }
+        .scrollIndicators(.hidden)
+        // The row is chrome for the grid below it, so it scrolls sideways
+        // inside a page that scrolls down, and never the other way.
+        .scrollClipDisabled()
     }
 
     private func recipeGrid(recipes: [Recipe]) -> some View {
@@ -312,6 +407,12 @@ struct LibraryView: View {
 
     @ViewBuilder
     private func collectionMenu(for collection: RecipeCollection) -> some View {
+        Button {
+            openedCollection = collection
+        } label: {
+            Label("Open", systemImage: "folder")
+        }
+
         Button {
             collectionBeingRenamed = collection
             renamedCollectionName = collection.name
@@ -365,8 +466,21 @@ struct LibraryView: View {
 
     // MARK: - Actions
 
-    private func clearFilters() {
+    /// Clears the query and nothing else. The chip stays lit: someone who
+    /// searched inside a collection was still inside that collection, and
+    /// silently returning them to the whole cookbook is a filter changing
+    /// itself behind their back.
+    private func clearSearch() {
         viewModel.searchText = ""
+    }
+
+    private func select(_ collectionID: UUID?) {
+        guard collectionID != viewModel.selectedCollectionID else { return }
+        // Through the resolver, not `Motion.snappy` directly — the grid
+        // re-flowing under a filter is exactly the kind of movement Reduce
+        // Motion is asking to be spared.
+        withAnimation(motion(Motion.snappy)) { viewModel.selectedCollectionID = collectionID }
+        Haptics.soft()
     }
 
     private func toggleFavorite(_ recipe: Recipe) {
@@ -413,6 +527,11 @@ struct LibraryView: View {
     }
 
     private func delete(_ collection: RecipeCollection) {
+        // Drop the filter with it, so the grid doesn't sit empty behind a chip
+        // that has just stopped existing.
+        if viewModel.selectedCollectionID == collection.id {
+            viewModel.selectedCollectionID = nil
+        }
         modelContext.delete(collection)
         save("delete collection")
     }
@@ -433,51 +552,12 @@ struct LibraryView: View {
 
 // MARK: - Collection folders
 
-private struct CollectionFolderCard: View {
-    let collection: RecipeCollection
-
-    var body: some View {
-        CrumbCard(fill: collection.tint.cozyPaled()) {
-            VStack(alignment: .leading, spacing: CozySpacing.s) {
-                HStack {
-                    Image(systemName: "folder.fill")
-                        .font(.title2)
-                        .foregroundStyle(CozyColor.inkPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(CozyColor.inkSecondary)
-                }
-
-                Spacer(minLength: CozySpacing.s)
-
-                Text(collection.name)
-                    .cozyText(CozyFont.headline)
-                    .lineLimit(2)
-                Text("\(collection.recipeCount) \(collection.recipeCount == 1 ? "recipe" : "recipes")")
-                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-            }
-            .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
-        }
-        .accessibilityLabel("\(collection.name), \(collection.recipeCount) recipes")
-    }
-}
-
-private struct NewCollectionFolderCard: View {
-    var body: some View {
-        CrumbCard(fill: CozyColor.creamDeep) {
-            VStack(spacing: CozySpacing.s) {
-                Image(systemName: "folder.badge.plus")
-                    .font(.title2)
-                    .foregroundStyle(CozyColor.inkPrimary)
-                Text("New collection")
-                    .cozyText(CozyFont.headline)
-            }
-            .frame(maxWidth: .infinity, minHeight: 120)
-        }
-    }
-}
-
+/// The screen behind a collection chip's "Open".
+///
+/// It survived the move from folders to filters because the chips took over
+/// only the *browsing* half of what the folder cards did. Renaming a
+/// collection, deleting one, and taking a recipe back out of one all still
+/// live here, and there is nowhere else in the app they could go.
 private struct CollectionFolderView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext

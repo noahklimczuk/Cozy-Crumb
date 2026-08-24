@@ -146,6 +146,13 @@ struct CookTimerChip: View {
     /// notification than the first few words of the instruction.
     let number: Int
 
+    /// Cook Mode draws this as a card rather than a chip.
+    ///
+    /// Same button, same timer, twice the size: on the recipe screen it is one
+    /// detail of a step among many, and in Cook Mode it is the second most
+    /// important thing on the screen after the instruction itself.
+    var isProminent: Bool = false
+
     private var running: KitchenTimer? {
         timers.timer(forStep: step.id)
     }
@@ -164,24 +171,63 @@ struct CookTimerChip: View {
                     )
                 }
             } label: {
-                HStack(spacing: CozySpacing.xs) {
-                    Image(systemName: running == nil ? "timer" : "stop.circle")
-                        .font(.caption.weight(.semibold))
-
-                    Text(label(duration: duration))
-                        .font(CozyFont.caption)
-                        .monospacedDigit()
+                if isProminent {
+                    card(duration: duration)
+                } else {
+                    chip(duration: duration)
                 }
-                .foregroundStyle(CozyColor.inkPrimary)
-                .padding(.horizontal, CozySpacing.m)
-                .frame(minHeight: CozyMetrics.minimumTouchTarget)
-                .background(chipFill, in: .capsule)
-                .overlay { Capsule().strokeBorder(CozyColor.outline, lineWidth: 1) }
-                .contentShape(.capsule)
             }
             .buttonStyle(.squishy)
             .accessibilityLabel(accessibilityLabel(duration: duration))
         }
+    }
+
+    private func chip(duration: String) -> some View {
+        HStack(spacing: CozySpacing.xs) {
+            Image(systemName: running == nil ? "timer" : "stop.circle")
+                .font(.caption.weight(.semibold))
+
+            Text(label(duration: duration))
+                .font(CozyFont.caption)
+                .monospacedDigit()
+        }
+        .foregroundStyle(CozyColor.inkPrimary)
+        .padding(.horizontal, CozySpacing.m)
+        .frame(minHeight: CozyMetrics.minimumTouchTarget)
+        .background(chipFill, in: .capsule)
+        .overlay { Capsule().strokeBorder(CozyColor.outline, lineWidth: 1) }
+        .contentShape(.capsule)
+    }
+
+    /// Butter, on a butter-coloured block, sized to its own content rather
+    /// than stretched across the screen — a timer is one object you reach for,
+    /// not a bar along the bottom of the step.
+    private func card(duration: String) -> some View {
+        HStack(spacing: CozySpacing.m) {
+            Image(systemName: running == nil ? "timer" : "stop.circle")
+                .font(.system(size: 26, weight: .semibold))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(label(duration: duration))
+                    .font(CozyFont.title2)
+                    .monospacedDigit()
+
+                Text(running == nil ? "Tap to start" : "Tap to stop")
+                    .cozyEyebrow(color: CozyColor.inkOnBlush,
+                                 tracking: CozyTracking.eyebrowTight)
+            }
+        }
+        .foregroundStyle(CozyColor.inkOnBlush)
+        .padding(.horizontal, CozySpacing.l)
+        .padding(.vertical, CozySpacing.m)
+        .background(cardFill, in: .rect(cornerRadius: CozyRadius.sheet, style: .continuous))
+        .cozyBlockShadow(CozyDepth.block, color: AccentPalette.butter.block)
+        .contentShape(.rect)
+    }
+
+    private var cardFill: Color {
+        guard let running else { return CozyColor.butter }
+        return running.hasFinished(at: timers.now) ? CozyColor.warning : CozyColor.butter
     }
 
     private var chipFill: Color {

@@ -12,17 +12,28 @@
 //  reason ticking something off feels good, and it is the sort of detail that
 //  quietly goes missing when two screens each own a copy.
 //
+//  The row now carries its own surface — white unticked, the accent once
+//  ticked — instead of being a bare line inside a shared card with dividers
+//  between. Rows are laid out in a stack with a small gap, not glued into a
+//  list, and there is nothing left for a divider to do.
+//
 
 import SwiftUI
 
 struct CheckRow<Accessory: View>: View {
+    @Environment(\.accentPalette) private var accent
+
     let title: String
     var subtitle: String?
     let isChecked: Bool
 
-    /// Fill of the tick once it is on. Defaults to the app's success green;
-    /// the grocery list passes its aisle colour so a ticked row still says
-    /// which shelf it came off.
+    /// Fill of the whole row once it is ticked. Defaults to the accent.
+    ///
+    /// This used to be the fill of the tick alone, on a row that had no
+    /// surface of its own and lived inside a shared card. The row is its own
+    /// surface now, and ticking one paints all of it — which is the state
+    /// change you can see from across a kitchen, and the reason the tick
+    /// itself no longer needs to carry the colour.
     var tint: Color?
 
     /// Whether ticking strikes the title through.
@@ -67,7 +78,11 @@ struct CheckRow<Accessory: View>: View {
         self.accessory = accessory()
     }
 
-    private var tickFill: Color { tint ?? CozyColor.success }
+    private var rowFill: Color { isChecked ? (tint ?? accent.color) : CozyColor.card }
+
+    /// Ink for everything in the row. A ticked row is a blush surface, so it
+    /// takes the ink blush surfaces take, in both appearances.
+    private var ink: Color { isChecked ? CozyColor.inkOnBlush : CozyColor.inkPrimary }
 
     var body: some View {
         Button(action: action) {
@@ -79,7 +94,8 @@ struct CheckRow<Accessory: View>: View {
 
                     if let subtitle, !subtitle.isEmpty {
                         Text(subtitle)
-                            .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
+                            .cozyText(CozyFont.caption2,
+                                      color: isChecked ? ink.opacity(0.8) : CozyColor.inkSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
@@ -88,10 +104,11 @@ struct CheckRow<Accessory: View>: View {
 
                 Spacer(minLength: 0)
             }
-            .padding(.vertical, CozySpacing.xs)
-            .frame(minHeight: CozyMetrics.minimumTouchTarget)
+            .padding(.horizontal, CozySpacing.m)
+            .padding(.vertical, CozySpacing.s)
+            .frame(minHeight: 52, alignment: .center)
+            .background(rowFill, in: .rect(cornerRadius: CozyRadius.field, style: .continuous))
             .contentShape(.rect)
-            .opacity(isChecked ? 0.6 : 1)
         }
         .buttonStyle(.plain)
         .cozyAnimation(Motion.bouncy, value: isChecked)
@@ -103,21 +120,28 @@ struct CheckRow<Accessory: View>: View {
         .accessibilityAddTraits(isChecked ? [.isSelected] : [])
     }
 
+    /// A rounded square, not a circle, and butter when it is on.
+    ///
+    /// Butter rather than the row's own colour: the row underneath has just
+    /// gone blush, and a blush tick on a blush row is a shape with nothing to
+    /// sit against. The one warm yellow thing on the screen is the thing you
+    /// just did.
     private var tick: some View {
         ZStack {
-            Circle()
-                .fill(isChecked ? tickFill : CozyColor.card)
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(isChecked ? CozyColor.butter : .clear)
 
-            Circle()
-                .strokeBorder(isChecked ? tickFill : CozyColor.outlineStrong,
-                              lineWidth: CozyBorder.card)
+            if !isChecked {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .strokeBorder(CozyColor.outlineStrong, lineWidth: 2.5)
+            }
 
             Image(systemName: "checkmark")
                 .font(.caption2.weight(.black))
-                .foregroundStyle(CozyColor.inkPrimary)
+                .foregroundStyle(CozyColor.inkOnBlush)
                 .opacity(isChecked ? 1 : 0)
         }
-        .frame(width: 24, height: 24)
+        .frame(width: 22, height: 22)
         // Sits on the title's first line rather than the middle of a
         // three-line row.
         .padding(.top, 1)
@@ -126,16 +150,21 @@ struct CheckRow<Accessory: View>: View {
 
     /// The strikethrough is a capsule scaled from its leading edge, not
     /// `.strikethrough(_:)`, so it draws across the words.
+    ///
+    /// A ticked title fades, but only to 0.8. The mockup takes it to 0.5,
+    /// which lands at 3.0:1 on blush and 2.6:1 on the dark blush — a line of
+    /// text nobody can read is not a subtler way of saying "done", and this
+    /// row already says it twice over with the fill and the line through.
     private var label: some View {
         Text(title)
-            .cozyText(CozyFont.body)
+            .cozyText(CozyFont.body, color: isChecked ? ink.opacity(0.8) : ink)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
             .contentTransition(.numericText())
             .overlay(alignment: .leading) {
                 if strikesThrough {
                     Capsule()
-                        .fill(CozyColor.inkSecondary)
+                        .fill(ink.opacity(0.8))
                         .frame(height: 1.5)
                         .scaleEffect(x: isChecked ? 1 : 0, anchor: .leading)
                         .cozyAnimation(Motion.snappy, value: isChecked)
@@ -178,31 +207,23 @@ extension CheckRow where Accessory == EmptyView {
 #Preview("Check rows") {
     @Previewable @State var ticked: Set<String> = ["2 cups plain flour"]
 
-    VStack(spacing: 0) {
+    VStack(alignment: .leading, spacing: CozySpacing.s) {
         AisleTag(title: "Baking", systemImage: "birthday.cake", count: 4, tint: CozyColor.butter)
-            .padding(.bottom, CozySpacing.s)
 
-        CrumbCard(padding: CozySpacing.m) {
-            VStack(spacing: 0) {
-                ForEach(Array(CheckRowPreviewData.rows.enumerated()), id: \.offset) { index, row in
-                    if index > 0 {
-                        Divider().overlay(CozyColor.outline)
-                    }
-
-                    CheckRow(
-                        title: row.title,
-                        subtitle: row.subtitle,
-                        isChecked: ticked.contains(row.title),
-                        tint: CozyColor.butter,
-                        action: {
-                            if ticked.contains(row.title) {
-                                ticked.remove(row.title)
-                            } else {
-                                ticked.insert(row.title)
-                            }
+        VStack(spacing: 6) {
+            ForEach(Array(CheckRowPreviewData.rows.enumerated()), id: \.offset) { _, row in
+                CheckRow(
+                    title: row.title,
+                    subtitle: row.subtitle,
+                    isChecked: ticked.contains(row.title),
+                    action: {
+                        if ticked.contains(row.title) {
+                            ticked.remove(row.title)
+                        } else {
+                            ticked.insert(row.title)
                         }
-                    )
-                }
+                    }
+                )
             }
         }
 

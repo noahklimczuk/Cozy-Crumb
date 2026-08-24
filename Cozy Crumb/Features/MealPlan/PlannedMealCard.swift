@@ -15,6 +15,8 @@
 import SwiftUI
 
 struct PlannedMealCard: View {
+    @Environment(\.accentPalette) private var accent
+
     let recipe: Recipe
 
     /// Shown as a badge over the picture. Nil in the recipe picker, where every
@@ -64,7 +66,10 @@ struct PlannedMealCard: View {
             )
             .overlay(alignment: .topLeading) {
                 if let slot {
-                    PillTag(text: slot.displayName, systemImage: slot.symbol)
+                    PillTag(text: slot.displayName,
+                            systemImage: slot.symbol,
+                            tint: CozyColor.cardOnBlush,
+                            ink: CozyColor.inkOnBlush)
                         .padding(CozySpacing.s)
                 }
             }
@@ -73,7 +78,13 @@ struct PlannedMealCard: View {
                 // never checked over is worth more on the night you planned to
                 // cook it than it is while browsing.
                 if recipe.needsReview {
-                    PillTag(text: "Check me", systemImage: "questionmark.circle", tint: CozyColor.warning)
+                    Text("Check me")
+                        .cozyEyebrow(color: CozyColor.inkOnBlush,
+                                     tracking: CozyTracking.eyebrowTight)
+                        .padding(.horizontal, CozySpacing.s)
+                        .padding(.vertical, 4)
+                        .background(accent.color,
+                                    in: .rect(cornerRadius: CozyRadius.pill, style: .continuous))
                         .padding(CozySpacing.s)
                 }
             }
@@ -81,8 +92,12 @@ struct PlannedMealCard: View {
 
     private var details: some View {
         VStack(alignment: .leading, spacing: CozySpacing.s) {
+            // Matches the Cookbook's card exactly — same face, same size, same
+            // tracking. These two cards sit in grids one tab apart and any
+            // drift between them is visible immediately.
             Text(recipe.title)
-                .cozyText(CozyFont.headline)
+                .cozyText(CozyFont.cardTitle)
+                .cozyDisplayTracking(CozyTracking.cardTitle, relativeTo: .headline)
                 .lineLimit(2, reservesSpace: true)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -101,9 +116,9 @@ struct PlannedMealCard: View {
     @ViewBuilder
     private var pills: some View {
         if let time = recipe.totalTimeDisplay {
-            PillTag(text: time, systemImage: "clock")
+            PillTag(text: time)
         }
-        PillTag(text: "\(plannedServings)", systemImage: "person.2", tint: CozyColor.creamDeep)
+        PillTag(text: "\(plannedServings)")
     }
 
     // MARK: - Detail

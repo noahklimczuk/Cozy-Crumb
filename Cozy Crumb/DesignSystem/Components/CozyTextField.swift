@@ -19,6 +19,9 @@ struct CozyTextField: View {
     var isSecure: Bool = false
     var showsClearButton: Bool = true
     var submitLabel: SubmitLabel = .return
+    /// White on a cream page; `cardOnBlush` for a field sitting on a header
+    /// slab or one of the accent-ground screens.
+    var fill: Color = CozyColor.card
     /// Explicitly main-actor: callers hand this closure work that touches
     /// the store, and a bare function type would strip the isolation.
     var onSubmit: (@MainActor () -> Void)?
@@ -52,13 +55,19 @@ struct CozyTextField: View {
         }
         .padding(.horizontal, CozySpacing.l)
         .frame(minHeight: CozyMetrics.minimumTouchTarget + 6)
-        .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
+        .background(fill, in: .rect(cornerRadius: CozyRadius.field, style: .continuous))
+        // Outlined only while focused. The resting hairline was doing the work
+        // of separating a white field from a cream page; a field now sits on a
+        // slab or a card that already separates it, and drawing the border
+        // anyway put a box around every screen's first control.
+        //
+        // The focus ring stays — it is the only thing that says which field
+        // the keyboard is talking to, and it is not decoration.
         .overlay {
-            RoundedRectangle(cornerRadius: CozyRadius.button, style: .continuous)
-                .strokeBorder(
-                    isFocused ? accent.deep : CozyColor.outline,
-                    lineWidth: isFocused ? CozyBorder.illustrative : CozyBorder.card
-                )
+            if isFocused {
+                RoundedRectangle(cornerRadius: CozyRadius.field, style: .continuous)
+                    .strokeBorder(accent.deep, lineWidth: CozyBorder.illustrative)
+            }
         }
         .cozyAnimation(Motion.snappy, value: isFocused)
         .cozyAnimation(Motion.bouncy, value: text.isEmpty)

@@ -36,35 +36,30 @@ struct SourcePill: View {
         }
     }
 
+    /// A tracked-out line rather than a bordered chip.
+    ///
+    /// It sits over the recipe's hero now, above a 44pt title, and a pastel
+    /// chip with a hairline around it was the one piece of the old chrome left
+    /// sitting on the picture. What it loses in chip-ness it keeps in
+    /// behaviour: the arrow still says this one goes somewhere, the whole line
+    /// is still a 44pt target, and the link traits are unchanged.
     private func chip(isLink: Bool) -> some View {
         HStack(spacing: CozySpacing.xs) {
             Image(systemName: symbol)
-                .font(.caption2.weight(.semibold))
+                .font(.system(size: 10, weight: .bold))
 
             Text(name)
-                .font(CozyFont.caption)
                 .lineLimit(1)
 
             if isLink {
                 // A small, honest affordance: this one goes somewhere.
                 Image(systemName: "arrow.up.right")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(CozyColor.inkSecondary)
             }
         }
-        .foregroundStyle(CozyColor.inkPrimary)
-        .padding(.horizontal, CozySpacing.m)
-        .padding(.vertical, CozySpacing.s)
-        .background(
-            isLink ? CozyColor.blushSoft : CozyColor.creamDeep,
-            in: .rect(cornerRadius: CozyRadius.chip, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
-                .strokeBorder(CozyColor.outline, lineWidth: 1)
-        }
-        // Draws compact, stays comfortably tappable (§7.6).
-        .frame(minHeight: CozyMetrics.minimumTouchTarget)
+        .cozyEyebrow(color: CozyColor.inkOnBlush, tracking: CozyTracking.eyebrow)
+        // Draws as one small line, stays comfortably tappable (§7.6).
+        .frame(minHeight: CozyMetrics.minimumTouchTarget, alignment: .leading)
         .contentShape(.rect)
     }
 }

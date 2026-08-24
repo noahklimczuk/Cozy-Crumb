@@ -56,9 +56,11 @@ extension ButtonStyle where Self == SquishyButtonStyle {
 /// The app's primary call to action — a big squishy pill.
 struct SquishyButton: View {
     enum Emphasis {
-        /// Filled with the current accent. One per screen.
+        /// Filled with the accent's deep step, on a block of its own colour.
+        /// One per screen.
         case primary
-        /// Outlined on card, for secondary actions.
+        /// Drawn as an outline and nothing else, for the action sitting beside
+        /// the primary one.
         case secondary
         /// Soft-tinted, for tertiary or destructive-lite actions.
         case quiet
@@ -70,6 +72,9 @@ struct SquishyButton: View {
     var systemImage: String?
     var emphasis: Emphasis = .primary
     var isFullWidth: Bool = true
+    /// The screen's one loud bar — "Start cooking", "Next step" — is taller
+    /// than a button in a stack of them.
+    var minHeight: CGFloat = CozyMetrics.minimumTouchTarget + 6
     let action: () -> Void
 
     var body: some View {
@@ -77,18 +82,17 @@ struct SquishyButton: View {
             HStack(spacing: CozySpacing.s) {
                 if let systemImage {
                     Image(systemName: systemImage)
-                        .font(.body.weight(.semibold))
+                        .font(.body.weight(.bold))
                 }
                 Text(title)
-                    .font(CozyFont.bodyEmphasis)
+                    .font(emphasis == .primary ? CozyFont.cardTitle : CozyFont.bodyEmphasis)
             }
-            .foregroundStyle(CozyColor.inkPrimary)
+            .foregroundStyle(ink)
             .padding(.horizontal, CozySpacing.xl)
             .padding(.vertical, CozySpacing.m)
-            .frame(maxWidth: isFullWidth ? .infinity : nil,
-                   minHeight: CozyMetrics.minimumTouchTarget)
+            .frame(maxWidth: isFullWidth ? .infinity : nil, minHeight: minHeight)
             .background(background, in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
-            .modifier(ButtonEdge(emphasis: emphasis))
+            .modifier(ButtonEdge(emphasis: emphasis, accent: accent))
         }
         .buttonStyle(.squishy)
         .accessibilityLabel(title)
@@ -96,31 +100,39 @@ struct SquishyButton: View {
 
     private var background: Color {
         switch emphasis {
-        case .primary: accent.color
-        case .secondary: CozyColor.card
+        // Clear, not card: an outlined button is a shape drawn on the page,
+        // and a white fill under a 2.5pt border made it look like a card
+        // someone had traced around.
+        case .primary: accent.deep
+        case .secondary: .clear
         case .quiet: accent.soft
         }
+    }
+
+    private var ink: Color {
+        emphasis == .primary ? CozyColor.inkOnBlush : CozyColor.inkPrimary
     }
 }
 
 /// Which edge each emphasis wears.
 ///
 /// A primary button is the one thing on the screen you are meant to press, so
-/// it gets the block. The other two are alternatives sitting beside it, and
-/// three blocks in a row reads as three primary buttons — they take a hairline
-/// instead, which is also what keeps `.secondary` visible: its fill is `card`,
-/// and card on cream is very nearly no edge at all.
+/// it gets the block — in its own colour, so the offset reads as the button's
+/// own edge rather than a beige shape behind it. The other two are
+/// alternatives sitting beside it, and three blocks in a row reads as three
+/// primary buttons.
 private struct ButtonEdge: ViewModifier {
     let emphasis: SquishyButton.Emphasis
+    let accent: AccentPalette
 
     func body(content: Content) -> some View {
         switch emphasis {
         case .primary:
-            content.cozyBlockShadow()
+            content.cozyBlockShadow(CozyDepth.block, color: accent.block)
         case .secondary:
             content.overlay {
                 RoundedRectangle(cornerRadius: CozyRadius.button, style: .continuous)
-                    .strokeBorder(CozyColor.outline, lineWidth: CozyBorder.card)
+                    .strokeBorder(accent.deep, lineWidth: 2.5)
             }
         case .quiet:
             content
@@ -143,15 +155,13 @@ struct SquishyIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(isOn ? CozyColor.inkPrimary : CozyColor.inkSecondary)
+                .font(.body.weight(.bold))
+                .foregroundStyle(isOn ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
                 .frame(width: CozyMetrics.minimumTouchTarget,
                        height: CozyMetrics.minimumTouchTarget)
                 .background(isOn ? (tint ?? accent.color) : CozyColor.card, in: .circle)
-                .overlay {
-                    Circle().strokeBorder(CozyColor.outline, lineWidth: 1)
-                }
-                .cozyBlockShadow(CozyDepth.small)
+                .cozyBlockShadow(CozyDepth.small,
+                                 color: isOn ? accent.block : CozyColor.block)
         }
         .buttonStyle(.squishy)
         .accessibilityLabel(accessibilityLabel)

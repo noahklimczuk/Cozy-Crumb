@@ -22,6 +22,7 @@ import UIKit
 struct PantryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.cozyMotion) private var motion
+    @Environment(\.accentPalette) private var accent
 
     // Archived rows are excluded here rather than filtered downstream: a
     // @Query that returns them would put decayed-away food back on the screen
@@ -235,27 +236,110 @@ struct PantryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: CozySpacing.l) {
                 ForEach(groups) { group in
-                    VStack(alignment: .leading, spacing: CozySpacing.s) {
+                    VStack(alignment: .leading, spacing: CozySpacing.m) {
                         header(for: group)
 
-                        CrumbCard(padding: CozySpacing.s) {
-                            VStack(spacing: 0) {
-                                ForEach(Array(group.items.enumerated()), id: \.element.id) { index, item in
-                                    if index > 0 {
-                                        Divider()
-                                            .overlay(CozyColor.outline)
-                                            .padding(.leading, CozySpacing.s)
-                                    }
-
-                                    row(for: item)
-                                }
-                            }
+                        // What's about to go off gets cards; everything else
+                        // gets a list. A thing with two days left is a decision
+                        // to make — it wants room, its own edge and the date
+                        // said out loud. A tin of chickpeas is inventory, and
+                        // inventory reads fastest as rows.
+                        if group.section == .expiring {
+                            useSoonGrid(group.items)
+                        } else {
+                            groupedCard(group.items)
                         }
                     }
                 }
             }
             .padding(CozySpacing.l)
             .padding(.bottom, CozySpacing.xxl)
+        }
+    }
+
+    /// Two-up cards for the things with a clock on them.
+    private func useSoonGrid(_ items: [PantryItem]) -> some View {
+        LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: CozySpacing.m),
+                      GridItem(.flexible(), spacing: CozySpacing.m)],
+            spacing: CozySpacing.m
+        ) {
+            ForEach(items) { item in
+                useSoonCard(for: item)
+            }
+        }
+    }
+
+    private func useSoonCard(for item: PantryItem) -> some View {
+        CrumbCard(padding: CozySpacing.m, cornerRadius: CozyRadius.button) {
+            VStack(alignment: .leading, spacing: 3) {
+                // Lowercase and in the display face. Pantry items are typed in
+                // as "spinach", not "Spinach", and title-casing them here made
+                // half the shelf look like proper nouns.
+                Text(item.displayName)
+                    .cozyText(CozyFont.title3)
+                    .cozyDisplayTracking(CozyTracking.title3, relativeTo: .title3)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let amount = amountText(for: item) {
+                    Text(amount)
+                        .cozyText(CozyFont.body, color: CozyColor.inkSecondary)
+                        .monospacedDigit()
+                }
+
+                if let urgency = urgencyLabel(for: item) {
+                    Text(urgency)
+                        .cozyEyebrow(color: CozyColor.inkOnBlush,
+                                     tracking: CozyTracking.eyebrowTight)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(urgencyFill(for: item),
+                                    in: .rect(cornerRadius: CozyRadius.pill, style: .continuous))
+                        .padding(.top, CozySpacing.s)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .contextMenu { itemMenu(for: item) }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel(for: item))
+    }
+
+    /// "TOMORROW", "3 DAYS", "WENT OFF". Short enough to be a tag; the row's
+    /// full caption still reads properly to VoiceOver.
+    private func urgencyLabel(for item: PantryItem) -> String? {
+        guard let days = item.daysUntilExpiry() else { return nil }
+        return switch days {
+        case ..<0: "Went off"
+        case 0: "Today"
+        case 1: "Tomorrow"
+        default: "\(days) days"
+        }
+    }
+
+    /// The accent for anything you have to deal with today or tomorrow, and a
+    /// quiet cream for the rest. A tag that shouts on every card isn't a tag,
+    /// it's a background.
+    private func urgencyFill(for item: PantryItem) -> Color {
+        guard let days = item.daysUntilExpiry() else { return CozyColor.creamDeep }
+        return days <= 1 ? accent.deep : CozyColor.creamDeep
+    }
+
+    /// Everything that isn't about to go off: one card, rows inside it.
+    private func groupedCard(_ items: [PantryItem]) -> some View {
+        CrumbCard(padding: 0, cornerRadius: CozyRadius.button) {
+            VStack(spacing: 0) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    if index > 0 {
+                        Rectangle()
+                            .fill(CozyColor.creamDeep)
+                            .frame(height: 1.5)
+                    }
+
+                    row(for: item)
+                }
+            }
         }
     }
 
@@ -268,57 +352,66 @@ struct PantryView: View {
         )
     }
 
+    /// Full-strength colours, as on the grocery list: at tag size a paled tint
+    /// is the same beige as every other paled tint.
     private func tint(for section: PantryViewModel.Section) -> Color {
         switch section {
-        case .expiring: CozyColor.warning.cozyPaled(0.35)
-        case .category(let category): category.tint.cozyPaled()
+        case .expiring: accent.deep
+        case .category(let category): category.tint
         }
     }
 
     private func row(for item: PantryItem) -> some View {
-        HStack(spacing: CozySpacing.s) {
+        HStack(alignment: .center, spacing: CozySpacing.s) {
             VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: CozySpacing.xs) {
-                    Text(item.displayName)
-                        .cozyText(CozyFont.body)
-
-                    Spacer(minLength: CozySpacing.s)
-
-                    if let amount = amountText(for: item) {
-                        Text(amount)
-                            .cozyText(CozyFont.bodyEmphasis, color: CozyColor.inkSecondary)
-                            .monospacedDigit()
-                    }
-                }
+                Text(item.displayName)
+                    .cozyText(CozyFont.body)
 
                 if let caption = caption(for: item) {
                     Text(caption)
                         .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
                 }
             }
-        }
-        .padding(.vertical, CozySpacing.s)
-        .padding(.horizontal, CozySpacing.s)
-        .frame(minHeight: CozyMetrics.minimumTouchTarget)
-        .contentShape(.rect)
-        .contextMenu {
-            Button {
-                editingExpiry = item
-            } label: {
-                Label(item.expiresAt == nil ? "Add a use-by date" : "Change the use-by date",
-                      systemImage: "calendar")
-            }
 
-            Button(role: .destructive) {
-                withAnimation(motion(Motion.gentle)) {
-                    viewModel.useUp(item, in: modelContext)
-                }
-            } label: {
-                Label("Used it up", systemImage: "checkmark.circle")
+            Spacer(minLength: CozySpacing.s)
+
+            // The quantity in a pill of its own. Down a column of rows it is
+            // the thing being compared, and set as plain text it ran into the
+            // name beside it whenever either got long.
+            if let amount = amountText(for: item) {
+                Text(amount)
+                    .cozyText(CozyFont.caption.weight(.bold), color: CozyColor.inkPrimary)
+                    .monospacedDigit()
+                    .padding(.horizontal, CozySpacing.s)
+                    .padding(.vertical, 5)
+                    .background(CozyColor.creamDeep,
+                                in: .rect(cornerRadius: CozyRadius.pill, style: .continuous))
             }
         }
+        .padding(.horizontal, CozySpacing.l)
+        .frame(minHeight: 54)
+        .contentShape(.rect)
+        .contextMenu { itemMenu(for: item) }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel(for: item))
+    }
+
+    @ViewBuilder
+    private func itemMenu(for item: PantryItem) -> some View {
+        Button {
+            editingExpiry = item
+        } label: {
+            Label(item.expiresAt == nil ? "Add a use-by date" : "Change the use-by date",
+                  systemImage: "calendar")
+        }
+
+        Button(role: .destructive) {
+            withAnimation(motion(Motion.gentle)) {
+                viewModel.useUp(item, in: modelContext)
+            }
+        } label: {
+            Label("Used it up", systemImage: "checkmark.circle")
+        }
     }
 
     private func amountText(for item: PantryItem) -> String? {
@@ -363,7 +456,12 @@ struct PantryView: View {
                 HeaderActionButton(
                     systemImage: "camera",
                     accessibilityLabel: "Photograph the fridge",
-                    accessibilityHint: "Opens the camera to read what's in from a photo"
+                    accessibilityHint: "Opens the camera to read what's in from a photo",
+                    // Butter rather than the accent's deep: this opens a
+                    // camera, not another row in the list, and the one control
+                    // on the screen that leaves it should not look like the
+                    // plus button on every other header.
+                    fill: CozyColor.butter
                 ) {
                     startCamera()
                 }
@@ -396,7 +494,8 @@ struct PantryView: View {
             placeholder: "Half a jar of tahini…",
             text: $viewModel.draft,
             systemImage: "plus.circle",
-            submitLabel: .done
+            submitLabel: .done,
+            fill: CozyColor.cardOnBlush
         ) {
             withAnimation(motion(Motion.gentle)) {
                 viewModel.addTyped(in: modelContext)

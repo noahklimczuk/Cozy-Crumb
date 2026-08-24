@@ -39,20 +39,29 @@ struct RecipeHeroView: View {
             // Both stops opaque: a fade to `tint.opacity(0.55)` used to let
             // whatever was behind the card show through the bottom of every
             // recipe without a photo, which is now a ruled page.
+            //
+            // It runs to the tint's *deep* rather than to a paled version of
+            // it. Fading toward the page made a placeholder look like an image
+            // that hadn't finished loading; running toward the saturated end
+            // makes it look painted, which is what it is.
             LinearGradient(
-                colors: [tint, tint.cozyPaled(0.45)],
+                colors: [tint, deepTint],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
 
             Image(systemName: symbol)
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(CozyColor.inkPrimary.opacity(0.35))
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(CozyColor.inkOnBlush.opacity(0.3))
         }
     }
 
     private var tint: Color {
         CozyColor.rotatedAccent(for: recipe.title)
+    }
+
+    private var deepTint: Color {
+        CozyColor.rotatedAccentDeep(for: recipe.title)
     }
 
     /// Picks a glyph from the recipe's tags, falling back to cutlery.

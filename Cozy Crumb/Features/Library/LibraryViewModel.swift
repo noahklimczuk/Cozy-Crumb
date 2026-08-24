@@ -2,8 +2,15 @@
 //  LibraryViewModel.swift
 //  Cozy Crumb
 //
-//  Owns the Cookbook's view state: what's typed in the search field and how
-//  recipe grids are sorted. Collections are folders, not filters.
+//  Owns the Cookbook's view state: what's typed in the search field, which
+//  collection is filtering the grid, and how recipe grids are sorted.
+//
+//  Collections used to be folders you navigated into, drawn as a grid of cards
+//  above the recipes. They are filters now: a row of chips that narrows the
+//  one grid in place. The folder screen still exists and is still where a
+//  collection is renamed or deleted — it is reached by long-pressing its chip
+//  or through the sort menu — but the common case, "show me just the baking",
+//  no longer costs a push and a back tap.
 //
 //  Filtering happens here rather than in a @Query predicate because searching
 //  ingredient names means walking a relationship, which SwiftData predicates
@@ -49,6 +56,18 @@ enum LibrarySort: String, CaseIterable, Identifiable, Sendable {
 final class LibraryViewModel {
     var searchText = ""
 
+    /// Which collection chip is lit, or nil for "All".
+    ///
+    /// Deliberately not persisted, unlike `sort`. A sort is how someone likes
+    /// to read their cookbook; a collection filter is where they happen to be
+    /// looking right now, and opening the app tomorrow inside "Baking" with no
+    /// memory of having tapped it is how a cookbook appears to lose recipes.
+    ///
+    /// Held as the collection's id rather than the object so a deleted
+    /// collection degrades to "All" on its own instead of keeping a filter
+    /// alive against something that no longer exists.
+    var selectedCollectionID: UUID?
+
     /// Remembered between launches — a cookbook someone sorted A–Z once
     /// shouldn't quietly go back to newest-first the next morning.
     var sort: LibrarySort = .recentlyAdded {
@@ -75,9 +94,24 @@ final class LibraryViewModel {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Applies search, then sort.
-    func visibleRecipes(from recipes: [Recipe]) -> [Recipe] {
+    /// Applies the collection filter, then search, then sort.
+    ///
+    /// The two filters compose rather than replacing each other: a chip plus a
+    /// query narrows to both, and clearing the search leaves the chip where it
+    /// was. They are separate pieces of state for exactly that reason.
+    ///
+    /// `collections` is walked in memory rather than asked for in a predicate,
+    /// for the same reason the ingredient search below is — it is a
+    /// relationship, and at personal-cookbook scale this is nowhere near hot
+    /// enough to matter.
+    func visibleRecipes(from recipes: [Recipe], in collectionID: UUID? = nil) -> [Recipe] {
         var result = recipes
+
+        if let collectionID {
+            result = result.filter { recipe in
+                recipe.collections.contains { $0.id == collectionID }
+            }
+        }
 
         let query = trimmedSearch.lowercased()
         if !query.isEmpty {

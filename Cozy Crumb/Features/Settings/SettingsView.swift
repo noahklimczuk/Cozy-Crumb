@@ -61,6 +61,7 @@ struct SettingsView: View {
                         groceriesCard
                         dataCard
                         aboutCard
+                        footerCard
                     }
                     .padding(CozySpacing.l)
                 }
@@ -91,7 +92,8 @@ struct SettingsView: View {
                     title: "Key and model",
                     detail: KeychainStore.shared.hasValue(for: .geminiAPIKey)
                         ? "Awake, using \(GeminiModel.preferred.displayName)"
-                        : "Asleep — no key yet"
+                        : "Asleep — no key yet",
+                    showsChevron: true
                 )
             }
             .buttonStyle(.squishy)
@@ -105,12 +107,13 @@ struct SettingsView: View {
             title: "Cooking",
             note: "How measurements are written everywhere — recipes, the plan and the shopping list."
         ) {
-            Picker("Units", selection: $measurementRaw) {
-                ForEach(MeasurementSystem.allCases, id: \.rawValue) { option in
-                    Text(option.displayName).tag(option.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
+            SettingsHeading(text: "Units")
+
+            SettingsSegmented(
+                label: "Units",
+                options: MeasurementSystem.allCases.map { SettingsOption(value: $0.rawValue, title: $0.displayName) },
+                selection: $measurementRaw
+            )
 
             Text(unitsExplanation)
                 .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
@@ -134,49 +137,81 @@ struct SettingsView: View {
     private var appearanceCard: some View {
         SettingsCard(title: "Look and feel") {
             VStack(alignment: .leading, spacing: CozySpacing.s) {
-                Text("Accent")
-                    .cozyText(CozyFont.bodyEmphasis)
-
-                ScrollView(.horizontal) {
-                    HStack(spacing: CozySpacing.s) {
-                        ForEach(AccentPalette.allCases) { palette in
-                            SelectableChip(
-                                text: palette.displayName,
-                                tint: palette.color,
-                                isSelected: palette == accentSelection
-                            ) {
-                                accentSelection = palette
-                                Haptics.selection()
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 2)
-                    .padding(.vertical, 2)
-                }
-                .scrollIndicators(.hidden)
+                SettingsHeading(text: "Accent")
+                accentPicker
             }
 
-            Divider().overlay(CozyColor.outline)
+            settingsDivider
 
             VStack(alignment: .leading, spacing: CozySpacing.s) {
-                Text("Appearance")
-                    .cozyText(CozyFont.bodyEmphasis)
+                SettingsHeading(text: "Appearance")
 
-                Picker("Appearance", selection: $appearance) {
-                    ForEach(AppAppearance.allCases) { option in
-                        Label(option.displayName, systemImage: option.symbol).tag(option)
-                    }
-                }
-                .pickerStyle(.segmented)
+                SettingsSegmented(
+                    label: "Appearance",
+                    options: AppAppearance.allCases.map { SettingsOption(value: $0, title: $0.displayName) },
+                    selection: $appearance
+                )
             }
 
-            Divider().overlay(CozyColor.outline)
+            settingsDivider
 
             Toggle(isOn: $hapticsEnabled) {
                 SettingsRowLabel(title: "Haptics", detail: "A soft tap on every press.")
             }
             .tint(accent.deep)
         }
+    }
+
+    /// Five swatches, each filled with its own deep step and ringed in it when
+    /// chosen.
+    ///
+    /// Squares rather than circles, and no names: five colour words in a row
+    /// were being read instead of the colours, which is the one thing a colour
+    /// picker must not make you do. Still writes straight through to
+    /// CozyDefaultsKey.accentPalette by way of the binding it was handed.
+    private var accentPicker: some View {
+        HStack(spacing: CozySpacing.m) {
+            ForEach(AccentPalette.allCases) { palette in
+                let isSelected = palette == accentSelection
+
+                Button {
+                    guard !isSelected else { return }
+                    accentSelection = palette
+                    Haptics.selection()
+                } label: {
+                    RoundedRectangle(cornerRadius: CozyRadius.field, style: .continuous)
+                        .fill(palette.deep)
+                        .frame(width: 46, height: 46)
+                        .overlay {
+                            // A ring set *outside* the swatch, in the swatch's
+                            // own colour. A tick drawn on top would have to be
+                            // legible on all five, and butter is not blush.
+                            RoundedRectangle(cornerRadius: CozyRadius.field + 4, style: .continuous)
+                                .strokeBorder(isSelected ? palette.deep : .clear, lineWidth: 3)
+                                .padding(-5)
+                        }
+                        // Draws at 46, stays tappable at 44 plus its ring.
+                        .frame(minWidth: CozyMetrics.minimumTouchTarget,
+                               minHeight: CozyMetrics.minimumTouchTarget)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.squishy)
+                .accessibilityLabel(palette.displayName)
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 5)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Accent colour")
+    }
+
+    /// One rule, so the six cards can't each pick their own.
+    private var settingsDivider: some View {
+        Rectangle()
+            .fill(CozyColor.creamDeep)
+            .frame(height: 1.5)
     }
 
     // MARK: - Groceries
@@ -191,7 +226,7 @@ struct SettingsView: View {
             }
             .tint(accent.deep)
 
-            Divider().overlay(CozyColor.outline)
+            settingsDivider
 
             Toggle(isOn: $checkOffAddsToPantry) {
                 SettingsRowLabel(
@@ -216,7 +251,7 @@ struct SettingsView: View {
                 dataRow(label: "Planned meals", value: plannedMeals.count)
             }
 
-            Divider().overlay(CozyColor.outline)
+            settingsDivider
 
             Button(role: .destructive) {
                 isConfirmingRecipeDeletion = true
@@ -252,47 +287,64 @@ struct SettingsView: View {
             } label: {
                 SettingsRowLabel(
                     title: "Design system",
-                    detail: "Every colour, type style and component on one screen."
+                    detail: "Every colour, type style and component on one screen.",
+                    showsChevron: true
                 )
             }
             .buttonStyle(.squishy)
 
-            Divider().overlay(CozyColor.outline)
+            settingsDivider
 
             NavigationLink {
                 TasteProfileView()
             } label: {
                 SettingsRowLabel(
                     title: "What I've picked up",
-                    detail: "Everything the Sous Chef thinks it knows about your cooking — and how to correct it."
+                    detail: "Everything the Sous Chef thinks it knows about your cooking — and how to correct it.",
+                    showsChevron: true
                 )
             }
             .buttonStyle(.squishy)
 
             #if DEBUG
-            Divider().overlay(CozyColor.outline)
+            settingsDivider
 
             NavigationLink {
                 SignalInspectorView()
             } label: {
                 SettingsRowLabel(
                     title: "Taste signals",
-                    detail: "The raw learning log, with the decay arithmetic. Debug builds only."
+                    detail: "The raw learning log, with the decay arithmetic. Debug builds only.",
+                    showsChevron: true
                 )
             }
             .buttonStyle(.squishy)
             #endif
 
-            Divider().overlay(CozyColor.outline)
+        }
+    }
 
-            VStack(spacing: CozySpacing.xs) {
-                Text(AppBranding.tagline)
-                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                Text(AppBranding.versionDisplayString)
-                    .cozyText(CozyFont.caption2, color: CozyColor.inkSecondary)
+    /// The sign-off. Blush, so the screen ends on the same colour it started
+    /// on, and the one place on Settings the mascot gets to appear.
+    private var footerCard: some View {
+        CrumbCard(fill: accent.color, cornerRadius: CozyRadius.sheet) {
+            HStack(spacing: CozySpacing.l) {
+                MascotView(pose: .idle, size: 52)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: CozySpacing.s) {
+                    Text(AppBranding.tagline)
+                        .cozyText(CozyFont.cardTitle, color: CozyColor.inkOnBlush)
+                        .cozyDisplayTracking(CozyTracking.cardTitle, relativeTo: .headline)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(AppBranding.versionDisplayString)
+                        .cozyEyebrow(color: CozyColor.inkOnBlush)
+                }
+
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.top, CozySpacing.xs)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -325,11 +377,16 @@ private struct SettingsCard<Content: View>: View {
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        CrumbCard {
+        CrumbCard(cornerRadius: CozyRadius.sheet) {
             VStack(alignment: .leading, spacing: CozySpacing.m) {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: CozySpacing.s) {
+                    // The group's name is a label on the card, not a heading
+                    // inside it. Set as a 26pt title it was bigger than every
+                    // setting it introduced, so a screen of six of them read as
+                    // six headlines with some controls in between.
                     Text(title)
-                        .cozyText(CozyFont.title2)
+                        .cozyEyebrow(color: CozyColor.inkSecondary,
+                                     tracking: CozyTracking.eyebrowWide)
 
                     if let note {
                         Text(note)
@@ -345,17 +402,84 @@ private struct SettingsCard<Content: View>: View {
     }
 }
 
+/// A setting's own title, inside a group. The display face at 19pt, which is
+/// where it takes over from SF Rounded elsewhere in the app.
+private struct SettingsHeading: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .cozyText(CozyFont.cardTitle)
+            .cozyDisplayTracking(CozyTracking.cardTitle, relativeTo: .headline)
+    }
+}
+
+/// Three-up segmented control, drawn in the app's own colours.
+///
+/// `.pickerStyle(.segmented)` brings iOS's grey capsule with it, which is the
+/// one piece of system chrome that survived on this screen and the only grey
+/// thing in a warm app.
+private struct SettingsOption<Value: Hashable>: Identifiable {
+    let value: Value
+    let title: String
+
+    var id: Value { value }
+}
+
+private struct SettingsSegmented<Value: Hashable>: View {
+    @Environment(\.accentPalette) private var accent
+
+    let label: String
+    let options: [SettingsOption<Value>]
+    @Binding var selection: Value
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(options) { option in
+                let isSelected = option.value == selection
+
+                Button {
+                    guard !isSelected else { return }
+                    selection = option.value
+                    Haptics.selection()
+                } label: {
+                    Text(option.title)
+                        .font(CozyFont.caption.weight(.bold))
+                        .foregroundStyle(isSelected ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: CozyMetrics.minimumTouchTarget)
+                        .background(isSelected ? accent.color : CozyColor.creamDeep,
+                                    in: .rect(cornerRadius: 11, style: .continuous))
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.squishy)
+                .accessibilityLabel(option.title)
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(label)
+    }
+}
+
 /// Title over explanation, used by both toggles and navigation rows so a row
 /// reads the same whichever it is.
 private struct SettingsRowLabel: View {
+    @Environment(\.accentPalette) private var accent
+
     let title: String
     var detail: String?
+    /// Rows that go somewhere say so. Toggles don't, and pass false.
+    var showsChevron: Bool = false
 
     var body: some View {
         HStack(spacing: CozySpacing.s) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .cozyText(CozyFont.bodyEmphasis)
+                    .cozyText(CozyFont.cardTitle)
+                    .cozyDisplayTracking(CozyTracking.cardTitle, relativeTo: .headline)
                     .multilineTextAlignment(.leading)
 
                 if let detail {
@@ -367,6 +491,12 @@ private struct SettingsRowLabel: View {
             }
 
             Spacer(minLength: 0)
+
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(accent.deep)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(.rect)
