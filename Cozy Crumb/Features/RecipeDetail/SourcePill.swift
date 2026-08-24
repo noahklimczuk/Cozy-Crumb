@@ -57,7 +57,7 @@ struct SourcePill: View {
                     .font(.system(size: 9, weight: .bold))
             }
         }
-        .cozyEyebrow(color: CozyColor.inkOnBlush, tracking: CozyTracking.eyebrow)
+        .cozyEyebrow(color: CozyColor.inkOnAccent, tracking: CozyTracking.eyebrow)
         // Draws as one small line, stays comfortably tappable (§7.6).
         .frame(minHeight: CozyMetrics.minimumTouchTarget, alignment: .leading)
         .contentShape(.rect)

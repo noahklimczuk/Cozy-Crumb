@@ -251,7 +251,7 @@ extension View {
     /// The small tracked-out capitals above a screen title, or under one.
     ///
     /// The default ink is `inkTertiary`, which is right on cream and fails on
-    /// blush — anything on a slab passes `CozyColor.inkOnBlush`.
+    /// blush — anything on a slab passes `CozyColor.inkOnAccent`.
     func cozyEyebrow(color: Color = CozyColor.inkTertiary,
                      tracking: CGFloat = CozyTracking.eyebrow) -> some View {
         self.font(CozyFont.eyebrow)

@@ -110,7 +110,7 @@ struct SquishyButton: View {
     }
 
     private var ink: Color {
-        emphasis == .primary ? CozyColor.inkOnBlush : CozyColor.inkPrimary
+        emphasis == .primary ? CozyColor.inkOnAccent : CozyColor.inkPrimary
     }
 }
 
@@ -156,12 +156,15 @@ struct SquishyIconButton: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.body.weight(.bold))
-                .foregroundStyle(isOn ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
+                .foregroundStyle(isOn ? CozyColor.inkOnAccent : CozyColor.inkPrimary)
                 .frame(width: CozyMetrics.minimumTouchTarget,
                        height: CozyMetrics.minimumTouchTarget)
                 .background(isOn ? (tint ?? accent.color) : CozyColor.card, in: .circle)
+                // The accent's block only when the fill *is* the accent. A
+                // call site that passes its own tint — butter for a favourite
+                // — would otherwise get a pink edge under a yellow circle.
                 .cozyBlockShadow(CozyDepth.small,
-                                 color: isOn ? accent.block : CozyColor.block)
+                                 color: isOn && tint == nil ? accent.block : CozyColor.block)
         }
         .buttonStyle(.squishy)
         .accessibilityLabel(accessibilityLabel)

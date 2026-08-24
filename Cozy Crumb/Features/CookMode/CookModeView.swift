@@ -118,7 +118,7 @@ struct CookModeView: View {
                 // to be here as well, and it is now the line above the step
                 // itself, where you are already looking.
                 Text(recipe.title)
-                    .cozyEyebrow(color: CozyColor.inkOnBlush)
+                    .cozyEyebrow(color: CozyColor.inkOnAccent)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity)
 
@@ -143,10 +143,10 @@ struct CookModeView: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(CozyColor.inkOnBlush)
+                .foregroundStyle(CozyColor.inkOnAccent)
                 .frame(width: CozyMetrics.minimumTouchTarget,
                        height: CozyMetrics.minimumTouchTarget)
-                .background(CozyColor.cardOnBlush,
+                .background(CozyColor.surfaceOnAccent,
                             in: .rect(cornerRadius: CozyRadius.field, style: .continuous))
                 .contentShape(.rect)
         }
@@ -171,7 +171,7 @@ struct CookModeView: View {
             HStack(spacing: 6) {
                 ForEach(0..<steps.count, id: \.self) { position in
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(position < done ? accent.deep : CozyColor.cardOnBlush)
+                        .fill(position < done ? accent.deep : CozyColor.surfaceOnAccent)
                         .frame(height: 8)
                 }
             }
@@ -189,9 +189,9 @@ struct CookModeView: View {
             Button(action: goBack) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(CozyColor.inkOnBlush)
+                    .foregroundStyle(CozyColor.inkOnAccent)
                     .frame(width: 60, height: 60)
-                    .background(CozyColor.cardOnBlush,
+                    .background(CozyColor.surfaceOnAccent,
                                 in: .rect(cornerRadius: CozyRadius.sheet, style: .continuous))
                     .contentShape(.rect)
             }
@@ -305,11 +305,11 @@ private struct CookStepPage: View {
                     .font(CozyFont.eyebrowDisplay)
                     .cozyDisplayTracking(CozyTracking.eyebrowStep, relativeTo: .subheadline)
                     .textCase(.uppercase)
-                    .foregroundStyle(CozyColor.inkOnBlush)
+                    .foregroundStyle(CozyColor.inkOnAccent)
                     .accessibilityHidden(true)
 
                 Text(step.text)
-                    .cozyText(CozyFont.cookStep, color: CozyColor.inkOnBlush)
+                    .cozyText(CozyFont.cookStep, color: CozyColor.inkOnAccent)
                     .cozyDisplayTracking(CozyTracking.cookStep, relativeTo: .title)
                     .cozyDisplayLeading(CozyLeading.cookStep)
                     .fixedSize(horizontal: false, vertical: true)
