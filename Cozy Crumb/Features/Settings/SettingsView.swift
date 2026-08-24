@@ -327,19 +327,19 @@ struct SettingsView: View {
     /// The sign-off. Blush, so the screen ends on the same colour it started
     /// on, and the one place on Settings the mascot gets to appear.
     private var footerCard: some View {
-        CrumbCard(fill: accent.color, cornerRadius: CozyRadius.sheet) {
+        CrumbCard(fill: accent.color, cornerRadius: CozyRadius.sheet, block: accent.block) {
             HStack(spacing: CozySpacing.l) {
                 MascotView(pose: .idle, size: 52)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: CozySpacing.s) {
                     Text(AppBranding.tagline)
-                        .cozyText(CozyFont.cardTitle, color: CozyColor.inkOnBlush)
+                        .cozyText(CozyFont.cardTitle, color: CozyColor.inkOnAccent)
                         .cozyDisplayTracking(CozyTracking.cardTitle, relativeTo: .headline)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(AppBranding.versionDisplayString)
-                        .cozyEyebrow(color: CozyColor.inkOnBlush)
+                        .cozyEyebrow(color: CozyColor.inkOnAccent)
                 }
 
                 Spacer(minLength: 0)
@@ -445,7 +445,7 @@ private struct SettingsSegmented<Value: Hashable>: View {
                 } label: {
                     Text(option.title)
                         .font(CozyFont.caption.weight(.bold))
-                        .foregroundStyle(isSelected ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
+                        .foregroundStyle(isSelected ? CozyColor.inkOnAccent : CozyColor.inkPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .frame(maxWidth: .infinity)

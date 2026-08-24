@@ -271,7 +271,7 @@ struct ShoppingListView: View {
                 submitLabel: .done,
                 // Translucent, because it sits on the slab rather than on the
                 // page — solid white here punches a hole in the header.
-                fill: CozyColor.cardOnBlush
+                fill: CozyColor.surfaceOnAccent
             ) {
                 addTypedItem()
             }
@@ -280,7 +280,7 @@ struct ShoppingListView: View {
                 Button(action: addTypedItem) {
                     Image(systemName: "arrow.up")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(CozyColor.inkOnBlush)
+                        .foregroundStyle(CozyColor.inkOnAccent)
                         .frame(width: 44, height: 44)
                         .background(CozyColor.butter,
                                     in: .rect(cornerRadius: CozyRadius.field, style: .continuous))
@@ -342,7 +342,7 @@ struct ShoppingListView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
         }
-        .foregroundStyle(isProminent ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
+        .foregroundStyle(isProminent ? CozyColor.inkOnAccent : CozyColor.inkPrimary)
         .frame(maxWidth: .infinity)
         .frame(height: 48)
         .background(

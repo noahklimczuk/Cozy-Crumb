@@ -66,7 +66,7 @@ struct AisleTag: View {
                 }
                 Text(title)
             }
-            .cozyEyebrow(color: CozyColor.inkOnBlush, tracking: CozyTracking.eyebrowTight)
+            .cozyEyebrow(color: CozyColor.inkOnAccent, tracking: CozyTracking.eyebrowTight)
             .padding(.horizontal, 11)
             .padding(.vertical, 5)
             .background(tint, in: .rect(cornerRadius: CozyRadius.pill, style: .continuous))
@@ -113,7 +113,7 @@ struct SelectableChip: View {
                 Text(text)
                     .font(CozyFont.caption.weight(.semibold))
             }
-            .foregroundStyle(isSelected ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
+            .foregroundStyle(isSelected ? CozyColor.inkOnAccent : CozyColor.inkPrimary)
             .padding(.horizontal, CozySpacing.l)
             .padding(.vertical, 9)
             .background(isSelected ? selectedFill : CozyColor.card, in: .capsule)

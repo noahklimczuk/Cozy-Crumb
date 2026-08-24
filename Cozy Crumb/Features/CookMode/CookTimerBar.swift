@@ -30,7 +30,9 @@ struct CookTimerBar: View {
             // translucent one takes its legibility from whatever happens to be
             // scrolling underneath it.
             .background(CozyColor.butter, in: .rect(cornerRadius: CozyRadius.card, style: .continuous))
-            .cozyBlockShadow()
+            // A butter card wants a butter edge. On the generic beige block it
+            // read as a yellow card sitting on an unrelated brown one.
+            .cozyBlockShadow(CozyDepth.block, color: AccentPalette.butter.block)
             .cozyAnimation(Motion.gentle, value: timers.timers.count)
         }
     }
@@ -213,11 +215,11 @@ struct CookTimerChip: View {
                     .monospacedDigit()
 
                 Text(running == nil ? "Tap to start" : "Tap to stop")
-                    .cozyEyebrow(color: CozyColor.inkOnBlush,
+                    .cozyEyebrow(color: CozyColor.inkOnAccent,
                                  tracking: CozyTracking.eyebrowTight)
             }
         }
-        .foregroundStyle(CozyColor.inkOnBlush)
+        .foregroundStyle(CozyColor.inkOnAccent)
         .padding(.horizontal, CozySpacing.l)
         .padding(.vertical, CozySpacing.m)
         .background(cardFill, in: .rect(cornerRadius: CozyRadius.sheet, style: .continuous))

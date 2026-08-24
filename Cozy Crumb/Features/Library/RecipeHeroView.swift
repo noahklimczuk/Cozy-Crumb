@@ -52,7 +52,7 @@ struct RecipeHeroView: View {
 
             Image(systemName: symbol)
                 .font(.system(size: 40, weight: .light))
-                .foregroundStyle(CozyColor.inkOnBlush.opacity(0.3))
+                .foregroundStyle(CozyColor.inkOnAccent.opacity(0.3))
         }
     }
 

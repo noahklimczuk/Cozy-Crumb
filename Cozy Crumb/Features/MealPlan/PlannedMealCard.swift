@@ -68,8 +68,8 @@ struct PlannedMealCard: View {
                 if let slot {
                     PillTag(text: slot.displayName,
                             systemImage: slot.symbol,
-                            tint: CozyColor.cardOnBlush,
-                            ink: CozyColor.inkOnBlush)
+                            tint: CozyColor.surfaceOnAccent,
+                            ink: CozyColor.inkOnAccent)
                         .padding(CozySpacing.s)
                 }
             }
@@ -79,7 +79,7 @@ struct PlannedMealCard: View {
                 // cook it than it is while browsing.
                 if recipe.needsReview {
                     Text("Check me")
-                        .cozyEyebrow(color: CozyColor.inkOnBlush,
+                        .cozyEyebrow(color: CozyColor.inkOnAccent,
                                      tracking: CozyTracking.eyebrowTight)
                         .padding(.horizontal, CozySpacing.s)
                         .padding(.vertical, 4)

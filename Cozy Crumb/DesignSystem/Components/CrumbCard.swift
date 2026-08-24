@@ -13,6 +13,12 @@
 //  for a hairline, which is what a card nested inside another card wants — an
 //  offset there would land on a surface the same colour and vanish.
 //
+//  A block is the card's own edge, so it has to be the card's own colour. The
+//  default beige is right under a white card and wrong under a coloured one —
+//  a blush card on a beige offset reads as two unrelated shapes stacked up
+//  rather than one card with an edge. Any call site passing a `fill` that
+//  isn't `card` should pass the matching `block` with it.
+//
 
 import SwiftUI
 
@@ -23,6 +29,10 @@ struct CrumbCard<Content: View>: View {
     /// Set false for a card sitting on another card, or on a tinted tray of
     /// the same weight. See the note at the top of the file.
     var hasBlock: Bool = true
+    /// The offset's colour. Defaults to the generic warm beige, which is what
+    /// a white card wants; a card with a coloured `fill` passes the matching
+    /// step of that colour. See the note at the top of the file.
+    var block: Color = CozyColor.block
 
     @ViewBuilder var content: () -> Content
 
@@ -30,7 +40,7 @@ struct CrumbCard<Content: View>: View {
         content()
             .padding(padding)
             .background(fill, in: .rect(cornerRadius: cornerRadius, style: .continuous))
-            .modifier(CrumbEdge(cornerRadius: cornerRadius, hasBlock: hasBlock))
+            .modifier(CrumbEdge(cornerRadius: cornerRadius, hasBlock: hasBlock, block: block))
     }
 }
 
@@ -39,13 +49,14 @@ struct CrumbCard<Content: View>: View {
 struct CrumbCardBleed<Content: View>: View {
     var cornerRadius: CGFloat = CozyRadius.card
     var hasBlock: Bool = true
+    var block: Color = CozyColor.block
 
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         content()
             .clipShape(.rect(cornerRadius: cornerRadius, style: .continuous))
-            .modifier(CrumbEdge(cornerRadius: cornerRadius, hasBlock: hasBlock))
+            .modifier(CrumbEdge(cornerRadius: cornerRadius, hasBlock: hasBlock, block: block))
     }
 }
 
@@ -56,10 +67,11 @@ struct CrumbCardBleed<Content: View>: View {
 private struct CrumbEdge: ViewModifier {
     let cornerRadius: CGFloat
     let hasBlock: Bool
+    let block: Color
 
     func body(content: Content) -> some View {
         if hasBlock {
-            content.cozyBlockShadow()
+            content.cozyBlockShadow(CozyDepth.block, color: block)
         } else {
             content.overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

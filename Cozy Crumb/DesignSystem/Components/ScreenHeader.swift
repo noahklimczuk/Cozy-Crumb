@@ -106,11 +106,11 @@ struct ScreenHeader<Trailing: View, Below: View>: View {
             // carrying a title, a caption and a strip on a phone-sized screen.
             if let eyebrow, !typeSize.isAccessibilitySize {
                 Text(eyebrow)
-                    .cozyEyebrow(color: CozyColor.inkOnBlush, tracking: CozyTracking.eyebrowWide)
+                    .cozyEyebrow(color: CozyColor.inkOnAccent, tracking: CozyTracking.eyebrowWide)
             }
 
             Text(title)
-                .cozyText(titleFont, color: CozyColor.inkOnBlush)
+                .cozyText(titleFont, color: CozyColor.inkOnAccent)
                 .cozyDisplayTracking(titleTracking)
                 .lineLimit(2)
                 .minimumScaleFactor(0.7)
@@ -125,7 +125,7 @@ struct ScreenHeader<Trailing: View, Below: View>: View {
             // above it.
             if let caption {
                 Text(caption)
-                    .cozyEyebrow(color: CozyColor.inkOnBlush)
+                    .cozyEyebrow(color: CozyColor.inkOnAccent)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -213,7 +213,7 @@ struct HeaderActionButton: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(CozyColor.inkOnBlush)
+                .foregroundStyle(CozyColor.inkOnAccent)
                 .frame(width: CozyMetrics.headerActionSize,
                        height: CozyMetrics.headerActionSize)
                 .background(fill ?? accent.deep,
@@ -237,7 +237,7 @@ struct HeaderGlyphLabel: View {
     var body: some View {
         Image(systemName: systemImage)
             .font(.system(size: 20, weight: .semibold))
-            .foregroundStyle(CozyColor.inkOnBlush)
+            .foregroundStyle(CozyColor.inkOnAccent)
             .frame(width: CozyMetrics.headerGlyphDiameter,
                    height: CozyMetrics.headerGlyphDiameter)
             // A bare glyph now. The white disc and its hairline were there to
