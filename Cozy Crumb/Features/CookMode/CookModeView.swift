@@ -45,7 +45,12 @@ struct CookModeView: View {
 
     var body: some View {
         ZStack {
-            TileBackground()
+            // The whole screen is a painted ground here, not a cream page with
+            // things on it. Cook Mode is the one screen you are not reading in
+            // a room with the app — it is propped against a bag of flour — and
+            // it should be unmistakable at a glance which of the two you are
+            // looking at.
+            AccentTileBackground()
 
             if steps.isEmpty {
                 noMethod
@@ -86,6 +91,7 @@ struct CookModeView: View {
                     CookStepPage(
                         step: step,
                         number: position + 1,
+                        total: steps.count,
                         recipeTitle: recipe.title
                     )
                     .tag(position)
@@ -102,22 +108,21 @@ struct CookModeView: View {
     }
 
     private var topBar: some View {
-        VStack(spacing: CozySpacing.s) {
+        VStack(spacing: CozySpacing.l) {
             HStack(spacing: CozySpacing.m) {
-                SquishyIconButton(systemImage: "xmark", accessibilityLabel: "Leave cook mode") {
+                cookControl(systemImage: "xmark", label: "Leave cook mode") {
                     dismiss()
                 }
 
-                VStack(spacing: 2) {
-                    Text("Step \(min(index + 1, steps.count)) of \(steps.count)")
-                        .cozyText(CozyFont.headline)
-                    Text(recipe.title)
-                        .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity)
+                // Just the recipe's name, tracked out small. "Step 3 of 6" used
+                // to be here as well, and it is now the line above the step
+                // itself, where you are already looking.
+                Text(recipe.title)
+                    .cozyEyebrow(color: CozyColor.inkOnBlush)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
 
-                SquishyIconButton(systemImage: "list.bullet", accessibilityLabel: "Show the ingredients") {
+                cookControl(systemImage: "list.bullet", label: "Show the ingredients") {
                     isShowingIngredients = true
                 }
             }
@@ -126,7 +131,27 @@ struct CookModeView: View {
         }
         .padding(.horizontal, CozySpacing.l)
         .padding(.bottom, CozySpacing.m)
-        .background(CozyColor.cream)
+    }
+
+    /// A control on the painted ground: translucent white, squared off, and
+    /// big — this screen is operated with a knuckle and the side of a thumb.
+    private func cookControl(
+        systemImage: String,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(CozyColor.inkOnBlush)
+                .frame(width: CozyMetrics.minimumTouchTarget,
+                       height: CozyMetrics.minimumTouchTarget)
+                .background(CozyColor.cardOnBlush,
+                            in: .rect(cornerRadius: CozyRadius.field, style: .continuous))
+                .contentShape(.rect)
+        }
+        .buttonStyle(.squishy)
+        .accessibilityLabel(label)
     }
 
     /// One segment per step rather than a continuous bar.
@@ -143,11 +168,11 @@ struct CookModeView: View {
         let done = min(index + 1, steps.count)
 
         if steps.count <= 12 {
-            HStack(spacing: 3) {
+            HStack(spacing: 6) {
                 ForEach(0..<steps.count, id: \.self) { position in
-                    Capsule()
-                        .fill(position < done ? accent.deep : CozyColor.card)
-                        .frame(height: 6)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(position < done ? accent.deep : CozyColor.cardOnBlush)
+                        .frame(height: 8)
                 }
             }
             .cozyAnimation(Motion.snappy, value: index)
@@ -161,18 +186,29 @@ struct CookModeView: View {
 
     private var bottomBar: some View {
         HStack(spacing: CozySpacing.m) {
-            SquishyIconButton(systemImage: "chevron.left", accessibilityLabel: "Previous step") {
-                goBack()
+            Button(action: goBack) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(CozyColor.inkOnBlush)
+                    .frame(width: 60, height: 60)
+                    .background(CozyColor.cardOnBlush,
+                                in: .rect(cornerRadius: CozyRadius.sheet, style: .continuous))
+                    .contentShape(.rect)
             }
+            .buttonStyle(.squishy)
+            .accessibilityLabel("Previous step")
             .disabled(index == 0)
             .opacity(index == 0 ? 0.4 : 1)
 
+            // Both are the same 60pt bar. The label changes at the end of the
+            // method, the shape does not — the last step is not a different
+            // kind of press.
             if isOnLastStep {
-                SquishyButton(title: "I made this", systemImage: "checkmark.seal") {
+                SquishyButton(title: "I made this", systemImage: "checkmark.seal", minHeight: 60) {
                     finish()
                 }
             } else {
-                SquishyButton(title: "Next step", systemImage: "chevron.right") {
+                SquishyButton(title: "Next step", systemImage: "chevron.right", minHeight: 60) {
                     goForward()
                 }
             }
@@ -259,29 +295,55 @@ struct CookModeView: View {
 private struct CookStepPage: View {
     let step: RecipeStep
     let number: Int
+    let total: Int
     let recipeTitle: String
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CozySpacing.l) {
-                Text("Step \(number)")
-                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                Text(Self.stepLabel(number: number, of: total))
+                    .font(CozyFont.eyebrowDisplay)
+                    .cozyDisplayTracking(CozyTracking.eyebrowStep, relativeTo: .subheadline)
+                    .textCase(.uppercase)
+                    .foregroundStyle(CozyColor.inkOnBlush)
                     .accessibilityHidden(true)
 
                 Text(step.text)
-                    .cozyText(CozyFont.cookStep)
+                    .cozyText(CozyFont.cookStep, color: CozyColor.inkOnBlush)
+                    .cozyDisplayTracking(CozyTracking.cookStep, relativeTo: .title)
+                    .cozyDisplayLeading(CozyLeading.cookStep)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                CookTimerChip(step: step, recipeTitle: recipeTitle, number: number)
+                CookTimerChip(step: step, recipeTitle: recipeTitle, number: number,
+                              isProminent: true)
 
                 Spacer(minLength: CozySpacing.xxl)
             }
             .padding(.horizontal, CozySpacing.l)
-            .padding(.top, CozySpacing.xl)
+            .padding(.top, CozySpacing.l)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Step \(number). \(step.text)")
+    }
+
+    /// "STEP ONE OF SIX" rather than "STEP 1 OF 6".
+    ///
+    /// Words, because this line is read at a glance from a distance and a
+    /// spelled-out number holds its shape at 15pt where a lone digit doesn't.
+    /// It goes back to digits past twenty, where the words get longer than the
+    /// line they are set on, and it is hidden from VoiceOver either way — the
+    /// step's own accessibility label already says which one this is.
+    private static func stepLabel(number: Int, of total: Int) -> String {
+        guard total <= 20 else { return "Step \(number) of \(total)" }
+
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .spellOut
+        guard let position = formatter.string(from: NSNumber(value: number)),
+              let count = formatter.string(from: NSNumber(value: total)) else {
+            return "Step \(number) of \(total)"
+        }
+        return "Step \(position) of \(count)"
     }
 }
 
