@@ -213,7 +213,7 @@ extension SousChefContext {
             .prefix(pantryLimit)
             .map { item -> String in
                 let amount = FractionFormatter.quantityString(quantity: item.quantity, unit: item.unit)
-                return amount.isEmpty ? item.name : "\(amount) \(item.name)"
+                return amount.isEmpty ? item.displayName : "\(amount) \(item.displayName)"
             }
 
         let groceryNames = groceries

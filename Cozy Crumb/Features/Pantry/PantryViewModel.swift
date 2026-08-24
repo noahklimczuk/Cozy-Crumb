@@ -90,7 +90,7 @@ final class PantryViewModel {
         let rest = items.filter { !expiringIDs.contains($0.id) }
 
         let byCategory = Dictionary(grouping: rest, by: \.category)
-            .map { Group(section: .category($0.key), items: $0.value.sorted { $0.name < $1.name }) }
+            .map { Group(section: .category($0.key), items: $0.value.sorted { $0.displayName < $1.displayName }) }
             .sorted { left, right in
                 guard case .category(let a) = left.section, case .category(let b) = right.section else {
                     return false
@@ -122,7 +122,7 @@ final class PantryViewModel {
             quantity: parsed.quantity,
             unit: parsed.unit,
             category: parsed.groceryCategory,
-            source: .manual,
+            addedVia: .manual,
             in: context
         )
     }
@@ -130,47 +130,73 @@ final class PantryViewModel {
     /// Merges by name rather than stacking a second row for the same thing —
     /// the point of a pantry is knowing whether you have any, not how many
     /// times you've told the app about it.
+    ///
+    /// Arriving is a confirmation, whichever route it came by, so a merge
+    /// refreshes `lastConfirmedAt` and takes the better of the two confidences
+    /// rather than letting a weak signal talk down a strong one: a fridge
+    /// photo spotting milk that was ticked off the list this morning should
+    /// not make the app less sure there is milk.
     func add(
         name: String,
         quantity: Double?,
         unit: String?,
         category: GroceryCategory,
-        source: PantryItemSource,
+        addedVia: CaptureSource,
+        confidence: Double? = nil,
+        now: Date = .now,
         in context: ModelContext
     ) {
+        let evidence = min(confidence ?? addedVia.initialConfidence, addedVia.confidenceCap)
         let key = GroceryMerge.normalizedName(name)
-        let existing = fetchAll(in: context).first { GroceryMerge.normalizedName($0.name) == key }
+        let existing = fetchAll(in: context).first {
+            GroceryMerge.normalizedName($0.displayName) == key
+        }
 
         if let existing {
-            existing.addedAt = .now
+            existing.addedAt = now
+            existing.lastConfirmedAt = now
+            existing.confidenceAtConfirmation = max(existing.confidenceAtConfirmation, evidence)
+
             if existing.quantity == nil {
                 existing.quantity = quantity
                 existing.unit = unit
             } else if let quantity, existing.unit == unit {
                 existing.quantity = (existing.quantity ?? 0) + quantity
             }
+
+            PantryLog.record(.added, for: existing, quantityDelta: quantity, at: now, in: context)
         } else {
-            context.insert(
-                PantryItem(
-                    name: name,
-                    quantity: quantity,
-                    unit: unit,
-                    category: category,
-                    source: source
-                )
+            let item = PantryItem(
+                displayName: name,
+                quantity: quantity,
+                unit: unit,
+                category: category,
+                tier: PantryTierClassifier.tier(for: name, category: category),
+                confidenceAtConfirmation: evidence,
+                addedAt: now,
+                addedVia: addedVia
             )
+            context.insert(item)
+            PantryLog.record(.added, for: item, quantityDelta: quantity, at: now, in: context)
         }
 
         save(context, "pantry addition")
     }
 
-    func remove(_ item: PantryItem, in context: ModelContext) {
+    /// Deletes outright. Reserved for a correction — "that was never here" —
+    /// rather than for running out, which is `useUp`.
+    ///
+    /// P2 turns running out into archival rather than deletion, because silent
+    /// disappearance is what makes people stop trusting the feature.
+    func remove(_ item: PantryItem, in context: ModelContext, logging kind: PantryEventKind = .corrected) {
+        PantryLog.record(kind, for: item, in: context)
         context.delete(item)
         save(context, "pantry removal")
     }
 
     func setExpiry(_ date: Date?, on item: PantryItem, in context: ModelContext) {
         item.expiresAt = date
+        PantryLog.record(.corrected, for: item, in: context)
         save(context, "pantry expiry")
     }
 
@@ -178,7 +204,7 @@ final class PantryViewModel {
     /// pantry honest enough for the Sous Chef to trust.
     func useUp(_ item: PantryItem, in context: ModelContext) {
         Haptics.notify(.success)
-        remove(item, in: context)
+        remove(item, in: context, logging: .depleted)
     }
 
     // MARK: - Fridge photos
@@ -207,12 +233,15 @@ final class PantryViewModel {
     /// Writes the rows the user kept. Nothing from a photo lands without this.
     func accept(_ items: [SpottedPantryItem], in context: ModelContext) {
         for item in items {
+            // The vision model's own per-item confidence, clamped by what a
+            // photo is ever worth. It cannot see behind the milk.
             add(
                 name: item.name,
                 quantity: item.quantity,
                 unit: item.unit,
                 category: item.category,
-                source: .fridgePhoto,
+                addedVia: .fridgePhoto,
+                confidence: item.confidence,
                 in: context
             )
         }

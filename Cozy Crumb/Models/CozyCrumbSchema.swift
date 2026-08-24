@@ -23,6 +23,14 @@
 //  arrives, that's the point to take snapshot copies of the models into a
 //  versioned namespace and add a real `MigrationStage` between them.
 //
+//  The pantry revamp is still on this side of that line. Every field it adds
+//  to `PantryItem` is new-with-a-default or an `@Attribute(originalName:)`
+//  rename, and `PantryEvent` is a new table — all inferrable. What inference
+//  cannot do is *derive* a value for an existing row, so the tier, the
+//  location and the real `lastConfirmedAt` are filled in by
+//  `PantryBackfill.run(in:)` on launch, next to the three backfills already
+//  there. See the note at the top of that file.
+//
 
 import SwiftData
 
@@ -43,6 +51,7 @@ enum CozyCrumbSchemaV1: VersionedSchema {
             GroceryList.self,
             GroceryItem.self,
             PantryItem.self,
+            PantryEvent.self,
             PlannedMeal.self,
             TasteSignal.self,
             TasteProfile.self,
