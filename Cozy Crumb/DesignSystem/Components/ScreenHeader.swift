@@ -168,8 +168,8 @@ struct HeaderActionButton: View {
             Image(systemName: systemImage)
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(CozyColor.inkPrimary)
-                .frame(width: CozyMetrics.addButtonDiameter,
-                       height: CozyMetrics.addButtonDiameter)
+                .frame(width: CozyMetrics.headerActionSize,
+                       height: CozyMetrics.headerActionSize)
                 .background(accent.color, in: .circle)
                 .cozyBlockShadow()
         }
@@ -228,7 +228,7 @@ struct HeaderMascotBadge: View {
     @Environment(\.accentPalette) private var accent
 
     var pose: MascotView.Pose = .idle
-    var diameter: CGFloat = CozyMetrics.addButtonDiameter
+    var diameter: CGFloat = CozyMetrics.headerMascotDiameter
 
     var body: some View {
         MascotView(pose: pose, size: diameter * 0.78)
