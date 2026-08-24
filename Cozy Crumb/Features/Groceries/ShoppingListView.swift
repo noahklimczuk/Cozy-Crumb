@@ -179,7 +179,7 @@ struct ShoppingListView: View {
                             title: "Got it",
                             systemImage: "checkmark.circle.fill",
                             count: list.completedItems.count,
-                            tint: CozyColor.creamDeep
+                            tint: accent.color
                         )
                         .textCase(nil)
                         .listRowInsets(EdgeInsets(
@@ -208,23 +208,15 @@ struct ShoppingListView: View {
         }
     }
 
-    /// Each row is a little card rather than a slab of system list. Same
-    /// corners and outline as everything else in the app.
-    private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
-            .fill(CozyColor.card)
-            .overlay {
-                RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
-                    .strokeBorder(CozyColor.outline, lineWidth: 1)
-            }
-    }
-
     private func categoryHeader(_ category: GroceryCategory, count: Int) -> some View {
+        // The full category colour, not a paled one. The tag is a small hard
+        // tile now rather than a soft wash behind a word, and at that size a
+        // 45%-paled mint is indistinguishable from a 45%-paled sage.
         AisleTag(
             title: category.displayName,
             systemImage: category.symbol,
             count: count,
-            tint: category.tint.cozyPaled()
+            tint: category.tint
         )
         .textCase(nil)
         .listRowInsets(EdgeInsets(
@@ -243,7 +235,10 @@ struct ShoppingListView: View {
         ) {
             toggle(item)
         }
-        .listRowBackground(rowBackground)
+        // No row background: the CheckRow inside brings its own surface, and a
+        // white card behind it would sit in front of the blush a ticked row
+        // paints itself.
+        .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(
             top: 2,
@@ -273,7 +268,10 @@ struct ShoppingListView: View {
                 placeholder: "2 cups flour, milk, a lemon…",
                 text: $newItemText,
                 systemImage: "plus.circle",
-                submitLabel: .done
+                submitLabel: .done,
+                // Translucent, because it sits on the slab rather than on the
+                // page — solid white here punches a hole in the header.
+                fill: CozyColor.cardOnBlush
             ) {
                 addTypedItem()
             }
@@ -282,10 +280,10 @@ struct ShoppingListView: View {
                 Button(action: addTypedItem) {
                     Image(systemName: "arrow.up")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(CozyColor.inkPrimary)
-                        .frame(width: 38, height: 38)
-                        .background(accent.color, in: .circle)
-                        .overlay { Circle().strokeBorder(accent.deep, lineWidth: 1.5) }
+                        .foregroundStyle(CozyColor.inkOnBlush)
+                        .frame(width: 44, height: 44)
+                        .background(CozyColor.butter,
+                                    in: .rect(cornerRadius: CozyRadius.field, style: .continuous))
                 }
                 .buttonStyle(.squishy)
                 .accessibilityLabel("Add to the list")
@@ -332,24 +330,26 @@ struct ShoppingListView: View {
         }
     }
 
+    /// Three buttons on blocks rather than three outlined tiles. The prominent
+    /// one takes the accent's own block; the other two the generic beige, so
+    /// the row reads as one loud and two quiet rather than three of a kind.
     private func exportLabel(_ title: String, systemImage: String, isProminent: Bool) -> some View {
-        VStack(spacing: 3) {
+        HStack(spacing: CozySpacing.xs) {
             Image(systemName: systemImage)
                 .font(.system(size: 15, weight: .semibold))
             Text(title)
-                .font(CozyFont.caption2.weight(.semibold))
+                .font(CozyFont.caption.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
         }
-        .foregroundStyle(CozyColor.inkPrimary)
+        .foregroundStyle(isProminent ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
         .frame(maxWidth: .infinity)
-        .frame(height: CozyMetrics.minimumTouchTarget)
+        .frame(height: 48)
         .background(
-            isProminent ? accent.color : CozyColor.creamDeep,
-            in: .rect(cornerRadius: CozyRadius.chip, style: .continuous)
+            isProminent ? accent.deep : CozyColor.card,
+            in: .rect(cornerRadius: CozyRadius.field, style: .continuous)
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
-                .strokeBorder(isProminent ? accent.deep : CozyColor.creamDeep, lineWidth: 1.5)
-        }
+        .cozyBlockShadow(CozyDepth.small, color: isProminent ? accent.block : CozyColor.block)
     }
 
     @ViewBuilder
@@ -529,9 +529,12 @@ private struct GroceryRow: View {
             // The strike leads the tick by a beat — see `toggle(_:)` above —
             // so the row reads from this rather than from `item.isChecked`.
             isChecked: isStruckThrough,
-            // A ticked row keeps its aisle colour, so a glance at the "Got it"
-            // section still says which shelf each thing came off.
-            tint: item.category.tint,
+            // No tint, so a ticked row goes the same accent here as it does on
+            // a recipe. It used to keep its aisle colour, which was a nice
+            // touch when `tint` only coloured a 24pt circle; now that ticking
+            // paints the whole row, six different fills down the "Got it"
+            // section is a fruit salad, and it would mean "ticked" looked like
+            // a different thing on each of the two screens that do it.
             checkedValue: "got it",
             uncheckedValue: "still to buy",
             action: onToggle
