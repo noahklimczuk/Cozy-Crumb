@@ -332,7 +332,7 @@ struct PantryView: View {
             parts.append(expiry)
         }
 
-        if item.source == .fridgePhoto {
+        if item.addedVia == .fridgePhoto {
             parts.append("spotted in a photo")
         }
 

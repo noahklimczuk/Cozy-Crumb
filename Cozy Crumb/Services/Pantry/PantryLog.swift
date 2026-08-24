@@ -83,8 +83,14 @@ enum PantryLog {
     ) -> [PantryEvent] {
         guard !canonicalName.isEmpty else { return [] }
 
+        // Bound to a differently-named local before it goes into the
+        // predicate: inside `#Predicate`, `canonicalName` is also the name of
+        // the property being compared, and letting the parameter shadow it is
+        // asking for the capture to resolve to the wrong one.
+        let key = canonicalName
+
         var descriptor = FetchDescriptor<PantryEvent>(
-            predicate: #Predicate { $0.canonicalName == canonicalName },
+            predicate: #Predicate { $0.canonicalName == key },
             sortBy: [SortDescriptor(\.timestamp, order: .forward)]
         )
         descriptor.fetchLimit = 200
