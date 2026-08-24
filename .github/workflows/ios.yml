@@ -114,37 +114,57 @@ jobs:
 
           xcrun simctl install "$DEVICE" "$APP"
 
-          LAUNCH=$(xcrun simctl launch "$DEVICE" "$BUNDLE_ID")
-          echo "$LAUNCH"
+          # Both appearances, because a simulator boots light and half this
+          # app's colour system is the dark half. A palette bug that only
+          # resolves after dark is invisible to a light-mode-only smoke test,
+          # which is exactly the gap that let one through.
+          launch_in () {
+            MODE="$1"
+            echo "----- launching in $MODE mode -----"
+            xcrun simctl ui "$DEVICE" appearance "$MODE" || true
+            xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
+            rm -f "$REPORTS"/*.ips 2>/dev/null || true
 
-          # Past the four-second splash and into the first real screen, which is
-          # where a SwiftUI launch crash actually happens.
-          sleep 30
+            xcrun simctl launch "$DEVICE" "$BUNDLE_ID"
 
-          if xcrun simctl spawn "$DEVICE" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
-            ALIVE=yes
-          else
-            ALIVE=no
-          fi
-          echo "Still running after 30s: $ALIVE"
+            # Past the four-second splash and into the first real screen, which
+            # is where a SwiftUI launch crash actually happens.
+            sleep 25
 
-          CRASHES=$(grep -lF "Cozy Crumb" "$REPORTS"/*.ips 2>/dev/null || true)
-          if [ -n "$CRASHES" ] || [ "$ALIVE" = no ]; then
-            echo "===== what the app logged ====="
-            xcrun simctl spawn "$DEVICE" log show --last 3m \
-              --predicate 'processImagePath CONTAINS "Cozy Crumb"' \
-              --style compact 2>/dev/null | tail -60 || true
+            if xcrun simctl spawn "$DEVICE" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
+              ALIVE=yes
+            else
+              ALIVE=no
+            fi
 
-            for c in $CRASHES; do
-              echo "===== crash report: $c ====="
-              head -120 "$c"
-            done
+            CRASHES=$(grep -lF "Cozy Crumb" "$REPORTS"/*.ips 2>/dev/null || true)
+            echo "[$MODE] still running: $ALIVE"
 
-            echo "::error::The app did not survive launch."
+            if [ -n "$CRASHES" ] || [ "$ALIVE" = no ]; then
+              echo "===== [$MODE] what the app logged ====="
+              xcrun simctl spawn "$DEVICE" log show --last 3m \
+                --predicate 'processImagePath CONTAINS "Cozy Crumb"' \
+                --style compact 2>/dev/null | tail -80 || true
+
+              for c in $CRASHES; do
+                echo "===== [$MODE] crash report: $c ====="
+                head -140 "$c"
+              done
+              return 1
+            fi
+            return 0
+          }
+
+          FAILED=""
+          launch_in light || FAILED="$FAILED light"
+          launch_in dark  || FAILED="$FAILED dark"
+
+          if [ -n "$FAILED" ]; then
+            echo "::error::The app did not survive launch in:$FAILED"
             exit 1
           fi
 
-          echo "The app launched and stayed up."
+          echo "The app launched and stayed up in both appearances."
 
       # Runs against the shared scheme, which builds the app as the test host
       # and then the test bundle. The simulator is picked from whatever the
