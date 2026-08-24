@@ -11,6 +11,19 @@
 	  Apple ID cannot use App Groups, so the extension has no shared container
 	  to write to and opens cozycrumb://import?url=… instead.
 	-->
+	<!--
+	  The display face. Both files live in Cozy Crumb/Resources/Fonts and are
+	  picked up by the target's synchronized group, but a bundled font is only
+	  registered at launch if it is listed here as well — CozyFont.hasDisplayFace
+	  is false without this key and the whole app quietly falls back to SF
+	  Rounded. The values are file names; the PostScript names the code looks
+	  up are BricolageGrotesque-ExtraBold and -SemiBold.
+	-->
+	<key>UIAppFonts</key>
+	<array>
+		<string>BricolageGrotesque-ExtraBold.ttf</string>
+		<string>BricolageGrotesque-SemiBold.ttf</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
