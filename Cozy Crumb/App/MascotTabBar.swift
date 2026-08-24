@@ -23,6 +23,13 @@
 //  `MascotView`, because a tab bar is on screen the entire time the app is and
 //  it has no business running a blink loop.
 //
+//  The bar is now a painted blush slab rather than a white strip — the same
+//  slab as the header at the other end of the screen, so the app is held
+//  between two of them. It is also much taller, because the cupcake stands out
+//  of the top of it. That overhang is reserved as padding on the bar itself,
+//  which means the safe-area inset handed back to each tab already accounts
+//  for it and no scroll view ever runs underneath the mascot.
+//
 
 import SwiftUI
 
@@ -33,25 +40,31 @@ struct MascotTabBar: View {
     @Binding var selection: CozyTab
 
     var body: some View {
-        HStack(spacing: 0) {
+        // Bottom-aligned, so the five labels share a line before the Sous Chef
+        // column is lifted off it. Centring them instead would stagger every
+        // label against its neighbour, because the cupcake's column is taller
+        // than the four beside it.
+        HStack(alignment: .bottom, spacing: 0) {
             ForEach(CozyTab.allCases) { tab in
                 item(for: tab)
             }
         }
         .padding(.horizontal, CozySpacing.xs)
-        .padding(.vertical, CozySpacing.xs)
+        .padding(.bottom, CozySpacing.m)
         .frame(maxWidth: .infinity, minHeight: CozyMetrics.tabBarHeight)
+        // The strip the cupcake stands up into. It is padding on the bar
+        // rather than an overhang drawn outside it, so the safe-area inset the
+        // bar hands back grows by exactly the amount the mascot rises — a
+        // scroll view stops above the cupcake instead of behind it.
+        .padding(.top, CozyMetrics.tabBarMascotLift)
         .background {
-            UnevenRoundedRectangle(
-                topLeadingRadius: CozyRadius.header,
-                topTrailingRadius: CozyRadius.header,
-                style: .continuous
-            )
-            .fill(CozyColor.card)
-            // The one block in the app that points up: the bar is stuck to
-            // the bottom edge, so a shadow below it would be off the screen.
-            .shadow(color: CozyColor.block, radius: 0, x: 0, y: -CozyDepth.small)
-            .ignoresSafeArea(edges: .bottom)
+            // Solid accent, square across the top, no block. Squaring it off
+            // is what makes it a painted bar rather than a card stuck to the
+            // bottom of the screen; padding the fill down by the same strip
+            // keeps the slab at tabBarHeight while the bar itself is taller.
+            accent.color
+                .padding(.top, CozyMetrics.tabBarMascotLift)
+                .ignoresSafeArea(edges: .bottom)
         }
         // Five labels across the narrowest phone cannot also grow to AX5:
         // past about AX1 they truncate however hard `minimumScaleFactor`
@@ -65,6 +78,7 @@ struct MascotTabBar: View {
 
     private func item(for tab: CozyTab) -> some View {
         let isSelected = tab == selection
+        let isRaised = tab == .sousChef
 
         return Button {
             // No haptic here: `.squishy` already fires one on press, and two
@@ -72,47 +86,82 @@ struct MascotTabBar: View {
             guard tab != selection else { return }
             withAnimation(motion(Motion.snappy)) { selection = tab }
         } label: {
-            VStack(spacing: 3) {
+            VStack(spacing: isRaised ? 3 : 5) {
                 icon(for: tab, isSelected: isSelected)
 
                 Text(tab.title)
+                    // Weight, never opacity. A quieter label on a blush bar is
+                    // a lighter cut of the same ink: dropping the opacity
+                    // instead is what put the mockup's unselected labels at
+                    // 2.17:1, and #A08C81 was that colour baked in.
                     .font(CozyFont.caption2.weight(isSelected ? .bold : .medium))
                     .lineLimit(1)
                     // Takes up the last of the slack inside the cap above.
                     .minimumScaleFactor(0.85)
             }
-            .foregroundStyle(isSelected ? CozyColor.inkPrimary : CozyColor.inkSecondary)
+            .foregroundStyle(CozyColor.inkOnBlush)
             .frame(maxWidth: .infinity)
             .frame(minHeight: CozyMetrics.minimumTouchTarget)
+            // Shape first, then lift. `contentShape` fixes what counts as the
+            // button, and `offset` carries that shape along with the drawing,
+            // so the raised cupcake is tappable where it appears rather than
+            // where it would have been. Shaping *after* the offset would pin
+            // the hit area to the layout frame and leave the cupcake dead.
+            //
+            // The whole column rises, label included, rather than the circle
+            // alone: a tap target that doesn't match the thing you are looking
+            // at is the one bug in a tab bar nobody forgives.
             .contentShape(.rect)
+            .offset(y: isRaised ? -CozyMetrics.tabBarMascotLift : 0)
         }
         .buttonStyle(.squishy)
         .accessibilityLabel(tab.title)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
+    @ViewBuilder
     private func icon(for tab: CozyTab, isSelected: Bool) -> some View {
-        ZStack {
-            Capsule(style: .continuous)
-                .fill(accent.color)
-                .opacity(isSelected ? 1 : 0)
+        if tab == .sousChef {
+            mascot(isSelected: isSelected)
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: CozyRadius.control, style: .continuous)
+                    .fill(accent.deep)
+                    .opacity(isSelected ? 1 : 0)
 
-            glyph(for: tab)
+                Image(systemName: tab.symbol)
+                    .font(.system(size: 21, weight: .semibold))
+            }
+            .frame(width: 52, height: 36)
         }
-        .frame(width: 46, height: 26)
     }
 
-    @ViewBuilder
-    private func glyph(for tab: CozyTab) -> some View {
-        if tab == .sousChef {
-            Image("CupcakeMascot")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 21, height: 21)
-        } else {
-            Image(systemName: tab.symbol)
-                .font(.system(size: 16, weight: .semibold))
-        }
+    /// The Sous Chef's cupcake, standing out of the top of the bar.
+    ///
+    /// Bigger than the blocks beside it and lifted clear of the slab by its
+    /// column's offset, so the tab the app is named after is the one thing in
+    /// the bar you can hit without looking. The bar reserves the lift as real
+    /// padding, so nothing above it is ever underneath the cupcake.
+    ///
+    /// Its selected state is the ring thickening and the label going bold,
+    /// where the other four get a filled block. That is a quieter difference
+    /// than theirs — it is what the design asks for, and VoiceOver is told
+    /// properly either way by the `.isSelected` trait on the button.
+    ///
+    /// Still drawn from the static asset rather than `MascotView` — the bar is
+    /// on screen the entire time the app is, and it has no business running a
+    /// blink loop.
+    private func mascot(isSelected: Bool) -> some View {
+        Image("CupcakeMascot")
+            .resizable()
+            .scaledToFit()
+            .padding(9)
+            .frame(width: CozyMetrics.tabBarMascotDiameter,
+                   height: CozyMetrics.tabBarMascotDiameter)
+            .background(CozyColor.card, in: .circle)
+            .overlay {
+                Circle().strokeBorder(accent.deep, lineWidth: isSelected ? 4 : 3)
+            }
     }
 }
 
