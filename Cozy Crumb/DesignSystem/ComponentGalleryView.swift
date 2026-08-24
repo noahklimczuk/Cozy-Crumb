@@ -20,6 +20,7 @@ struct ComponentGalleryView: View {
     @State private var selectedChip = "Weeknight"
     @State private var isFavourite = true
     @State private var motionToggle = false
+    @State private var tickedRows: Set<String> = ["2 cups plain flour"]
 
     var body: some View {
         ScrollView {
@@ -27,9 +28,12 @@ struct ComponentGalleryView: View {
                 accentSection
                 colourSection
                 typographySection
+                elevationSection
+                headerSection
                 buttonSection
                 cardSection
                 chipSection
+                checkRowSection
                 fieldSection
                 mascotSection
                 motionSection
@@ -37,7 +41,7 @@ struct ComponentGalleryView: View {
             }
             .padding(CozySpacing.l)
         }
-        .background { BlobBackground() }
+        .cozyScreenBackground()
         .navigationTitle("Design System")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -88,8 +92,10 @@ struct ComponentGalleryView: View {
                 swatchRow("Ink & line", [
                     ("inkPrimary", CozyColor.inkPrimary),
                     ("inkSecondary", CozyColor.inkSecondary),
+                    ("inkTertiary", CozyColor.inkTertiary),
                     ("outline", CozyColor.outline),
-                    ("outlineStrong", CozyColor.outlineStrong)
+                    ("outlineStrong", CozyColor.outlineStrong),
+                    ("block", CozyColor.block)
                 ])
                 swatchRow("Semantic", [
                     ("success", CozyColor.success),
@@ -101,8 +107,9 @@ struct ComponentGalleryView: View {
     }
 
     private var typographySection: some View {
-        GallerySection("Typography", note: "SF Rounded, scaling with Dynamic Type.") {
+        GallerySection("Typography", note: typographyNote) {
             VStack(alignment: .leading, spacing: CozySpacing.s) {
+                Text("EYEBROW").cozyEyebrow()
                 Text("Display").cozyText(CozyFont.display)
                 Text("Title").cozyText(CozyFont.title)
                 Text("Title 2").cozyText(CozyFont.title2)
@@ -115,10 +122,108 @@ struct ComponentGalleryView: View {
                     .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
                 Text("Cook step text")
                     .cozyText(CozyFont.cookStep)
+                Text("12 · 340g · 1 hr 05")
+                    .cozyText(CozyFont.numeral)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+
+    /// Says out loud which of the two faces this build is actually running, so
+    /// nobody reviews the headings at the wrong weight and calls it fine.
+    private var typographyNote: String {
+        CozyFont.hasDisplayFace
+            ? "Headings in Bricolage Grotesque, body in SF Rounded. Both scale with Dynamic Type."
+            : "Display face not in this build — headings are falling back to SF Rounded Heavy."
+    }
+
+    private var elevationSection: some View {
+        GallerySection("Elevation", note: "Hard blocks, not blurred shadows. Three depths, no fourth.") {
+            HStack(spacing: CozySpacing.l) {
+                depthSwatch("small", CozyDepth.small)
+                depthSwatch("block", CozyDepth.block)
+                depthSwatch("deep", CozyDepth.deep)
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private func depthSwatch(_ label: String, _ depth: CGFloat) -> some View {
+        VStack(spacing: CozySpacing.s) {
+            RoundedRectangle(cornerRadius: CozyRadius.card, style: .continuous)
+                .fill(CozyColor.card)
+                .frame(width: 72, height: 52)
+                .cozyBlockShadow(depth)
+            Text(label)
+                .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+        }
+    }
+
+    private var headerSection: some View {
+        GallerySection("Screen header", note: "Title, one control beside it, one strip underneath.") {
+            VStack(spacing: CozySpacing.m) {
+                ScreenHeader(title: "Cookbook", eyebrow: AppBranding.appName) {
+                    HeaderMascotBadge()
+                } below: {
+                    HStack(spacing: CozySpacing.m) {
+                        CozyTextField(
+                            placeholder: "Search recipes",
+                            text: $searchText,
+                            systemImage: "magnifyingglass"
+                        )
+                        HeaderActionButton(systemImage: "plus", accessibilityLabel: "Add a recipe") {}
+                    }
+                }
+                .clipShape(.rect(cornerRadius: CozyRadius.header, style: .continuous))
+
+                ScreenHeader(
+                    title: "Groceries",
+                    eyebrow: AppBranding.appName,
+                    caption: "6 to buy · 2 in the basket",
+                    trailing: {
+                        HeaderGlyphButton(systemImage: "ellipsis", accessibilityLabel: "List options") {}
+                    }
+                )
+                .clipShape(.rect(cornerRadius: CozyRadius.header, style: .continuous))
+            }
+        }
+    }
+
+    private var checkRowSection: some View {
+        GallerySection("Check rows", note: "One tick, one strikethrough, one VoiceOver wording.") {
+            VStack(alignment: .leading, spacing: CozySpacing.s) {
+                AisleTag(title: "Baking", systemImage: "birthday.cake", count: 3, tint: CozyColor.butter)
+
+                CrumbCard(padding: CozySpacing.m) {
+                    VStack(spacing: 0) {
+                        ForEach(Array(Self.sampleRows.enumerated()), id: \.offset) { index, row in
+                            if index > 0 {
+                                Divider().overlay(CozyColor.outline)
+                            }
+                            CheckRow(
+                                title: row,
+                                isChecked: tickedRows.contains(row),
+                                tint: CozyColor.butter,
+                                action: {
+                                    if tickedRows.contains(row) {
+                                        tickedRows.remove(row)
+                                    } else {
+                                        tickedRows.insert(row)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static let sampleRows = [
+        "2 cups plain flour",
+        "1 tsp baking soda",
+        "3 very ripe bananas"
+    ]
 
     private var buttonSection: some View {
         GallerySection("Buttons", note: "Press one — 0.94 squish plus a soft tap.") {

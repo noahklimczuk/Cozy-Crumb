@@ -9,7 +9,7 @@
 //  heart, which has no meaning while you're planning, and it shows the recipe's
 //  own servings — the planner needs the servings *this meal* was planned for,
 //  which is often different. The chrome is shared by eye rather than by
-//  inheritance: same corners, same outline, same shadow.
+//  inheritance: same corners, same block.
 //
 
 import SwiftUI
@@ -38,11 +38,7 @@ struct PlannedMealCard: View {
         // wrap.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.card, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: CozyRadius.card, style: .continuous)
-                .strokeBorder(CozyColor.outline, lineWidth: CozyBorder.card)
-        }
-        .cozyCardShadow()
+        .cozyBlockShadow()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -145,5 +141,5 @@ struct PlannedMealCard: View {
         }
         .padding(CozySpacing.l)
     }
-    .background { BlobBackground() }
+    .cozyScreenBackground()
 }

@@ -8,6 +8,11 @@
 //  Dark mode is warm (#2A2321 base), never gray-blue, and deliberately
 //  low-contrast-soft rather than harsh.
 //
+//  Elevation is enamel, not paper: a hard block offset in a warm tone rather
+//  than a blurred drop shadow. `cozyBlockShadow` is the default; the blurred
+//  `cozyCardShadow` is kept for the few places that genuinely want a lift off
+//  the page (a floating toast, a sheet) rather than a printed edge.
+//
 //  Everything here is marked `nonisolated`. The target sets
 //  SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor, which would otherwise isolate
 //  these tokens to the main actor and make them unreachable from @Model types,
@@ -64,6 +69,14 @@ enum CozyColor {
     /// Darkened to #826F64 (4.63:1) per the §7.6 instruction to verify and fix.
     nonisolated static let inkSecondary = Color(light: Color(hex: "826F64"), dark: Color(hex: "C4B2A8"))
 
+    /// The quietest ink: eyebrows, counts, "3 recipes" under a folder name.
+    ///
+    /// Measures 3.36:1 on cream and 4.78:1 on the dark base, so it clears AA
+    /// for large text and for non-text UI, but not for body copy. Nothing that
+    /// has to be read to use the app is allowed to wear it — if a string is
+    /// load-bearing it takes `inkSecondary` instead.
+    nonisolated static let inkTertiary = Color(light: Color(hex: "9A867A"), dark: Color(hex: "9C8C84"))
+
     nonisolated static let outline = Color(light: Color(hex: "E4D5CB"), dark: Color(hex: "4A3E39"))
     nonisolated static let outlineStrong = Color(light: Color(hex: "C9B4A8"), dark: Color(hex: "63534B"))
 
@@ -72,9 +85,29 @@ enum CozyColor {
     nonisolated static let warning = Color(light: Color(hex: "F5D08A"), dark: Color(hex: "B39355"))
     nonisolated static let danger = Color(light: Color(hex: "E8A0A0"), dark: Color(hex: "B36F6F"))
 
-    /// Warm-tinted shadow. Never gray or black in light mode.
+    /// Warm-tinted blur shadow. Never gray or black in light mode.
     nonisolated static let shadow = Color(light: Color(hex: "D9C4B8").opacity(0.25),
                                           dark: Color.black.opacity(0.38))
+
+    /// The hard offset behind a card. Opaque, because a block shadow is a
+    /// printed edge rather than a cast one — translucency would let the
+    /// surface underneath show through and the edge would stop reading.
+    nonisolated static let block = Color(light: Color(hex: "E7D3C5"), dark: Color(hex: "1C1716"))
+}
+
+// MARK: - Mixing
+
+extension Color {
+    /// Pales a pastel toward the page colour without going translucent.
+    ///
+    /// This exists because of `cozyBlockShadow`. A block is drawn behind the
+    /// view it belongs to, so a fill with any transparency lets its own offset
+    /// show through and the card reads as smudged rather than stamped. Every
+    /// `tint.opacity(0.55)` on a surface that carries a block is one of these
+    /// instead.
+    nonisolated func cozyPaled(_ amount: Double = 0.45) -> Color {
+        mix(with: CozyColor.cream, by: amount)
+    }
 }
 
 // MARK: - Accent picker
@@ -136,12 +169,18 @@ extension EnvironmentValues {
 
 // MARK: - Shape
 
+/// Flatter than the first pass. A 24pt radius on a 340pt card reads as a
+/// pebble; the enamel look wants a corner you can still see the corner of.
 enum CozyRadius {
-    nonisolated static let card: CGFloat = 24
-    nonisolated static let button: CGFloat = 20
-    nonisolated static let chip: CGFloat = 16
-    nonisolated static let sheet: CGFloat = 28
-    nonisolated static let image: CGFloat = 18
+    nonisolated static let card: CGFloat = 18
+    nonisolated static let button: CGFloat = 14
+    nonisolated static let chip: CGFloat = 10
+    nonisolated static let sheet: CGFloat = 24
+    nonisolated static let image: CGFloat = 12
+
+    /// The bottom corners of a `ScreenHeader`'s tinted block. Larger than a
+    /// card because the block is the width of the screen.
+    nonisolated static let header: CGFloat = 26
 }
 
 enum CozyBorder {
@@ -180,6 +219,20 @@ enum CozyMetrics {
     /// Where the artwork stops growing with the text size, so an accessibility
     /// size can't leave the title pushed off the bottom of the card.
     nonisolated static let cardHeroHeightCap: CGFloat = 190
+
+    /// The photo at the top of a recipe. One number rather than a share of the
+    /// screen: the hero now sits under a header block instead of running to
+    /// the top edge, and a proportional height made that block float at some
+    /// sizes and jam against the title at others.
+    nonisolated static let recipeHeroHeight: CGFloat = 300
+
+    /// Height of `MascotTabBar`'s own row, not counting the home-indicator
+    /// inset it sits above.
+    nonisolated static let tabBarHeight: CGFloat = 58
+
+    /// A quiet header glyph — the ellipsis on Groceries. Smaller than
+    /// `addButtonDiameter`, still a full touch target thanks to its frame.
+    nonisolated static let headerGlyphDiameter: CGFloat = 40
 }
 
 // MARK: - Grids
@@ -201,13 +254,39 @@ enum CozyGrid {
 
 // MARK: - Elevation
 
+/// How far a block sits off the page. Only three depths, so the app can't
+/// invent a fourth by eye.
+enum CozyDepth {
+    /// Chips, small glyph buttons, anything the size of a word.
+    nonisolated static let small: CGFloat = 2
+
+    /// The default. Cards, rows, buttons.
+    nonisolated static let block: CGFloat = 4
+
+    /// Screen chrome — the header block and the tab bar.
+    nonisolated static let deep: CGFloat = 6
+}
+
 extension View {
-    /// Soft, warm-tinted card elevation.
-    func cozyCardShadow() -> some View {
-        shadow(color: CozyColor.shadow, radius: 12, x: 0, y: 6)
+    /// The app's elevation: a hard offset in `CozyColor.block`, no blur.
+    ///
+    /// Offset straight down rather than diagonally, so it reads the same in a
+    /// right-to-left layout.
+    ///
+    /// SwiftUI shadows the composited view, so this belongs on something with
+    /// an opaque fill — on a bare `Text` it would draw a solid coloured copy
+    /// of the glyphs 4pt below them.
+    func cozyBlockShadow(_ depth: CGFloat = CozyDepth.block) -> some View {
+        shadow(color: CozyColor.block, radius: 0, x: 0, y: depth)
     }
 
-    /// Lighter elevation for chips and small controls.
+    /// Soft, warm-tinted elevation. Kept for the handful of things that really
+    /// do float above the page — toasts, popovers — rather than sit on it.
+    func cozyCardShadow() -> some View {
+        shadow(color: CozyColor.shadow, radius: 10, x: 0, y: 5)
+    }
+
+    /// Lighter blurred elevation, same caveat as `cozyCardShadow`.
     func cozyLiftShadow() -> some View {
         shadow(color: CozyColor.shadow, radius: 6, x: 0, y: 3)
     }

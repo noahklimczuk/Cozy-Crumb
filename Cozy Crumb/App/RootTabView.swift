@@ -6,17 +6,24 @@
 //  carried down through the environment, so one place decides the accent, the
 //  appearance and whether haptics fire.
 //
+//  The `TabView` is still here with the system bar hidden, and `MascotTabBar`
+//  drives its selection from the bottom inset. See the note at the top of that
+//  file for why the container stays: it owns the five children, so each tab
+//  keeps its own NavigationStack across a switch.
+//
 
 import SwiftData
 import SwiftUI
 import os
 
-enum CozyTab: Hashable {
+enum CozyTab: String, Hashable, CaseIterable, Identifiable {
     case library
     case groceries
     case sousChef
     case pantry
     case settings
+
+    var id: String { rawValue }
 
     var title: String {
         switch self {
@@ -100,6 +107,14 @@ struct RootTabView: View {
                     appearance: appearanceBinding
                 )
             }
+        }
+        // The system bar goes away, but its owner does not — every tab keeps
+        // the NavigationStack it had. The `Tab` labels above are still
+        // required and are what VoiceOver would fall back to if this hiding
+        // ever stopped taking effect.
+        .toolbar(.hidden, for: .tabBar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            MascotTabBar(selection: $selection)
         }
         .tint(accent.deep)
         .environment(\.accentPalette, accent)

@@ -99,7 +99,7 @@ struct ImportReviewView: View {
         }
         .padding(CozySpacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(tint.opacity(0.45), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+        .background(tint.cozyPaled(0.55), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
     }
 
     // MARK: - Hero
@@ -366,7 +366,7 @@ struct ImportReviewView: View {
 
     NavigationStack {
         ImportReviewView(viewModel: viewModel, onSave: {}, onUpdate: {})
-            .background { BlobBackground() }
+            .cozyScreenBackground()
     }
     .modelContainer(PreviewData.container)
 }

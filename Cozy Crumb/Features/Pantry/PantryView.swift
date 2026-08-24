@@ -21,7 +21,6 @@ import UIKit
 
 struct PantryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.accentPalette) private var accent
     @Environment(\.cozyMotion) private var motion
 
     @Query(sort: \PantryItem.name) private var items: [PantryItem]
@@ -55,7 +54,9 @@ struct PantryView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            VStack(spacing: 0) {
+                header
+
                 if viewModel.isReadingPhotos {
                     reading
                 } else if items.isEmpty {
@@ -64,10 +65,8 @@ struct PantryView: View {
                     list
                 }
             }
-            .background { BlobBackground() }
-            .navigationTitle("Pantry")
-            .safeAreaInset(edge: .top) { addBar }
-            .toolbar { photoButton }
+            .cozyScreenBackground()
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $editingExpiry) { item in
                 PantryExpirySheet(item: item) { date in
                     viewModel.setExpiry(date, on: item, in: modelContext)
@@ -254,25 +253,18 @@ struct PantryView: View {
     }
 
     private func header(for group: PantryViewModel.Group) -> some View {
-        HStack(spacing: CozySpacing.xs) {
-            Image(systemName: group.section.symbol)
-                .font(.caption.weight(.semibold))
-            Text(group.section.title)
-                .font(CozyFont.caption.weight(.semibold))
-            Spacer()
-            Text("\(group.items.count)")
-                .font(CozyFont.caption2)
-        }
-        .foregroundStyle(CozyColor.inkPrimary)
-        .padding(.horizontal, CozySpacing.m)
-        .padding(.vertical, CozySpacing.s)
-        .background(tint(for: group.section), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+        AisleTag(
+            title: group.section.title,
+            systemImage: group.section.symbol,
+            count: group.items.count,
+            tint: tint(for: group.section)
+        )
     }
 
     private func tint(for section: PantryViewModel.Section) -> Color {
         switch section {
-        case .expiring: CozyColor.warning.opacity(0.6)
-        case .category(let category): category.tint.opacity(0.55)
+        case .expiring: CozyColor.warning.cozyPaled(0.35)
+        case .category(let category): category.tint.cozyPaled()
         }
     }
 
@@ -353,38 +345,55 @@ struct PantryView: View {
             .joined(separator: ", ")
     }
 
-    // MARK: - Adding
+    // MARK: - Header
 
-    private var addBar: some View {
-        HStack(spacing: CozySpacing.s) {
-            CozyTextField(
-                placeholder: "Half a jar of tahini…",
-                text: $viewModel.draft,
-                systemImage: "plus.circle",
-                submitLabel: .done
-            ) {
-                withAnimation(motion(Motion.gentle)) {
-                    viewModel.addTyped(in: modelContext)
+    private var header: some View {
+        ScreenHeader(
+            title: "Pantry",
+            eyebrow: AppBranding.appName,
+            caption: summary,
+            trailing: {
+                HeaderActionButton(
+                    systemImage: "camera",
+                    accessibilityLabel: "Photograph the fridge",
+                    accessibilityHint: "Opens the camera to read what's in from a photo"
+                ) {
+                    startCamera()
                 }
-            }
-        }
-        .padding(.horizontal, CozySpacing.l)
-        .padding(.vertical, CozySpacing.m)
-        .background(.ultraThinMaterial)
+                .disabled(!viewModel.canReadPhotos)
+                .opacity(viewModel.canReadPhotos ? 1 : 0.5)
+            },
+            below: { addField }
+        )
     }
 
-    @ToolbarContentBuilder
-    private var photoButton: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                startCamera()
-            } label: {
-                Image(systemName: "camera")
-                    .foregroundStyle(CozyColor.inkSecondary)
+    /// "12 in · 2 going off". The second half is the reason anyone opens this
+    /// screen without being sent here, so it goes under the title rather than
+    /// waiting to be scrolled to.
+    private var summary: String? {
+        guard !items.isEmpty else { return nil }
+
+        var parts = ["\(items.count) in"]
+
+        let expiring = groups.first { $0.section == .expiring }?.items.count ?? 0
+        if expiring > 0 {
+            parts.append("\(expiring) going off")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    // MARK: - Adding
+
+    private var addField: some View {
+        CozyTextField(
+            placeholder: "Half a jar of tahini…",
+            text: $viewModel.draft,
+            systemImage: "plus.circle",
+            submitLabel: .done
+        ) {
+            withAnimation(motion(Motion.gentle)) {
+                viewModel.addTyped(in: modelContext)
             }
-            .disabled(!viewModel.canReadPhotos)
-            .accessibilityLabel("Photograph the fridge")
-            .accessibilityHint("Opens the camera to read what's in from a photo")
         }
     }
 
@@ -444,7 +453,7 @@ private struct PantryExpirySheet: View {
                 Spacer(minLength: 0)
             }
             .padding(CozySpacing.l)
-            .background { BlobBackground() }
+            .cozyScreenBackground()
             .navigationTitle(item.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

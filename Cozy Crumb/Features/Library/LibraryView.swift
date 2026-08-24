@@ -19,7 +19,6 @@ private struct QuickPastedLink: Identifiable {
 
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.accentPalette) private var accent
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @Query private var recipes: [Recipe]
@@ -50,8 +49,10 @@ struct LibraryView: View {
                 header
                 content
             }
-            .background { BlobBackground() }
-            .navigationTitle("Cookbook")
+            .cozyScreenBackground()
+            // The header is the title now. Leaving the navigation bar on as
+            // well would put "Cookbook" on the screen twice.
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $isImporting) {
                 importSheet
             }
@@ -111,49 +112,35 @@ struct LibraryView: View {
 
     // MARK: - Header
 
+    /// The search field and the add button were already living in a
+    /// hand-rolled bar under the navigation title, because a toolbar clips
+    /// anything taller than it is and the add button is meant to be
+    /// unmissable. `ScreenHeader` is that bar, with the title in it.
     private var header: some View {
-        HStack(spacing: CozySpacing.m) {
-            CozyTextField(
-                placeholder: "Search recipes and ingredients",
-                text: $viewModel.searchText,
-                systemImage: "magnifyingglass",
-                submitLabel: .search,
-                // Only submitted searches are logged. Recording every
-                // keystroke would fill the log with the prefixes of one word.
-                onSubmit: { SignalLog.searched(viewModel.searchText, in: modelContext) }
-            )
+        ScreenHeader(title: "Cookbook", eyebrow: AppBranding.appName) {
+            HeaderMascotBadge(pose: .peeking)
+        } below: {
+            HStack(spacing: CozySpacing.m) {
+                CozyTextField(
+                    placeholder: "Search recipes and ingredients",
+                    text: $viewModel.searchText,
+                    systemImage: "magnifyingglass",
+                    submitLabel: .search,
+                    // Only submitted searches are logged. Recording every
+                    // keystroke would fill the log with the prefixes of one word.
+                    onSubmit: { SignalLog.searched(viewModel.searchText, in: modelContext) }
+                )
 
-            addButton
-        }
-        .padding(.horizontal, CozySpacing.l)
-        .padding(.vertical, CozySpacing.m)
-        .background(.ultraThinMaterial)
-    }
-
-    /// The main call to action: one big button to paste a link.
-    ///
-    /// It sits beside the search field rather than in the toolbar because a
-    /// navigation bar clips anything taller than it is, and this button is
-    /// meant to be unmissable.
-    private var addButton: some View {
-        Button {
-            isImporting = true
-            pasteLinkText = ""
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(CozyColor.inkPrimary)
-                .frame(width: CozyMetrics.addButtonDiameter,
-                       height: CozyMetrics.addButtonDiameter)
-                .background(accent.color, in: .circle)
-                .overlay {
-                    Circle().strokeBorder(accent.deep, lineWidth: 2)
+                HeaderActionButton(
+                    systemImage: "plus",
+                    accessibilityLabel: "Add a recipe",
+                    accessibilityHint: "Opens the paste-a-link screen"
+                ) {
+                    isImporting = true
+                    pasteLinkText = ""
                 }
-                .cozyLiftShadow()
+            }
         }
-        .buttonStyle(.squishy)
-        .accessibilityLabel("Add a recipe")
-        .accessibilityHint("Opens the paste-a-link screen")
     }
 
     /// Sheet for importing a recipe with inline paste button
@@ -196,7 +183,7 @@ struct LibraryView: View {
             .padding(.horizontal, CozySpacing.m)
             .frame(minHeight: CozyMetrics.minimumTouchTarget)
             .background(
-                CozyColor.card.opacity(0.9),
+                CozyColor.card,
                 in: .rect(cornerRadius: CozyRadius.chip, style: .continuous)
             )
             .overlay {
@@ -450,7 +437,7 @@ private struct CollectionFolderCard: View {
     let collection: RecipeCollection
 
     var body: some View {
-        CrumbCard(fill: collection.tint.opacity(0.55)) {
+        CrumbCard(fill: collection.tint.cozyPaled()) {
             VStack(alignment: .leading, spacing: CozySpacing.s) {
                 HStack {
                     Image(systemName: "folder.fill")
@@ -555,7 +542,7 @@ private struct CollectionFolderView: View {
                 }
             }
         }
-        .background { BlobBackground() }
+        .cozyScreenBackground()
         .navigationTitle(collection.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

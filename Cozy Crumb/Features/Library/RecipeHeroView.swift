@@ -36,8 +36,11 @@ struct RecipeHeroView: View {
 
     private var placeholder: some View {
         ZStack {
+            // Both stops opaque: a fade to `tint.opacity(0.55)` used to let
+            // whatever was behind the card show through the bottom of every
+            // recipe without a photo, which is now a ruled page.
             LinearGradient(
-                colors: [tint, tint.opacity(0.55)],
+                colors: [tint, tint.cozyPaled(0.45)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

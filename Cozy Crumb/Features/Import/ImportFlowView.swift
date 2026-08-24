@@ -41,7 +41,7 @@ struct ImportFlowView: View {
                 case .failed(let error): failure(error)
                 }
             }
-            .background { BlobBackground() }
+            .cozyScreenBackground()
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -28,35 +28,50 @@ struct SousChefView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            VStack(spacing: 0) {
+                header
+
                 if viewModel.isAwake {
                     conversation
                 } else {
                     asleep
                 }
             }
-            .background { BlobBackground() }
-            .navigationTitle("Sous Chef")
+            .cozyScreenBackground()
+            .toolbar(.hidden, for: .navigationBar)
             .task {
                 await viewModel.loadReflection(in: modelContext)
             }
             .sheet(isPresented: $isShowingOnboarding) {
                 TasteOnboardingView()
             }
-            .toolbar {
+        }
+    }
+
+    // MARK: - Header
+
+    /// No strip under the title and nothing much beside it: the mascot is this
+    /// screen's hero and it belongs in the conversation, at the size the empty
+    /// state draws it, not shrunk into a badge in the corner.
+    ///
+    /// The one control is "start again", which used to be a toolbar button and
+    /// has nowhere else to go now the bar is hidden. It appears only once
+    /// there is a conversation to start again from.
+    private var header: some View {
+        ScreenHeader(
+            title: "Sous Chef",
+            eyebrow: AppBranding.appName,
+            trailing: {
                 if !viewModel.isEmptyConversation {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            viewModel.clear()
-                        } label: {
-                            Image(systemName: "arrow.counterclockwise")
-                                .foregroundStyle(CozyColor.inkSecondary)
-                        }
-                        .accessibilityLabel("Start a new conversation")
+                    HeaderGlyphButton(
+                        systemImage: "arrow.counterclockwise",
+                        accessibilityLabel: "Start a new conversation"
+                    ) {
+                        viewModel.clear()
                     }
                 }
             }
-        }
+        )
     }
 
     // MARK: - Asleep
@@ -82,11 +97,7 @@ struct SousChefView: View {
                 .padding(.horizontal, CozySpacing.xl)
                 .frame(minHeight: CozyMetrics.minimumTouchTarget + 6)
                 .background(accent.color, in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: CozyRadius.button, style: .continuous)
-                        .strokeBorder(accent.deep, lineWidth: 1.5)
-                }
-                .cozyLiftShadow()
+                .cozyBlockShadow()
             }
             .buttonStyle(.squishy)
         }
@@ -171,7 +182,7 @@ struct SousChefView: View {
                         .cozyText(CozyFont.caption)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(CozySpacing.m)
-                        .background(accent.soft.opacity(0.6),
+                        .background(accent.soft,
                                     in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
                 }
                 .buttonStyle(.squishy)
@@ -266,7 +277,7 @@ struct SousChefView: View {
                 .padding(.horizontal, CozySpacing.m)
                 .padding(.vertical, CozySpacing.s)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(CozyColor.success.opacity(0.4),
+                .background(CozyColor.success.cozyPaled(0.6),
                             in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
                 .accessibilityLabel("Done: \(message.text)")
         }
@@ -287,7 +298,7 @@ struct SousChefView: View {
             .foregroundStyle(CozyColor.inkPrimary)
             .padding(CozySpacing.m)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(CozyColor.warning.opacity(0.45),
+            .background(CozyColor.warning.cozyPaled(0.55),
                         in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
     }
 
@@ -313,8 +324,7 @@ struct SousChefView: View {
                     .frame(width: CozyMetrics.minimumTouchTarget + 6,
                            height: CozyMetrics.minimumTouchTarget + 6)
                     .background(accent.color, in: .circle)
-                    .overlay { Circle().strokeBorder(accent.deep, lineWidth: 1.5) }
-                    .cozyLiftShadow()
+                    .cozyBlockShadow(CozyDepth.small)
             }
             .buttonStyle(.squishy)
             .disabled(!viewModel.canSend)
@@ -323,7 +333,7 @@ struct SousChefView: View {
         }
         .padding(.horizontal, CozySpacing.l)
         .padding(.vertical, CozySpacing.m)
-        .background(.ultraThinMaterial)
+        .background(CozyColor.cream)
     }
 }
 
@@ -412,7 +422,7 @@ private struct RecommendedRecipeCard: View {
                 .presentationCompactAdaptation(.popover)
         }
         .padding(CozySpacing.m)
-        .background(accent.soft.opacity(0.5), in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
+        .background(accent.soft, in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: CozyRadius.chip, style: .continuous)
                 .strokeBorder(accent.deep.opacity(0.3), lineWidth: 1)
@@ -460,7 +470,7 @@ struct AllergyConfirmationCard: View {
         }
         .padding(CozySpacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(CozyColor.warning.opacity(0.35),
+        .background(CozyColor.warning.cozyPaled(0.65),
                     in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
         .accessibilityElement(children: .contain)
     }

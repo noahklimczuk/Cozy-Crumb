@@ -105,7 +105,7 @@ struct CozyErrorView: View {
 
 #Preview("Empty") {
     ZStack {
-        BlobBackground()
+        TileBackground()
         EmptyStateView(
             title: "Your cookbook's a blank page.",
             message: "Paste a link to get started — I'll do the tidying up.",
@@ -118,7 +118,7 @@ struct CozyErrorView: View {
 
 #Preview("Loading") {
     ZStack {
-        BlobBackground()
+        TileBackground()
         CozyLoadingView(messages: [
             "Squinting at the back of the shelf…",
             "Is that a lime or a lemon…",
@@ -129,7 +129,7 @@ struct CozyErrorView: View {
 
 #Preview("Error") {
     ZStack {
-        BlobBackground()
+        TileBackground()
         CozyErrorView(message: "The kitchen's a bit quiet — check your connection?", onRetry: {})
     }
 }

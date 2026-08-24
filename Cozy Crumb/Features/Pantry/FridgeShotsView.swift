@@ -76,7 +76,7 @@ struct FridgeShotsView: View {
                 .padding(.bottom, CozySpacing.l)
             }
             .frame(maxWidth: .infinity)
-            .background { BlobBackground() }
+            .cozyScreenBackground()
             .navigationTitle(shots.count == 1 ? "1 photo" : "\(shots.count) photos")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

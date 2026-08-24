@@ -60,7 +60,7 @@ struct TasteOnboardingView: View {
                 }
                 .padding(CozySpacing.l)
             }
-            .background { BlobBackground() }
+            .cozyScreenBackground()
             .navigationTitle("A quick hello")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

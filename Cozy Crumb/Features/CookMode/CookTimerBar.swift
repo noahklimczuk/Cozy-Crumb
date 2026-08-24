@@ -25,12 +25,12 @@ struct CookTimerBar: View {
                 }
             }
             .padding(CozySpacing.m)
-            .background(.ultraThinMaterial, in: .rect(cornerRadius: CozyRadius.card, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: CozyRadius.card, style: .continuous)
-                    .strokeBorder(CozyColor.outline, lineWidth: CozyBorder.card)
-            }
-            .cozyLiftShadow()
+            // Butter rather than glass. This is the one card in the app that
+            // has to be readable at a glance across a steamy kitchen, and a
+            // translucent one takes its legibility from whatever happens to be
+            // scrolling underneath it.
+            .background(CozyColor.butter, in: .rect(cornerRadius: CozyRadius.card, style: .continuous))
+            .cozyBlockShadow()
             .cozyAnimation(Motion.gentle, value: timers.timers.count)
         }
     }
@@ -40,6 +40,7 @@ struct CookTimerBar: View {
 /// and another minute.
 struct CookTimerRow: View {
     @Environment(KitchenTimers.self) private var timers
+    @Environment(\.accentPalette) private var accent
 
     let timer: KitchenTimer
 
@@ -96,7 +97,7 @@ struct CookTimerRow: View {
         .padding(.vertical, CozySpacing.xs)
         .padding(.horizontal, CozySpacing.s)
         .background(
-            isFinished ? CozyColor.warning.opacity(0.45) : Color.clear,
+            isFinished ? CozyColor.warning.cozyPaled(0.3) : Color.clear,
             in: .rect(cornerRadius: CozyRadius.chip, style: .continuous)
         )
         .accessibilityElement(children: .contain)
@@ -106,20 +107,19 @@ struct CookTimerRow: View {
     private var countdown: some View {
         ZStack {
             Circle()
-                .strokeBorder(CozyColor.outline, lineWidth: 3)
+                .strokeBorder(CozyColor.outlineStrong, lineWidth: 3)
 
             Circle()
                 .trim(from: 0, to: timer.progress(at: timers.now))
                 .stroke(
-                    isFinished ? CozyColor.warning : CozyColor.blushDeep,
+                    isFinished ? CozyColor.warning : accent.deep,
                     style: StrokeStyle(lineWidth: 3, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
 
             Text(timer.display(at: timers.now))
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(CozyFont.numeralSmall)
                 .foregroundStyle(CozyColor.inkPrimary)
-                .monospacedDigit()
                 .minimumScaleFactor(0.6)
                 .padding(3)
         }
@@ -138,6 +138,7 @@ struct CookTimerRow: View {
 /// becomes the countdown.
 struct CookTimerChip: View {
     @Environment(KitchenTimers.self) private var timers
+    @Environment(\.accentPalette) private var accent
 
     let step: RecipeStep
     let recipeTitle: String
@@ -185,7 +186,7 @@ struct CookTimerChip: View {
 
     private var chipFill: Color {
         guard let running else { return CozyColor.butter }
-        return running.hasFinished(at: timers.now) ? CozyColor.warning : CozyColor.blushSoft
+        return running.hasFinished(at: timers.now) ? CozyColor.warning : accent.soft
     }
 
     private func label(duration: String) -> String {
@@ -211,7 +212,7 @@ struct CookTimerChip: View {
         CookTimerBar()
             .padding(CozySpacing.l)
     }
-    .background { BlobBackground() }
+    .cozyScreenBackground()
     .environment(timers)
     .task {
         timers.start(seconds: 12 * 60, label: "Step 2", recipeTitle: "Banana Bread")

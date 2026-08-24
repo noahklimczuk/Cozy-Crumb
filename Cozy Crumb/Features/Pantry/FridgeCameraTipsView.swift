@@ -85,7 +85,7 @@ struct FridgeCameraTipsView: View {
                 }
                 .padding(CozySpacing.l)
             }
-            .background { BlobBackground() }
+            .cozyScreenBackground()
             .navigationTitle("Snap the fridge")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

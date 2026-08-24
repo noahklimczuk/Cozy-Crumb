@@ -26,6 +26,7 @@ import UIKit
 struct CookModeView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.cozyMotion) private var motion
+    @Environment(\.accentPalette) private var accent
     @Environment(KitchenTimers.self) private var timers
 
     let recipe: Recipe
@@ -44,8 +45,7 @@ struct CookModeView: View {
 
     var body: some View {
         ZStack {
-            CozyColor.cream.ignoresSafeArea()
-            BlobBackground().ignoresSafeArea()
+            TileBackground()
 
             if steps.isEmpty {
                 noMethod
@@ -122,12 +122,41 @@ struct CookModeView: View {
                 }
             }
 
-            ProgressView(value: Double(index + 1), total: Double(max(steps.count, 1)))
-                .tint(CozyColor.blushDeep)
+            stepProgress
         }
         .padding(.horizontal, CozySpacing.l)
         .padding(.bottom, CozySpacing.m)
-        .background(.ultraThinMaterial)
+        .background(CozyColor.cream)
+    }
+
+    /// One segment per step rather than a continuous bar.
+    ///
+    /// A method has a countable number of steps and you are on one of them —
+    /// a sliding bar answers "roughly how far through am I", which is a
+    /// question about a download. Segments answer "how many left", which is
+    /// the one a cook is actually asking.
+    ///
+    /// Above about a dozen steps the segments would be thinner than the gaps
+    /// between them, so past that it goes back to a bar.
+    @ViewBuilder
+    private var stepProgress: some View {
+        let done = min(index + 1, steps.count)
+
+        if steps.count <= 12 {
+            HStack(spacing: 3) {
+                ForEach(0..<steps.count, id: \.self) { position in
+                    Capsule()
+                        .fill(position < done ? accent.deep : CozyColor.card)
+                        .frame(height: 6)
+                }
+            }
+            .cozyAnimation(Motion.snappy, value: index)
+            .accessibilityElement()
+            .accessibilityLabel("Step \(done) of \(steps.count)")
+        } else {
+            ProgressView(value: Double(done), total: Double(steps.count))
+                .tint(accent.deep)
+        }
     }
 
     private var bottomBar: some View {
@@ -177,7 +206,7 @@ struct CookModeView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(CozySpacing.l)
             }
-            .background { BlobBackground() }
+            .cozyScreenBackground()
             .navigationTitle("Ingredients")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

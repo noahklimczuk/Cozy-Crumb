@@ -119,7 +119,7 @@ struct AIKeySettingsView: View {
             }
             .padding(CozySpacing.l)
         }
-        .background { BlobBackground() }
+        .cozyScreenBackground()
         .navigationTitle("Sous Chef")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { viewModel.refresh() }
@@ -250,7 +250,7 @@ struct AIKeySettingsView: View {
                         .cozyText(CozyFont.caption, color: CozyColor.inkPrimary)
                         .padding(CozySpacing.s)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(CozyColor.warning.opacity(0.4),
+                        .background(CozyColor.warning.cozyPaled(0.6),
                                     in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
                 }
             }
