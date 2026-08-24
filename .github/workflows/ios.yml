@@ -72,6 +72,59 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$APPEX"
           /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPrincipalClass" "$APPEX"
 
+      # The app compiling and its unit tests passing says nothing about whether
+      # it survives being opened, which is the one thing every user does first.
+      # A redesign shipped green through this workflow and then crashed on
+      # launch, so the app is now actually started here: installed on a
+      # simulator, launched with its output attached, and left running long
+      # enough to get past the splash and build the first real screen.
+      #
+      # Failure is judged on a crash report appearing for this bundle rather
+      # than on the launch command's exit code — `simctl launch` reports success
+      # the moment the process is spawned, and a SwiftUI crash happens a beat
+      # later while the first view builds.
+      - name: Launch smoke test
+        run: |
+          set -o pipefail
+          APP="build/Debug-iphonesimulator/Cozy Crumb.app"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Info.plist")
+          echo "Bundle: $BUNDLE_ID"
+
+          DEVICE=$(xcrun simctl list devices available \
+            | grep -E '^ +iPhone' \
+            | head -1 \
+            | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+          [ -n "$DEVICE" ] || { echo "::error::No iPhone simulator available."; exit 1; }
+
+          xcrun simctl boot "$DEVICE" 2>/dev/null || true
+          xcrun simctl bootstatus "$DEVICE" -b
+
+          # Clear old reports so anything found afterwards belongs to this run.
+          REPORTS=~/Library/Logs/DiagnosticReports
+          mkdir -p "$REPORTS"; rm -f "$REPORTS"/*.ips 2>/dev/null || true
+
+          xcrun simctl install "$DEVICE" "$APP"
+
+          # --console-pty stays attached until the app exits, so a trap's
+          # message lands in the log rather than only in the crash report.
+          xcrun simctl launch --console-pty "$DEVICE" "$BUNDLE_ID" > launch.log 2>&1 &
+          LAUNCH_PID=$!
+          sleep 40
+          kill "$LAUNCH_PID" 2>/dev/null || true
+
+          echo "===== app output ====="
+          cat launch.log || true
+
+          CRASHES=$(ls -t "$REPORTS"/*.ips 2>/dev/null | xargs -I{} sh -c 'grep -lF "Cozy Crumb" "{}" || true')
+          if [ -n "$CRASHES" ]; then
+            echo "===== crash report ====="
+            for c in $CRASHES; do echo "--- $c"; head -80 "$c"; done
+            echo "::error::The app crashed on launch."
+            exit 1
+          fi
+
+          echo "The app launched and stayed up for 40s."
+
       # Runs against the shared scheme, which builds the app as the test host
       # and then the test bundle. The simulator is picked from whatever the
       # runner actually has rather than named outright — a hard-coded device
