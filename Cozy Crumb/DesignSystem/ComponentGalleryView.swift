@@ -93,7 +93,7 @@ struct ComponentGalleryView: View {
                     ("inkPrimary", CozyColor.inkPrimary),
                     ("inkSecondary", CozyColor.inkSecondary),
                     ("inkTertiary", CozyColor.inkTertiary),
-                    ("inkOnBlush", CozyColor.inkOnBlush),
+                    ("inkOnAccent", CozyColor.inkOnAccent),
                     ("outline", CozyColor.outline),
                     ("outlineStrong", CozyColor.outlineStrong),
                     ("block", CozyColor.block)

@@ -82,7 +82,7 @@ struct CheckRow<Accessory: View>: View {
 
     /// Ink for everything in the row. A ticked row is a blush surface, so it
     /// takes the ink blush surfaces take, in both appearances.
-    private var ink: Color { isChecked ? CozyColor.inkOnBlush : CozyColor.inkPrimary }
+    private var ink: Color { isChecked ? CozyColor.inkOnAccent : CozyColor.inkPrimary }
 
     var body: some View {
         Button(action: action) {
@@ -138,7 +138,7 @@ struct CheckRow<Accessory: View>: View {
 
             Image(systemName: "checkmark")
                 .font(.caption2.weight(.black))
-                .foregroundStyle(CozyColor.inkOnBlush)
+                .foregroundStyle(CozyColor.inkOnAccent)
                 .opacity(isChecked ? 1 : 0)
         }
         .frame(width: 22, height: 22)

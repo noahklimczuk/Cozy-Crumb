@@ -109,9 +109,12 @@ private struct AppLaunchView<Content: View>: View {
 private struct CupcakeSplashView: View {
     var body: some View {
         ZStack {
-            // Sampled from the supplied icon's pink edge so the artwork
-            // appears to melt directly into the launch background.
-            Color(red: 254 / 255, green: 193 / 255, blue: 190 / 255)
+            // Sampled from the supplied icon's pink edge so the artwork appears
+            // to melt directly into the launch background — and a deep version
+            // of the same pink after dark, so the first thing anybody sees at
+            // night isn't a full-screen flash of it.
+            Color(light: Color(red: 254 / 255, green: 193 / 255, blue: 190 / 255),
+                  dark: Color(hex: "5A3238"))
                 .ignoresSafeArea()
 
             VStack(spacing: CozySpacing.l) {
@@ -120,16 +123,16 @@ private struct CupcakeSplashView: View {
                     .scaledToFit()
                     .frame(width: 210, height: 210)
                     .clipShape(RoundedRectangle(cornerRadius: 44, style: .continuous))
-                // inkOnBlush, not inkPrimary. This pink is a fixed light
-                // colour in both appearances, so after dark inkPrimary
-                // resolves to #F2E7E0 and the app's own name goes nearly
-                // invisible on the first screen anybody sees. Same trap as the
-                // header slabs, and the same fix.
+                // inkOnAccent, because this pink is an accent surface like any
+                // other: it goes deep after dark and the ink goes light with
+                // it. Set in inkPrimary, as it was, the app's own name was
+                // rendering in #F2E7E0 on pale pink on the first screen
+                // anybody sees.
                 Text(AppBranding.appName)
-                    .cozyText(CozyFont.title, color: CozyColor.inkOnBlush)
+                    .cozyText(CozyFont.title, color: CozyColor.inkOnAccent)
                     .cozyDisplayTracking(CozyTracking.title, relativeTo: .title)
                 Text(AppBranding.tagline)
-                    .cozyText(CozyFont.subheadline, color: CozyColor.inkOnBlush)
+                    .cozyText(CozyFont.subheadline, color: CozyColor.inkOnAccent)
             }
         }
         .accessibilityElement(children: .combine)

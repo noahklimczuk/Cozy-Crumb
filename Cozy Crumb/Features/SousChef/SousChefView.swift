@@ -93,7 +93,7 @@ struct SousChefView: View {
     /// thing to look at anyway.
     private var asleep: some View {
         VStack(spacing: CozySpacing.l) {
-            CrumbCard(cornerRadius: CozyRadius.sheet) {
+            CrumbCard(cornerRadius: CozyRadius.sheet, block: accent.block) {
                 VStack(spacing: CozySpacing.l) {
                     EmptyStateView(
                         title: "The Sous Chef is asleep.",
@@ -110,7 +110,7 @@ struct SousChefView: View {
                             Text("Wake them up")
                                 .font(CozyFont.cardTitle)
                         }
-                        .foregroundStyle(CozyColor.inkOnBlush)
+                        .foregroundStyle(CozyColor.inkOnAccent)
                         .padding(.horizontal, CozySpacing.xl)
                         .frame(minHeight: CozyMetrics.minimumTouchTarget + 6)
                         .background(accent.deep,
@@ -199,12 +199,12 @@ struct SousChefView: View {
                     isShowingOnboarding = true
                 } label: {
                     Label("Tell me roughly what you like (45 seconds)", systemImage: "sparkles")
-                        .cozyText(CozyFont.caption, color: CozyColor.inkOnBlush)
+                        .cozyText(CozyFont.caption, color: CozyColor.inkOnAccent)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(CozySpacing.m)
                         // On the accent ground, a soft tint of the accent is
                         // the same colour with a line round it.
-                        .background(CozyColor.cardOnBlush,
+                        .background(CozyColor.surfaceOnAccent,
                                     in: .rect(cornerRadius: CozyRadius.control, style: .continuous))
                 }
                 .buttonStyle(.squishy)
@@ -222,12 +222,12 @@ struct SousChefView: View {
 
                 VStack(spacing: CozySpacing.s) {
                     Text("Ask me anything")
-                        .cozyText(CozyFont.title, color: CozyColor.inkOnBlush)
+                        .cozyText(CozyFont.title, color: CozyColor.inkOnAccent)
                         .cozyDisplayTracking(CozyTracking.title, relativeTo: .title)
                         .accessibilityAddTraits(.isHeader)
 
                     Text("I know what's in your cookbook, your pantry and your week.")
-                        .cozyText(CozyFont.subheadline, color: CozyColor.inkOnBlush)
+                        .cozyText(CozyFont.subheadline, color: CozyColor.inkOnAccent)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -241,16 +241,16 @@ struct SousChefView: View {
                 } label: {
                     HStack {
                         Text(opener)
-                            .cozyText(CozyFont.body, color: CozyColor.inkOnBlush)
+                            .cozyText(CozyFont.body, color: CozyColor.inkOnAccent)
                             .multilineTextAlignment(.leading)
                         Spacer(minLength: CozySpacing.s)
                         Image(systemName: "arrow.up.right")
                             .font(.footnote.weight(.bold))
-                            .foregroundStyle(CozyColor.inkOnBlush)
+                            .foregroundStyle(CozyColor.inkOnAccent)
                     }
                     .padding(CozySpacing.l)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(CozyColor.cardOnBlush,
+                    .background(CozyColor.surfaceOnAccent,
                                 in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
                     .contentShape(.rect)
                 }
@@ -270,7 +270,7 @@ struct SousChefView: View {
             HStack {
                 Spacer(minLength: CozySpacing.xl)
                 Text(message.text)
-                    .cozyText(CozyFont.body, color: CozyColor.inkOnBlush)
+                    .cozyText(CozyFont.body, color: CozyColor.inkOnAccent)
                     .padding(CozySpacing.m)
                     .background(accent.deep, in: Self.bubbleShape(pointingLeft: false))
             }
@@ -306,7 +306,7 @@ struct SousChefView: View {
             // the Sous Chef did, not a third voice in the conversation.
             Label(message.text, systemImage: "checkmark.circle.fill")
                 .font(CozyFont.caption.weight(.semibold))
-                .foregroundStyle(CozyColor.inkOnBlush)
+                .foregroundStyle(CozyColor.inkOnAccent)
                 .padding(.horizontal, CozySpacing.m)
                 .padding(.vertical, CozySpacing.m)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -332,7 +332,7 @@ struct SousChefView: View {
         HStack(spacing: CozySpacing.s) {
             MascotView(pose: .cooking, size: 30)
             Text("Having a think…")
-                .cozyText(CozyFont.caption, color: CozyColor.inkOnBlush)
+                .cozyText(CozyFont.caption, color: CozyColor.inkOnAccent)
             Spacer(minLength: 0)
         }
     }
@@ -356,7 +356,7 @@ struct SousChefView: View {
                 text: $viewModel.draft,
                 systemImage: "sparkles",
                 submitLabel: .send,
-                fill: CozyColor.cardOnBlush
+                fill: CozyColor.surfaceOnAccent
             ) {
                 Task { await viewModel.send(context: modelContext) }
             }
@@ -369,7 +369,7 @@ struct SousChefView: View {
             } label: {
                 Image(systemName: "arrow.up")
                     .font(.body.weight(.bold))
-                    .foregroundStyle(CozyColor.inkOnBlush)
+                    .foregroundStyle(CozyColor.inkOnAccent)
                     .frame(width: 52, height: 52)
                     .background(CozyColor.butter,
                                 in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
@@ -473,7 +473,9 @@ private struct RecommendedRecipeCard: View {
         // underneath is the accent now, and accent.soft on accent.color is two
         // shades of the same thing with a line between them.
         .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.button, style: .continuous))
-        .cozyBlockShadow(CozyDepth.small)
+        // The accent's block, not the beige one. A block is the edge the card
+        // casts onto the page it is on, and this page is painted.
+        .cozyBlockShadow(CozyDepth.small, color: accent.block)
     }
 
     private func lookUp(_ id: UUID) -> Recipe? {

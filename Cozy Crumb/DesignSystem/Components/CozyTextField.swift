@@ -19,8 +19,8 @@ struct CozyTextField: View {
     var isSecure: Bool = false
     var showsClearButton: Bool = true
     var submitLabel: SubmitLabel = .return
-    /// White on a cream page; `cardOnBlush` for a field sitting on a header
-    /// slab or one of the accent-ground screens.
+    /// White on a cream page; `surfaceOnAccent` for a field sitting on a
+    /// header slab or one of the accent-ground screens.
     var fill: Color = CozyColor.card
     /// Explicitly main-actor: callers hand this closure work that touches
     /// the store, and a bare function type would strip the isolation.

@@ -28,7 +28,7 @@ struct TileBackground: View {
 
     /// The grout. `outline` flips light in dark mode, which is what a cream
     /// page wants and the opposite of what a blush one does — see
-    /// `CozyColor.tileOnBlush`.
+    /// `CozyColor.tileOnAccent`.
     var line: Color = CozyColor.outline
 
     /// Tile width. Height is half of it, which is the proportion a subway
@@ -103,12 +103,12 @@ private struct TileGrid: Shape {
 ///
 /// The grout goes dark here in both appearances, because the ground is a light
 /// surface in both: blush resolves to #E0A6B6 after dark, not to something
-/// dim. Same reasoning as `CozyColor.inkOnBlush`, one layer down.
+/// dim. Same reasoning as `CozyColor.inkOnAccent`, one layer down.
 struct AccentTileBackground: View {
     @Environment(\.accentPalette) private var accent
 
     var body: some View {
-        TileBackground(ground: accent.color, line: CozyColor.tileOnBlush, intensity: 0.11)
+        TileBackground(ground: accent.color, line: CozyColor.tileOnAccent, intensity: 0.11)
     }
 }
 

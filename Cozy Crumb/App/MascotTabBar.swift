@@ -99,7 +99,7 @@ struct MascotTabBar: View {
                     // Takes up the last of the slack inside the cap above.
                     .minimumScaleFactor(0.85)
             }
-            .foregroundStyle(CozyColor.inkOnBlush)
+            .foregroundStyle(CozyColor.inkOnAccent)
             .frame(maxWidth: .infinity)
             .frame(minHeight: CozyMetrics.minimumTouchTarget)
             // Shape first, then lift. `contentShape` fixes what counts as the

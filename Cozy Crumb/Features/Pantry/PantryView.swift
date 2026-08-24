@@ -290,7 +290,7 @@ struct PantryView: View {
 
                 if let urgency = urgencyLabel(for: item) {
                     Text(urgency)
-                        .cozyEyebrow(color: CozyColor.inkOnBlush,
+                        .cozyEyebrow(color: CozyColor.inkOnAccent,
                                      tracking: CozyTracking.eyebrowTight)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
@@ -495,7 +495,7 @@ struct PantryView: View {
             text: $viewModel.draft,
             systemImage: "plus.circle",
             submitLabel: .done,
-            fill: CozyColor.cardOnBlush
+            fill: CozyColor.surfaceOnAccent
         ) {
             withAnimation(motion(Motion.gentle)) {
                 viewModel.addTyped(in: modelContext)

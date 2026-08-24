@@ -74,7 +74,7 @@ struct RecipeCard: View {
                     // rather than a sentence with an icon: it is a stamp on the
                     // picture, not a label on the recipe.
                     Text("Check me")
-                        .cozyEyebrow(color: CozyColor.inkOnBlush,
+                        .cozyEyebrow(color: CozyColor.inkOnAccent,
                                      tracking: CozyTracking.eyebrowTight)
                         .padding(.horizontal, CozySpacing.s)
                         .padding(.vertical, 4)
@@ -96,9 +96,9 @@ struct RecipeCard: View {
             // that means nothing else.
             Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
                 .font(.footnote.weight(.bold))
-                .foregroundStyle(recipe.isFavorite ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
+                .foregroundStyle(recipe.isFavorite ? CozyColor.inkOnAccent : CozyColor.inkPrimary)
                 .frame(width: 26, height: 26)
-                .background(recipe.isFavorite ? CozyColor.butter : CozyColor.cardOnBlush,
+                .background(recipe.isFavorite ? CozyColor.butter : CozyColor.surfaceOnAccent,
                             in: .circle)
                 .scaleEffect(heartPop ? 1.25 : 1)
                 .animation(reduceMotion ? Motion.reduced : Motion.bouncy, value: heartPop)

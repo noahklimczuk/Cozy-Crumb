@@ -246,14 +246,14 @@ struct RecipeDetailView: View {
             }
 
             Text(recipe.title)
-                .cozyText(CozyFont.display, color: onHero ? CozyColor.inkOnBlush : CozyColor.inkPrimary)
+                .cozyText(CozyFont.display, color: onHero ? CozyColor.inkOnAccent : CozyColor.inkPrimary)
                 .cozyDisplayTracking(CozyTracking.display)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let summary = recipe.summary {
                 Text(summary)
                     .cozyText(CozyFont.subheadline,
-                              color: onHero ? CozyColor.inkOnBlush : CozyColor.inkSecondary)
+                              color: onHero ? CozyColor.inkOnAccent : CozyColor.inkSecondary)
                     .lineLimit(onHero ? 2 : nil)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -278,8 +278,13 @@ struct RecipeDetailView: View {
             // procedural placeholders and is the only thing making a 44pt
             // title readable over a bright picture.
             if onHero {
+                // `heroScrim`, not `surfaceOnAccent`. A scrim works against
+                // the *ink*, so it has to invert rather than follow the
+                // surface: light behind dark ink, dark behind light ink. Using
+                // the surface token here would have lightened the hero after
+                // dark, underneath ink that had just gone light.
                 LinearGradient(
-                    colors: [CozyColor.cardOnBlush.opacity(0), CozyColor.cardOnBlush],
+                    colors: [CozyColor.heroScrim.opacity(0), CozyColor.heroScrim],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -290,11 +295,11 @@ struct RecipeDetailView: View {
     }
 
     private func pillFill(_ onHero: Bool) -> Color {
-        onHero ? CozyColor.cardOnBlush : CozyColor.creamDeep
+        onHero ? CozyColor.surfaceOnAccent : CozyColor.creamDeep
     }
 
     private func pillInk(_ onHero: Bool) -> Color {
-        onHero ? CozyColor.inkOnBlush : CozyColor.inkSecondary
+        onHero ? CozyColor.inkOnAccent : CozyColor.inkSecondary
     }
 
     /// The "I guessed at this one" warning.
@@ -353,9 +358,9 @@ struct RecipeDetailView: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(CozyColor.inkOnBlush)
+                .foregroundStyle(CozyColor.inkOnAccent)
                 .frame(width: 40, height: 40)
-                .background(isOn ? CozyColor.butter : CozyColor.cardOnBlush,
+                .background(isOn ? CozyColor.butter : CozyColor.surfaceOnAccent,
                             in: .rect(cornerRadius: CozyRadius.control, style: .continuous))
                 // Draws at 40, stays tappable at 44.
                 .frame(width: CozyMetrics.minimumTouchTarget,

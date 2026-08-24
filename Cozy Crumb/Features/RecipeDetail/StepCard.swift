@@ -51,7 +51,7 @@ struct StepCard: View {
     /// stamped tile rather than a bullet.
     private var numberBadge: some View {
         Text("\(number)")
-            .cozyText(CozyFont.title3, color: CozyColor.inkOnBlush)
+            .cozyText(CozyFont.title3, color: CozyColor.inkOnAccent)
             .frame(width: 34, height: 34)
             .background(accent.deep,
                         in: .rect(cornerRadius: CozyRadius.chip, style: .continuous))
