@@ -263,9 +263,10 @@ struct RecipeDetailView: View {
             // on cream is barely a pill at all.
             HStack(spacing: CozySpacing.xs) {
                 if let time = recipe.totalTimeDisplay {
-                    PillTag(text: time, tint: pillFill, ink: pillInk)
+                    PillTag(text: time, tint: pillFill(onHero), ink: pillInk(onHero))
                 }
-                PillTag(text: "Serves \(viewModel.servings)", tint: pillFill, ink: pillInk)
+                PillTag(text: "Serves \(viewModel.servings)",
+                        tint: pillFill(onHero), ink: pillInk(onHero))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -288,12 +289,12 @@ struct RecipeDetailView: View {
         }
     }
 
-    private var pillFill: Color {
-        titleOnHero ? CozyColor.cardOnBlush : CozyColor.creamDeep
+    private func pillFill(_ onHero: Bool) -> Color {
+        onHero ? CozyColor.cardOnBlush : CozyColor.creamDeep
     }
 
-    private var pillInk: Color {
-        titleOnHero ? CozyColor.inkOnBlush : CozyColor.inkSecondary
+    private func pillInk(_ onHero: Bool) -> Color {
+        onHero ? CozyColor.inkOnBlush : CozyColor.inkSecondary
     }
 
     /// The "I guessed at this one" warning.
