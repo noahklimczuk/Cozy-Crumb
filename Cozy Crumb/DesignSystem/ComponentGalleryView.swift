@@ -93,6 +93,7 @@ struct ComponentGalleryView: View {
                     ("inkPrimary", CozyColor.inkPrimary),
                     ("inkSecondary", CozyColor.inkSecondary),
                     ("inkTertiary", CozyColor.inkTertiary),
+                    ("inkOnBlush", CozyColor.inkOnBlush),
                     ("outline", CozyColor.outline),
                     ("outlineStrong", CozyColor.outlineStrong),
                     ("block", CozyColor.block)
@@ -110,9 +111,24 @@ struct ComponentGalleryView: View {
         GallerySection("Typography", note: typographyNote) {
             VStack(alignment: .leading, spacing: CozySpacing.s) {
                 Text("EYEBROW").cozyEyebrow()
-                Text("Display").cozyText(CozyFont.display)
-                Text("Title").cozyText(CozyFont.title)
-                Text("Title 2").cozyText(CozyFont.title2)
+                Text("Display hero")
+                    .cozyText(CozyFont.displayHero)
+                    .cozyDisplayTracking(CozyTracking.displayHero)
+                Text("Display")
+                    .cozyText(CozyFont.display)
+                    .cozyDisplayTracking(CozyTracking.display)
+                Text("Title")
+                    .cozyText(CozyFont.title)
+                    .cozyDisplayTracking(CozyTracking.title, relativeTo: .title)
+                Text("Title 2")
+                    .cozyText(CozyFont.title2)
+                    .cozyDisplayTracking(CozyTracking.title2, relativeTo: .title2)
+                Text("Title 3")
+                    .cozyText(CozyFont.title3)
+                    .cozyDisplayTracking(CozyTracking.title3, relativeTo: .title3)
+                Text("Card title")
+                    .cozyText(CozyFont.cardTitle)
+                    .cozyDisplayTracking(CozyTracking.cardTitle, relativeTo: .headline)
                 Text("Headline").cozyText(CozyFont.headline)
                 Text("Body — the quick brown fox jumped over the lazy dog.")
                     .cozyText(CozyFont.body)
@@ -120,8 +136,10 @@ struct ComponentGalleryView: View {
                     .cozyText(CozyFont.subheadline, color: CozyColor.inkSecondary)
                 Text("CAPTION / METADATA")
                     .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
-                Text("Cook step text")
+                Text("Cook step text, set the way Cook Mode sets it.")
                     .cozyText(CozyFont.cookStep)
+                    .cozyDisplayTracking(CozyTracking.cookStep, relativeTo: .title)
+                    .cozyDisplayLeading(CozyLeading.cookStep)
                 Text("12 · 340g · 1 hr 05")
                     .cozyText(CozyFont.numeral)
             }

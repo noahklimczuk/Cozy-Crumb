@@ -111,7 +111,7 @@ struct SettingsView: View {
 
             SettingsSegmented(
                 label: "Units",
-                options: MeasurementSystem.allCases.map { ($0.rawValue, $0.displayName) },
+                options: MeasurementSystem.allCases.map { SettingsOption(value: $0.rawValue, title: $0.displayName) },
                 selection: $measurementRaw
             )
 
@@ -148,7 +148,7 @@ struct SettingsView: View {
 
                 SettingsSegmented(
                     label: "Appearance",
-                    options: AppAppearance.allCases.map { ($0, $0.displayName) },
+                    options: AppAppearance.allCases.map { SettingsOption(value: $0, title: $0.displayName) },
                     selection: $appearance
                 )
             }
@@ -419,16 +419,23 @@ private struct SettingsHeading: View {
 /// `.pickerStyle(.segmented)` brings iOS's grey capsule with it, which is the
 /// one piece of system chrome that survived on this screen and the only grey
 /// thing in a warm app.
+private struct SettingsOption<Value: Hashable>: Identifiable {
+    let value: Value
+    let title: String
+
+    var id: Value { value }
+}
+
 private struct SettingsSegmented<Value: Hashable>: View {
     @Environment(\.accentPalette) private var accent
 
     let label: String
-    let options: [(value: Value, title: String)]
+    let options: [SettingsOption<Value>]
     @Binding var selection: Value
 
     var body: some View {
         HStack(spacing: 6) {
-            ForEach(options, id: \.value) { option in
+            ForEach(options) { option in
                 let isSelected = option.value == selection
 
                 Button {

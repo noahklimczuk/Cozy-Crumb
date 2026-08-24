@@ -120,11 +120,16 @@ private struct CupcakeSplashView: View {
                     .scaledToFit()
                     .frame(width: 210, height: 210)
                     .clipShape(RoundedRectangle(cornerRadius: 44, style: .continuous))
+                // inkOnBlush, not inkPrimary. This pink is a fixed light
+                // colour in both appearances, so after dark inkPrimary
+                // resolves to #F2E7E0 and the app's own name goes nearly
+                // invisible on the first screen anybody sees. Same trap as the
+                // header slabs, and the same fix.
                 Text(AppBranding.appName)
-                    .font(.system(.title, design: .rounded, weight: .bold))
-                    .foregroundStyle(CozyColor.inkPrimary)
-                Text("Your cookbook, cozied up.")
-                    .cozyText(CozyFont.subheadline, color: CozyColor.inkSecondary)
+                    .cozyText(CozyFont.title, color: CozyColor.inkOnBlush)
+                    .cozyDisplayTracking(CozyTracking.title, relativeTo: .title)
+                Text(AppBranding.tagline)
+                    .cozyText(CozyFont.subheadline, color: CozyColor.inkOnBlush)
             }
         }
         .accessibilityElement(children: .combine)
