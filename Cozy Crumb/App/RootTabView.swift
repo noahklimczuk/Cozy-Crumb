@@ -150,6 +150,10 @@ struct RootTabView: View {
             // location and no real confirmation date; a fresh kitchen has no
             // staples. Both are one pass, and it skips rows it has seen.
             PantryBackfill.run(in: modelContext)
+            // Anything that has decayed past the point of being believable
+            // gets put away — archived, never deleted, and restorable with one
+            // tap. See PantryDecay.
+            PantryDecay.archiveLapsed(in: modelContext)
             // Recipes saved before the classifier existed have no cuisine,
             // and cuisine is most of what the taste profile talks about.
             CuisineBackfill.run(in: modelContext)

@@ -157,7 +157,9 @@ enum GroceryService {
     /// into an existing pantry row rather than stacking duplicates.
     static func addToPantry(_ item: GroceryItem, in context: ModelContext, now: Date = .now) {
         let key = GroceryMerge.normalizedName(item.name)
-        let existing = (try? context.fetch(FetchDescriptor<PantryItem>()))?
+        // Active rows only — buying something again after the old one decayed
+        // away is a new jar, not a resurrection of the last one.
+        let existing = PantryDecay.activeItems(in: context)
             .first { GroceryMerge.normalizedName($0.displayName) == key }
 
         if let existing {

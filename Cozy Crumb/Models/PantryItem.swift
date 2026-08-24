@@ -133,6 +133,15 @@ final class PantryItem {
     /// tier or age.
     var isPinned: Bool = false
 
+    /// When this row was put away, having decayed out of the active list or
+    /// been marked gone. Nil for everything on the shelf.
+    ///
+    /// Archived, never deleted. Users find silent disappearance unnerving and
+    /// it destroys trust in the whole feature — and the row is still worth
+    /// something afterwards, because restock prediction learns from what you
+    /// used to have.
+    var archivedAt: Date?
+
     var notes: String?
 
     init(
@@ -150,6 +159,7 @@ final class PantryItem {
         expiresAt: Date? = nil,
         openedAt: Date? = nil,
         isPinned: Bool = false,
+        archivedAt: Date? = nil,
         notes: String? = nil,
         addedVia: CaptureSource = .manual
     ) {
@@ -172,6 +182,7 @@ final class PantryItem {
         self.expiresAt = expiresAt
         self.openedAt = openedAt
         self.isPinned = isPinned
+        self.archivedAt = archivedAt
         self.notes = notes
         self.addedVia = addedVia
     }
@@ -180,6 +191,58 @@ final class PantryItem {
 // MARK: - Derived
 
 extension PantryItem {
+
+    // MARK: - Confidence
+
+    /// Whether this row has been put away. Archived rows are excluded from
+    /// every active query and from everything the Sous Chef reads.
+    var isArchived: Bool { archivedAt != nil }
+
+    /// Whether age says anything about this row. Staples and pinned rows are a
+    /// standing statement that it is always in.
+    var neverDecays: Bool {
+        isPinned || !tier.decays
+    }
+
+    /// Everything the decay engine needs, in a form that does not drag
+    /// SwiftData along with it.
+    var evidence: PantryEvidence {
+        PantryEvidence(
+            canonicalName: canonicalName,
+            category: category,
+            strength: confidenceAtConfirmation,
+            confirmedAt: lastConfirmedAt,
+            expiresAt: expiresAt,
+            neverDecays: neverDecays
+        )
+    }
+
+    /// How sure the app is this is still here, on `date`.
+    ///
+    /// Computed every time rather than stored — see the note at the top of
+    /// `PantryConfidence` for why that is the whole point.
+    func confidence(at date: Date = .now) -> Double {
+        PantryConfidence.confidence(of: evidence, at: date)
+    }
+
+    func band(at date: Date = .now) -> PantryConfidenceBand {
+        PantryConfidence.band(of: evidence, at: date)
+    }
+
+    /// Marks this row as confirmed present, right now.
+    ///
+    /// The one way confidence goes back up. Takes the stronger of what is
+    /// already believed and the new evidence, so a weak signal can never talk
+    /// down a strong one: a fridge photo spotting milk that was ticked off the
+    /// list this morning must not make the app *less* sure there is milk.
+    func confirm(at date: Date = .now, strength: Double = 1.0) {
+        lastConfirmedAt = date
+        confidenceAtConfirmation = max(confidenceAtConfirmation, min(max(strength, 0), 1))
+        archivedAt = nil
+    }
+
+    // MARK: - Naming
+
     /// The canonical food name, for matching against recipes, the taste
     /// profile and the shopping list.
     ///
