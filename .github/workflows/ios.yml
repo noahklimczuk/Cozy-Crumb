@@ -79,11 +79,20 @@ jobs:
       # simulator, launched with its output attached, and left running long
       # enough to get past the splash and build the first real screen.
       #
+      # Nothing here stays attached to the app. The first cut of this step
+      # backgrounded `simctl launch --console-pty` and killed the shell's job
+      # afterwards, which does not reliably reap the process simctl spawns — the
+      # runner then waits on it and the step hangs until the job times out, which
+      # is a worse failure than the one it was written to catch. So the app is
+      # launched detached and inspected afterwards, and the step carries its own
+      # timeout as a backstop.
+      #
       # Failure is judged on a crash report appearing for this bundle rather
       # than on the launch command's exit code — `simctl launch` reports success
       # the moment the process is spawned, and a SwiftUI crash happens a beat
       # later while the first view builds.
       - name: Launch smoke test
+        timeout-minutes: 8
         run: |
           set -o pipefail
           APP="build/Debug-iphonesimulator/Cozy Crumb.app"
@@ -105,25 +114,37 @@ jobs:
 
           xcrun simctl install "$DEVICE" "$APP"
 
-          # --console-pty stays attached until the app exits, so a trap's
-          # message lands in the log rather than only in the crash report.
-          xcrun simctl launch --console-pty "$DEVICE" "$BUNDLE_ID" > launch.log 2>&1 &
-          LAUNCH_PID=$!
-          sleep 40
-          kill "$LAUNCH_PID" 2>/dev/null || true
+          LAUNCH=$(xcrun simctl launch "$DEVICE" "$BUNDLE_ID")
+          echo "$LAUNCH"
 
-          echo "===== app output ====="
-          cat launch.log || true
+          # Past the four-second splash and into the first real screen, which is
+          # where a SwiftUI launch crash actually happens.
+          sleep 30
 
-          CRASHES=$(ls -t "$REPORTS"/*.ips 2>/dev/null | xargs -I{} sh -c 'grep -lF "Cozy Crumb" "{}" || true')
-          if [ -n "$CRASHES" ]; then
-            echo "===== crash report ====="
-            for c in $CRASHES; do echo "--- $c"; head -80 "$c"; done
-            echo "::error::The app crashed on launch."
+          if xcrun simctl spawn "$DEVICE" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
+            ALIVE=yes
+          else
+            ALIVE=no
+          fi
+          echo "Still running after 30s: $ALIVE"
+
+          CRASHES=$(grep -lF "Cozy Crumb" "$REPORTS"/*.ips 2>/dev/null || true)
+          if [ -n "$CRASHES" ] || [ "$ALIVE" = no ]; then
+            echo "===== what the app logged ====="
+            xcrun simctl spawn "$DEVICE" log show --last 3m \
+              --predicate 'processImagePath CONTAINS "Cozy Crumb"' \
+              --style compact 2>/dev/null | tail -60 || true
+
+            for c in $CRASHES; do
+              echo "===== crash report: $c ====="
+              head -120 "$c"
+            done
+
+            echo "::error::The app did not survive launch."
             exit 1
           fi
 
-          echo "The app launched and stayed up for 40s."
+          echo "The app launched and stayed up."
 
       # Runs against the shared scheme, which builds the app as the test host
       # and then the test bundle. The simulator is picked from whatever the
