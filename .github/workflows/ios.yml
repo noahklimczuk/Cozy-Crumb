@@ -99,6 +99,14 @@ jobs:
           BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Info.plist")
           echo "Bundle: $BUNDLE_ID"
 
+          # Checked up front rather than discovered per-capture: without it the
+          # render check silently verifies nothing, and a smoke test that
+          # verifies nothing is indistinguishable from a passing one.
+          [ -f .github/scripts/blank-screen.py ] || {
+            echo "::error::.github/scripts/blank-screen.py is missing — the render check cannot run."
+            exit 1
+          }
+
           DEVICE=$(xcrun simctl list devices available \
             | grep -E '^ +iPhone' \
             | head -1 \
@@ -142,10 +150,10 @@ jobs:
               LABEL="$1"
               SHOT="/tmp/shot-$LABEL.png"
               xcrun simctl io "$DEVICE" screenshot "$SHOT" >/dev/null 2>&1 || true
-              [ -f "$SHOT" ] || { echo "[$LABEL] no screenshot"; return 0; }
+              [ -f "$SHOT" ] || { echo "::error::[$LABEL] no screenshot — the render check cannot run."; return 1; }
 
               sips -Z 48 -s format bmp "$SHOT" --out "/tmp/small-$LABEL.bmp" >/dev/null 2>&1 || true
-              VERDICT=$(python3 .github/scripts/blank-screen.py "/tmp/small-$LABEL.bmp" || echo "unknown")
+              VERDICT=$(python3 .github/scripts/blank-screen.py "/tmp/small-$LABEL.bmp" 2>&1 || echo "unknown")
               echo "[$LABEL] blank screen: $VERDICT"
 
               sips -Z 220 "$SHOT" --out "/tmp/view-$LABEL.png" >/dev/null 2>&1 || true
@@ -153,7 +161,19 @@ jobs:
               base64 -i "/tmp/view-$LABEL.png" | fold -w 200 || true
               echo "----- END SCREENSHOT $LABEL -----"
 
-              case "$VERDICT" in yes*) return 1 ;; *) return 0 ;; esac
+              # Only an explicit "no" passes. A check that could not reach a
+              # verdict — no screenshot, sips failed, the script missing — is a
+              # check that did not run, and the one thing it must never do is
+              # read as "fine". The upgrade probe learned this the expensive
+              # way: it shipped on a branch whose base predated
+              # blank-screen.py, every capture returned a bare "unknown", the
+              # old `*) return 0` swallowed all six of them, and the run went
+              # green having verified nothing but that the process was alive.
+              case "$VERDICT" in
+                no*)  return 0 ;;
+                yes*) return 1 ;;
+                *)    echo "::error::[$LABEL] the render check produced no verdict."; return 1 ;;
+              esac
             }
 
             # Mid-splash.
