@@ -38,9 +38,18 @@ enum IngredientRepair {
     /// had arrived at the launch before, for as long as the app was installed.
     static let parserVersion = 1
 
+    /// How many lines are parsed before the main actor is handed back.
+    ///
+    /// The parse has to happen on the main actor — these are `@Model` objects
+    /// belonging to the view's context — so the only way it can be made not to
+    /// freeze the app is to stop doing all of it at once. A cookbook with
+    /// thousands of ingredient lines now costs a series of short pauses spread
+    /// over a few frames instead of one long one with nothing on screen.
+    private static let batchSize = 50
+
     /// Re-reads every quantity-less ingredient. Returns how many were fixed.
     @discardableResult
-    static func run(in context: ModelContext, defaults: UserDefaults = .standard) -> Int {
+    static func run(in context: ModelContext, defaults: UserDefaults = .standard) async -> Int {
         // Checked before the fetch, so a store that has already been through
         // this version costs nothing at all rather than costing a full scan.
         guard defaults.integer(forKey: CozyDefaultsKey.ingredientRepairVersion) < parserVersion else {
@@ -68,7 +77,15 @@ enum IngredientRepair {
 
         var repaired = 0
 
-        for ingredient in candidates {
+        for (index, ingredient) in candidates.enumerated() {
+            // Between batches the main actor goes back to drawing. A frame,
+            // not `Task.yield()`: yield can resume on the same runloop turn
+            // without anything having been rendered, which would make this
+            // chunking decorative.
+            if index > 0, index.isMultiple(of: batchSize) {
+                try? await Task.sleep(for: .milliseconds(1))
+            }
+
             let parsed = IngredientLineParser.parse(ingredient.rawText, order: ingredient.order)
 
             // No quantity found means the line genuinely has none — "salt to

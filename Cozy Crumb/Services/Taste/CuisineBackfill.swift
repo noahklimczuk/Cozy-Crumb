@@ -33,9 +33,13 @@ enum CuisineBackfill {
     /// failed to place last time.
     static let classifierVersion = 1
 
+    /// How many recipes are classified before the main actor is handed back.
+    /// Same reasoning as `IngredientRepair.batchSize`.
+    private static let batchSize = 50
+
     /// Classifies everything that needs it. Returns how many were written.
     @discardableResult
-    static func run(in modelContext: ModelContext, defaults: UserDefaults = .standard) -> Int {
+    static func run(in modelContext: ModelContext, defaults: UserDefaults = .standard) async -> Int {
         guard defaults.integer(forKey: CozyDefaultsKey.cuisineBackfillVersion) < classifierVersion else {
             return 0
         }
@@ -49,8 +53,14 @@ enum CuisineBackfill {
         }
 
         var written = 0
+        var examined = 0
 
         for recipe in recipes where recipe.inferredCuisine == nil {
+            if examined > 0, examined.isMultiple(of: batchSize) {
+                try? await Task.sleep(for: .milliseconds(1))
+            }
+            examined += 1
+
             guard let cuisine = CuisineClassifier.cuisine(for: recipe) else { continue }
             recipe.inferredCuisine = cuisine
             written += 1
