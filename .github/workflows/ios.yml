@@ -211,6 +211,19 @@ jobs:
             CRASHES=$(grep -lF "Cozy Crumb" "$REPORTS"/*.ips 2>/dev/null || true)
             echo "[$MODE] still running: $ALIVE"
 
+            # Printed on every run, not only on failure. These are the
+            # LaunchTrace breadcrumbs, and their whole value is comparative:
+            # a launch that stalls on someone's phone is only readable against
+            # a launch that didn't, and this is the only place a known-good
+            # one gets recorded. A missing "first frame on screen" here would
+            # also mean the app never drew, which no other check states
+            # outright.
+            TRACE_PREDICATE="subsystem == \"$BUNDLE_ID\""
+            echo "----- [$MODE] launch trace -----"
+            xcrun simctl spawn "$DEVICE" log show --last 3m \
+              --predicate "$TRACE_PREDICATE" \
+              --style compact 2>/dev/null | grep -F "launch:" || echo "(no launch trace in the log)"
+
             MAIN_OK=1
             capture "$MODE-main" || MAIN_OK=""
 
