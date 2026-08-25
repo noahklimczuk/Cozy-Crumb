@@ -145,29 +145,52 @@ struct RootTabView: View {
         // black screen to whoever is holding it.
         .task {
             LaunchTrace.mark("launch passes started")
-            SeedData.installIfNeeded(in: modelContext)
+
+            await pass("seed") { SeedData.installIfNeeded(in: modelContext) }
             // Re-reads ingredient lines saved before the caption parsing
             // fixes, so recipes already in the library start scaling too.
-            IngredientRepair.run(in: modelContext)
+            await pass("ingredient repair") { IngredientRepair.run(in: modelContext) }
             // Drops taste signals old enough that decay has already made them
             // worthless. Once a day at most; see SignalRetention.
-            SignalRetention.runIfDue(in: modelContext)
+            await pass("signal retention") { SignalRetention.runIfDue(in: modelContext) }
             // Pantry rows written before the revamp have no tier, no
             // location and no real confirmation date; a fresh kitchen has no
             // staples. Both are one pass, and it skips rows it has seen.
-            PantryBackfill.run(in: modelContext)
+            await pass("pantry backfill") { PantryBackfill.run(in: modelContext) }
             // Anything that has decayed past the point of being believable
             // gets put away — archived, never deleted, and restorable with one
             // tap. See PantryDecay.
-            PantryDecay.archiveLapsed(in: modelContext)
+            await pass("pantry decay") { PantryDecay.archiveLapsed(in: modelContext) }
             // Recipes saved before the classifier existed have no cuisine,
             // and cuisine is most of what the taste profile talks about.
-            CuisineBackfill.run(in: modelContext)
+            await pass("cuisine backfill") { CuisineBackfill.run(in: modelContext) }
             // The recipes they mean to make and never do. Once a day.
-            AspirationGapDetector.runIfDue(in: modelContext)
-            TasteProfileStore.rebuildIfStale(in: modelContext)
+            await pass("aspiration gap") { AspirationGapDetector.runIfDue(in: modelContext) }
+            await pass("taste profile") { TasteProfileStore.rebuildIfStale(in: modelContext) }
+
             LaunchTrace.mark("launch passes finished")
         }
+    }
+
+    /// Runs one launch pass, times it, and then hands the main actor back.
+    ///
+    /// Every one of these is synchronous and main-actor bound, and together
+    /// they walk the whole store: `IngredientRepair` re-parses every ingredient
+    /// line, `CuisineBackfill` classifies every recipe. Run back to back they
+    /// hold the main actor for as long as all of them take combined, and
+    /// nothing can redraw in the meantime — on a real cookbook that is an app
+    /// sitting on its splash with no way to tell it apart from a hang.
+    ///
+    /// Sleeping a frame between them does not make any single pass faster, but
+    /// it lets SwiftUI draw in the gaps, so the app comes up and stays honest
+    /// about what it is doing. The timings say which pass is the expensive one
+    /// rather than leaving it to be guessed at.
+    private func pass(_ name: String, _ work: () -> Void) async {
+        work()
+        LaunchTrace.mark("pass: \(name)")
+        // A frame, not a yield: `Task.yield()` can resume on the same runloop
+        // turn without anything being drawn, which is the whole point here.
+        try? await Task.sleep(for: .milliseconds(16))
     }
 }
 
