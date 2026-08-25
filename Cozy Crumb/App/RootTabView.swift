@@ -149,7 +149,7 @@ struct RootTabView: View {
             await pass("seed") { SeedData.installIfNeeded(in: modelContext) }
             // Re-reads ingredient lines saved before the caption parsing
             // fixes, so recipes already in the library start scaling too.
-            await pass("ingredient repair") { IngredientRepair.run(in: modelContext) }
+            await pass("ingredient repair") { await IngredientRepair.run(in: modelContext) }
             // Drops taste signals old enough that decay has already made them
             // worthless. Once a day at most; see SignalRetention.
             await pass("signal retention") { SignalRetention.runIfDue(in: modelContext) }
@@ -163,7 +163,7 @@ struct RootTabView: View {
             await pass("pantry decay") { PantryDecay.archiveLapsed(in: modelContext) }
             // Recipes saved before the classifier existed have no cuisine,
             // and cuisine is most of what the taste profile talks about.
-            await pass("cuisine backfill") { CuisineBackfill.run(in: modelContext) }
+            await pass("cuisine backfill") { await CuisineBackfill.run(in: modelContext) }
             // The recipes they mean to make and never do. Once a day.
             await pass("aspiration gap") { AspirationGapDetector.runIfDue(in: modelContext) }
             await pass("taste profile") { TasteProfileStore.rebuildIfStale(in: modelContext) }
@@ -185,8 +185,8 @@ struct RootTabView: View {
     /// it lets SwiftUI draw in the gaps, so the app comes up and stays honest
     /// about what it is doing. The timings say which pass is the expensive one
     /// rather than leaving it to be guessed at.
-    private func pass(_ name: String, _ work: () -> Void) async {
-        work()
+    private func pass(_ name: String, _ work: () async -> Void) async {
+        await work()
         LaunchTrace.mark("pass: \(name)")
         // A frame, not a yield: `Task.yield()` can resume on the same runloop
         // turn without anything being drawn, which is the whole point here.

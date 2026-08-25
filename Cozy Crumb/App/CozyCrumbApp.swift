@@ -12,7 +12,16 @@ import os
 
 @main
 struct CozyCrumbApp: App {
-    private let modelContainer: ModelContainer
+    /// Opened off the main thread, which is why it is state rather than a
+    /// `let` built in `init()`.
+    ///
+    /// `init()` runs before the app has a window, so anything slow in it
+    /// happens with nothing at all on screen — not even the splash. Opening
+    /// the store there meant a store that was slow to open was
+    /// indistinguishable from an app that had frozen, and after twenty
+    /// seconds the watchdog killed it. Nothing in launch is allowed to be on
+    /// the main thread before the first frame any more.
+    @State private var modelContainer: ModelContainer?
 
     /// Kitchen timers live above every screen. A timer started in Cook Mode
     /// has to keep counting while the user wanders off to the shopping list,
@@ -23,27 +32,49 @@ struct CozyCrumbApp: App {
     /// recipe is waiting on the importer, not on the cupcake.
     @State private var isSplashSkipped = false
 
-    init() {
-        LaunchTrace.mark("app init")
-        modelContainer = Self.makeModelContainer()
-        LaunchTrace.mark("model container ready")
-    }
-
     var body: some Scene {
         WindowGroup {
-            AppLaunchView(isSkipped: isSplashSkipped) {
-                RootTabView(onSharedLink: { isSplashSkipped = true })
+            Group {
+                if let modelContainer {
+                    AppLaunchView(isSkipped: isSplashSkipped) {
+                        RootTabView(onSharedLink: { isSplashSkipped = true })
+                    }
+                    .modelContainer(modelContainer)
+                } else {
+                    // The same splash, so opening the store looks like part of
+                    // the greeting rather than a second screen.
+                    CupcakeSplashView()
+                }
             }
             .environment(timers)
+            .task { await openStore() }
         }
-        .modelContainer(modelContainer)
+    }
+
+    private func openStore() async {
+        guard modelContainer == nil else { return }
+
+        LaunchTrace.mark("app init")
+
+        // Detached, so the open runs on a background thread and the splash
+        // keeps drawing while it happens. `ModelContainer` is `Sendable`, so
+        // handing the finished one back to the main actor is safe.
+        let opened = await Task.detached(priority: .userInitiated) {
+            Self.makeModelContainer()
+        }.value
+
+        modelContainer = opened
+        LaunchTrace.mark("model container ready")
     }
 
     /// Builds the persistent store, falling back to an in-memory store so a
     /// corrupt or unreadable store shows an empty app rather than a launch
     /// crash. The final `fatalError` is genuinely unrecoverable — if an
     /// in-memory container cannot be created there is no app to run.
-    private static func makeModelContainer() -> ModelContainer {
+    /// `nonisolated` because it is called from a detached task: the target
+    /// defaults types to MainActor, and a MainActor-isolated open would hop
+    /// straight back onto the thread this is trying to keep free.
+    nonisolated private static func makeModelContainer() -> ModelContainer {
         let schema = Schema(versionedSchema: CozyCrumbCurrentSchema.self)
 
         do {
