@@ -140,7 +140,28 @@ jobs:
             CRASHES=$(grep -lF "Cozy Crumb" "$REPORTS"/*.ips 2>/dev/null || true)
             echo "[$MODE] still running: $ALIVE"
 
-            if [ -n "$CRASHES" ] || [ "$ALIVE" = no ]; then
+            # Alive is not the same as working. An app that renders nothing
+            # stays up forever and sails through a liveness check, which is
+            # what a blank launch actually looks like — so the screen itself
+            # is inspected, and a screenshot is printed for eyes to read.
+            SHOT="/tmp/shot-$MODE.png"
+            xcrun simctl io "$DEVICE" screenshot "$SHOT" >/dev/null 2>&1 || true
+
+            BLANK="unknown"
+            if [ -f "$SHOT" ]; then
+              sips -Z 48 -s format bmp "$SHOT" --out "/tmp/small-$MODE.bmp" >/dev/null 2>&1 || true
+              BLANK=$(python3 .github/scripts/blank-screen.py "/tmp/small-$MODE.bmp" || echo "unknown")
+              echo "[$MODE] blank screen: $BLANK"
+
+              sips -Z 220 "$SHOT" --out "/tmp/view-$MODE.png" >/dev/null 2>&1 || true
+              echo "----- BEGIN SCREENSHOT $MODE -----"
+              base64 -i "/tmp/view-$MODE.png" | fold -w 200 || true
+              echo "----- END SCREENSHOT $MODE -----"
+            fi
+
+            case "$BLANK" in yes*) BLANK_FAIL=1 ;; *) BLANK_FAIL="" ;; esac
+
+            if [ -n "$CRASHES" ] || [ "$ALIVE" = no ] || [ -n "$BLANK_FAIL" ]; then
               echo "===== [$MODE] what the app logged ====="
               xcrun simctl spawn "$DEVICE" log show --last 3m \
                 --predicate 'processImagePath CONTAINS "Cozy Crumb"' \
