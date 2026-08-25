@@ -107,10 +107,31 @@ jobs:
             exit 1
           }
 
-          DEVICE=$(xcrun simctl list devices available \
-            | grep -E '^ +iPhone' \
-            | head -1 \
-            | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+          # The reported device first, then anything.
+          #
+          # This used to take whichever iPhone came first in the list, which is
+          # a smaller phone than the one the launch failure was reported on —
+          # an iPhone 16 Pro Max, 440x956pt. A smoke test that passes on
+          # different geometry to the one that fails is not testing the thing,
+          # and this has spent an evening being green while the app would not
+          # open. Matching the model does not make a simulator into a phone,
+          # but it removes one difference for free.
+          DEVICE=""
+          for NAME in "iPhone 16 Pro Max" "iPhone 16 Pro" "iPhone 16"; do
+            DEVICE=$(xcrun simctl list devices available \
+              | grep -F "$NAME (" \
+              | head -1 \
+              | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+            [ -n "$DEVICE" ] && { echo "Simulator: $NAME"; break; }
+          done
+
+          if [ -z "$DEVICE" ]; then
+            DEVICE=$(xcrun simctl list devices available \
+              | grep -E '^ +iPhone' \
+              | head -1 \
+              | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+            echo "Simulator: first available iPhone (none of the preferred models present)"
+          fi
           [ -n "$DEVICE" ] || { echo "::error::No iPhone simulator available."; exit 1; }
 
           xcrun simctl boot "$DEVICE" 2>/dev/null || true
