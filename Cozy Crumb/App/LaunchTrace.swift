@@ -48,5 +48,49 @@ nonisolated enum LaunchTrace {
         Log.app.notice(
             "launch: \(stage, privacy: .public) at \(String(format: "%.1fms", elapsed), privacy: .public)"
         )
+
+        // Also put it on the screen. Reading the log needs a Mac, a cable and
+        // Console.app, and someone whose app will not open is owed something
+        // better than that. The splash shows the last stage reached, so a
+        // launch that stops somewhere can be photographed instead of described.
+        //
+        // If the main actor is blocked this update never runs — which is the
+        // point. What stays on screen is the last stage that *did* complete,
+        // and the stall is whatever comes after it.
+        let reached = stage
+        let took = String(format: "%.1fms", elapsed)
+        Task { @MainActor in
+            LaunchProgress.shared.record(reached, took)
+        }
+    }
+}
+
+/// The last launch stage that completed, for the splash to display.
+///
+/// This exists because four rounds of fixes were shipped against a launch
+/// nobody could see inside. Every one of them was aimed by inference from a
+/// simulator that has never once reproduced the problem. A line of text on the
+/// splash is worth more than any of that: it turns "it still doesn't launch"
+/// into "it stops after X", which is a bug report rather than a symptom.
+@MainActor
+@Observable
+final class LaunchProgress {
+    static let shared = LaunchProgress()
+
+    private(set) var stage = "starting up"
+    private(set) var elapsed = ""
+
+    /// True once the app is past launch, so the splash can stop narrating.
+    private(set) var hasFinished = false
+
+    private init() {}
+
+    func record(_ stage: String, _ elapsed: String) {
+        self.stage = stage
+        self.elapsed = elapsed
+    }
+
+    func finish() {
+        hasFinished = true
     }
 }
