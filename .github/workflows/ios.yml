@@ -125,7 +125,14 @@ jobs:
             xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
             rm -f "$REPORTS"/*.ips 2>/dev/null || true
 
-            xcrun simctl launch "$DEVICE" "$BUNDLE_ID"
+            # Keep the PID. `simctl launch` prints "<bundle id>: <pid>", and a
+            # simulator app is a real process on the host, so the host's own
+            # `ps` can answer "is it still up" without going back through
+            # simctl. That matters — see `alive` below.
+            LAUNCH_OUT=$(xcrun simctl launch "$DEVICE" "$BUNDLE_ID")
+            echo "$LAUNCH_OUT"
+            PID=$(printf '%s' "$LAUNCH_OUT" | sed -nE 's/.*: *([0-9]+).*/\1/p')
+            echo "[$MODE] pid: ${PID:-unknown}"
 
             # Two shots, because the app spends its first four seconds showing
             # a splash that holds the real UI at opacity 0. A black splash and a
@@ -158,11 +165,28 @@ jobs:
             # SwiftUI launch failure actually shows up.
             sleep 25
 
-            if xcrun simctl spawn "$DEVICE" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
-              ALIVE=yes
-            else
-              ALIVE=no
-            fi
+            # Asked two ways, and retried, because a single `simctl spawn
+            # launchctl list` is not trustworthy: it spawns a process inside
+            # the simulator and can come back empty or non-zero while the app
+            # is perfectly alive. That is not hypothetical — this step failed a
+            # run with "still running: no" and a screenshot, taken one second
+            # later, of the app's own Library screen. A flaky check that fails
+            # a green app is worse than no check at all, so the host's `ps` on
+            # the launch PID is asked first and the simctl probe is only the
+            # fallback.
+            alive () {
+              if [ -n "$PID" ] && ps -p "$PID" >/dev/null 2>&1; then
+                return 0
+              fi
+              xcrun simctl spawn "$DEVICE" launchctl list 2>/dev/null \
+                | grep -q "$BUNDLE_ID"
+            }
+
+            ALIVE=no
+            for _ in 1 2 3; do
+              if alive; then ALIVE=yes; break; fi
+              sleep 2
+            done
 
             CRASHES=$(grep -lF "Cozy Crumb" "$REPORTS"/*.ips 2>/dev/null || true)
             echo "[$MODE] still running: $ALIVE"
