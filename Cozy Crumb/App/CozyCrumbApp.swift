@@ -86,24 +86,50 @@ private struct AppLaunchView<Content: View>: View {
 
     @State private var isShowingSplash = true
 
+    /// Whether the app underneath the splash has been built yet.
+    ///
+    /// This is the fix for a black screen on launch, and the reason is
+    /// structural. The splash used to sit in a `ZStack` beside `content()` —
+    /// the whole `RootTabView`, held at `opacity(0)`. Opacity is not laziness:
+    /// SwiftUI still had to evaluate that entire tree, every tab and every
+    /// `@Query`, before it could commit a single frame. So the splash could
+    /// not appear until the heaviest screen in the app was ready, and anything
+    /// slow or fatal in there took the splash down with it.
+    ///
+    /// What is on screen in the meantime is iOS's own launch screen, and
+    /// because the target sets `INFOPLIST_KEY_UILaunchScreen_Generation` that
+    /// is a bare `systemBackground` — pure black after dark. A launch that
+    /// never finishes therefore looks like a black screen, and then like a
+    /// crash, because the watchdog kills an app that takes too long to draw.
+    ///
+    /// Now the splash is the first frame on its own: a colour and an image,
+    /// with nothing else to evaluate. The app is built one beat later, once
+    /// there is something on screen and the watchdog is satisfied.
+    @State private var isContentBuilt = false
+
     var body: some View {
         ZStack {
-            content()
-                .opacity(isShowingSplash ? 0 : 1)
+            if isContentBuilt {
+                content()
+                    .opacity(isShowingSplash ? 0 : 1)
+            }
 
             if isShowingSplash {
                 CupcakeSplashView()
                     .transition(.opacity)
             }
         }
-        // The single most useful line in the log. Reaching it means SwiftUI
-        // evaluated this whole ZStack — the splash *and* `content()`, which is
-        // the entire RootTabView — and put a frame on screen. Not reaching it
-        // means the app is still on the system launch screen, and everything
-        // after this point in launch is irrelevant to whatever went wrong.
+        // Reaching this means a frame is on screen. It now says so about the
+        // splash alone, which is the point: it no longer waits on the app.
         .onAppear { LaunchTrace.mark("first frame on screen") }
         .task {
-            try? await Task.sleep(for: .seconds(4))
+            // Long enough for the splash to actually reach the glass before
+            // the app underneath it starts building. A yield is not enough —
+            // that returns on the same runloop turn, before anything is drawn.
+            try? await Task.sleep(for: .milliseconds(120))
+            buildContent()
+
+            try? await Task.sleep(for: .seconds(3.9))
             LaunchTrace.mark("splash dismissed")
             hideSplash()
         }
@@ -113,7 +139,18 @@ private struct AppLaunchView<Content: View>: View {
         }
     }
 
+    private func buildContent() {
+        guard !isContentBuilt else { return }
+        isContentBuilt = true
+        LaunchTrace.mark("app content built")
+    }
+
     private func hideSplash() {
+        // A shared link can cut the greeting short before the timer above has
+        // run, so the app has to be built here too — otherwise dismissing the
+        // splash early would reveal an empty window.
+        buildContent()
+
         guard isShowingSplash else { return }
 
         withAnimation(.easeOut(duration: 0.28)) {
