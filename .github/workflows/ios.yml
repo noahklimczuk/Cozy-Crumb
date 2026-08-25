@@ -116,21 +116,33 @@ jobs:
           # and this has spent an evening being green while the app would not
           # open. Matching the model does not make a simulator into a phone,
           # but it removes one difference for free.
+          # Every `grep` here is `|| true`, and it is load-bearing rather than
+          # decoration. The step runs under `bash -e` with `pipefail`, so a
+          # grep that matches nothing makes the whole substitution non-zero and
+          # kills the step on the spot — which is exactly what the first cut of
+          # this did: it printed "Bundle:" and died, on a runner that simply
+          # had no iPhone 16 Pro Max installed. Not finding a model is a normal
+          # outcome to be handled, not a failure.
+          AVAILABLE=$(xcrun simctl list devices available || true)
+
           DEVICE=""
           for NAME in "iPhone 16 Pro Max" "iPhone 16 Pro" "iPhone 16"; do
-            DEVICE=$(xcrun simctl list devices available \
+            DEVICE=$(printf '%s\n' "$AVAILABLE" \
               | grep -F "$NAME (" \
               | head -1 \
-              | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
-            [ -n "$DEVICE" ] && { echo "Simulator: $NAME"; break; }
+              | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/' || true)
+            if [ -n "$DEVICE" ]; then
+              echo "Simulator: $NAME"
+              break
+            fi
           done
 
           if [ -z "$DEVICE" ]; then
-            DEVICE=$(xcrun simctl list devices available \
+            DEVICE=$(printf '%s\n' "$AVAILABLE" \
               | grep -E '^ +iPhone' \
               | head -1 \
-              | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
-            echo "Simulator: first available iPhone (none of the preferred models present)"
+              | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/' || true)
+            echo "Simulator: first available iPhone (no preferred model on this runner)"
           fi
           [ -n "$DEVICE" ] || { echo "::error::No iPhone simulator available."; exit 1; }
 
