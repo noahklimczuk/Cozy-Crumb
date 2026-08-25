@@ -26,6 +26,32 @@ import Foundation
 import os
 
 nonisolated enum LaunchTrace {
+    private static let lastStageKey = "launch.lastStageReached"
+    private static let completedKey = "launch.completed"
+
+    /// How far the *previous* launch got, or nil if it finished.
+    ///
+    /// The on-screen stage cannot report the step it dies on. Updating that
+    /// label means hopping back to the main actor, and a launch that hangs
+    /// hangs the main actor — so the last thing shown is the step *before* the
+    /// one that stalled, and the real answer never reaches the screen.
+    ///
+    /// So each stage is also written straight to `UserDefaults`, which is
+    /// synchronous and survives the process being killed. Force-quit a hung
+    /// launch, open the app again, and the splash can say where the last
+    /// attempt actually stopped. Read once here, before this launch starts
+    /// overwriting it.
+    static let previousLaunchStage: String? = {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: completedKey) { return nil }
+        return defaults.string(forKey: lastStageKey)
+    }()
+
+    /// Called once the app is properly up, so a launch that worked leaves
+    /// nothing behind for the next one to report.
+    static func markLaunchComplete() {
+        UserDefaults.standard.set(true, forKey: completedKey)
+    }
     /// Set on first use, which is the first line of `CozyCrumbApp.init()` —
     /// close enough to process start to be worth reading, and it costs nothing
     /// to be exact about what it measures rather than implying it is the
@@ -48,6 +74,13 @@ nonisolated enum LaunchTrace {
         Log.app.notice(
             "launch: \(stage, privacy: .public) at \(String(format: "%.1fms", elapsed), privacy: .public)"
         )
+
+        // Written synchronously, before anything can block, so the next launch
+        // can report where this one stopped even if it never draws again.
+        _ = previousLaunchStage
+        let defaults = UserDefaults.standard
+        defaults.set(stage, forKey: lastStageKey)
+        defaults.set(false, forKey: completedKey)
 
         // Also put it on the screen. Reading the log needs a Mac, a cable and
         // Console.app, and someone whose app will not open is owed something
@@ -93,4 +126,25 @@ final class LaunchProgress {
     func finish() {
         hasFinished = true
     }
+}
+
+/// Records a stage the first time a view's `body` is entered.
+///
+/// `onAppear` is no use for finding a hang in layout: it fires *after* the
+/// view has been laid out, so a body that never returns never reaches it. This
+/// is called from inside `body` itself, which is the only place that can say
+/// "evaluation got this far".
+///
+/// Called as `let _ = markBodyOnce("…")` at the top of a `body`. The set of
+/// stages already seen is deliberately not observable — this must not
+/// invalidate the view it is measuring.
+@MainActor
+func markBodyOnce(_ stage: String) {
+    guard LaunchBodyMarks.seen.insert(stage).inserted else { return }
+    LaunchTrace.mark(stage)
+}
+
+@MainActor
+private enum LaunchBodyMarks {
+    static var seen: Set<String> = []
 }

@@ -65,6 +65,10 @@ struct LibraryView: View {
     }
 
     var body: some View {
+        // The @Query properties above are read during this evaluation, which
+        // is the suspected stall.
+        let _ = markBodyOnce("cookbook body")
+
         NavigationStack {
             VStack(spacing: 0) {
                 header
