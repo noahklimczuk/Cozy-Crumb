@@ -125,22 +125,78 @@ jobs:
             xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
             rm -f "$REPORTS"/*.ips 2>/dev/null || true
 
-            xcrun simctl launch "$DEVICE" "$BUNDLE_ID"
+            # Keep the PID. `simctl launch` prints "<bundle id>: <pid>", and a
+            # simulator app is a real process on the host, so the host's own
+            # `ps` can answer "is it still up" without going back through
+            # simctl. That matters — see `alive` below.
+            LAUNCH_OUT=$(xcrun simctl launch "$DEVICE" "$BUNDLE_ID")
+            echo "$LAUNCH_OUT"
+            PID=$(printf '%s' "$LAUNCH_OUT" | sed -nE 's/.*: *([0-9]+).*/\1/p')
+            echo "[$MODE] pid: ${PID:-unknown}"
 
-            # Past the four-second splash and into the first real screen, which
-            # is where a SwiftUI launch crash actually happens.
+            # Two shots, because the app spends its first four seconds showing
+            # a splash that holds the real UI at opacity 0. A black splash and a
+            # black app are the same complaint from the outside and completely
+            # different bugs, and only one of them is visible at 25 seconds.
+            capture () {
+              LABEL="$1"
+              SHOT="/tmp/shot-$LABEL.png"
+              xcrun simctl io "$DEVICE" screenshot "$SHOT" >/dev/null 2>&1 || true
+              [ -f "$SHOT" ] || { echo "[$LABEL] no screenshot"; return 0; }
+
+              sips -Z 48 -s format bmp "$SHOT" --out "/tmp/small-$LABEL.bmp" >/dev/null 2>&1 || true
+              VERDICT=$(python3 .github/scripts/blank-screen.py "/tmp/small-$LABEL.bmp" || echo "unknown")
+              echo "[$LABEL] blank screen: $VERDICT"
+
+              sips -Z 220 "$SHOT" --out "/tmp/view-$LABEL.png" >/dev/null 2>&1 || true
+              echo "----- BEGIN SCREENSHOT $LABEL -----"
+              base64 -i "/tmp/view-$LABEL.png" | fold -w 200 || true
+              echo "----- END SCREENSHOT $LABEL -----"
+
+              case "$VERDICT" in yes*) return 1 ;; *) return 0 ;; esac
+            }
+
+            # Mid-splash.
+            sleep 2
+            SPLASH_OK=1
+            capture "$MODE-splash" || SPLASH_OK=""
+
+            # Past the splash and into the first real screen, which is where a
+            # SwiftUI launch failure actually shows up.
             sleep 25
 
-            if xcrun simctl spawn "$DEVICE" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
-              ALIVE=yes
-            else
-              ALIVE=no
-            fi
+            # Asked two ways, and retried, because a single `simctl spawn
+            # launchctl list` is not trustworthy: it spawns a process inside
+            # the simulator and can come back empty or non-zero while the app
+            # is perfectly alive. That is not hypothetical — this step failed a
+            # run with "still running: no" and a screenshot, taken one second
+            # later, of the app's own Library screen. A flaky check that fails
+            # a green app is worse than no check at all, so the host's `ps` on
+            # the launch PID is asked first and the simctl probe is only the
+            # fallback.
+            alive () {
+              if [ -n "$PID" ] && ps -p "$PID" >/dev/null 2>&1; then
+                return 0
+              fi
+              xcrun simctl spawn "$DEVICE" launchctl list 2>/dev/null \
+                | grep -q "$BUNDLE_ID"
+            }
+
+            ALIVE=no
+            for _ in 1 2 3; do
+              if alive; then ALIVE=yes; break; fi
+              sleep 2
+            done
 
             CRASHES=$(grep -lF "Cozy Crumb" "$REPORTS"/*.ips 2>/dev/null || true)
             echo "[$MODE] still running: $ALIVE"
 
-            if [ -n "$CRASHES" ] || [ "$ALIVE" = no ]; then
+            MAIN_OK=1
+            capture "$MODE-main" || MAIN_OK=""
+
+            if [ -n "$MAIN_OK" ] && [ -n "$SPLASH_OK" ]; then BLANK_FAIL=""; else BLANK_FAIL=1; fi
+
+            if [ -n "$CRASHES" ] || [ "$ALIVE" = no ] || [ -n "$BLANK_FAIL" ]; then
               echo "===== [$MODE] what the app logged ====="
               xcrun simctl spawn "$DEVICE" log show --last 3m \
                 --predicate 'processImagePath CONTAINS "Cozy Crumb"' \
