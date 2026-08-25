@@ -72,6 +72,100 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$APPEX"
           /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPrincipalClass" "$APPEX"
 
+      # The app compiling and its unit tests passing says nothing about whether
+      # it survives being opened, which is the one thing every user does first.
+      # A redesign shipped green through this workflow and then crashed on
+      # launch, so the app is now actually started here: installed on a
+      # simulator, launched with its output attached, and left running long
+      # enough to get past the splash and build the first real screen.
+      #
+      # Nothing here stays attached to the app. The first cut of this step
+      # backgrounded `simctl launch --console-pty` and killed the shell's job
+      # afterwards, which does not reliably reap the process simctl spawns — the
+      # runner then waits on it and the step hangs until the job times out, which
+      # is a worse failure than the one it was written to catch. So the app is
+      # launched detached and inspected afterwards, and the step carries its own
+      # timeout as a backstop.
+      #
+      # Failure is judged on a crash report appearing for this bundle rather
+      # than on the launch command's exit code — `simctl launch` reports success
+      # the moment the process is spawned, and a SwiftUI crash happens a beat
+      # later while the first view builds.
+      - name: Launch smoke test
+        timeout-minutes: 8
+        run: |
+          set -o pipefail
+          APP="build/Debug-iphonesimulator/Cozy Crumb.app"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Info.plist")
+          echo "Bundle: $BUNDLE_ID"
+
+          DEVICE=$(xcrun simctl list devices available \
+            | grep -E '^ +iPhone' \
+            | head -1 \
+            | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+          [ -n "$DEVICE" ] || { echo "::error::No iPhone simulator available."; exit 1; }
+
+          xcrun simctl boot "$DEVICE" 2>/dev/null || true
+          xcrun simctl bootstatus "$DEVICE" -b
+
+          # Clear old reports so anything found afterwards belongs to this run.
+          REPORTS=~/Library/Logs/DiagnosticReports
+          mkdir -p "$REPORTS"; rm -f "$REPORTS"/*.ips 2>/dev/null || true
+
+          xcrun simctl install "$DEVICE" "$APP"
+
+          # Both appearances, because a simulator boots light and half this
+          # app's colour system is the dark half. A palette bug that only
+          # resolves after dark is invisible to a light-mode-only smoke test,
+          # which is exactly the gap that let one through.
+          launch_in () {
+            MODE="$1"
+            echo "----- launching in $MODE mode -----"
+            xcrun simctl ui "$DEVICE" appearance "$MODE" || true
+            xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
+            rm -f "$REPORTS"/*.ips 2>/dev/null || true
+
+            xcrun simctl launch "$DEVICE" "$BUNDLE_ID"
+
+            # Past the four-second splash and into the first real screen, which
+            # is where a SwiftUI launch crash actually happens.
+            sleep 25
+
+            if xcrun simctl spawn "$DEVICE" launchctl list 2>/dev/null | grep -q "$BUNDLE_ID"; then
+              ALIVE=yes
+            else
+              ALIVE=no
+            fi
+
+            CRASHES=$(grep -lF "Cozy Crumb" "$REPORTS"/*.ips 2>/dev/null || true)
+            echo "[$MODE] still running: $ALIVE"
+
+            if [ -n "$CRASHES" ] || [ "$ALIVE" = no ]; then
+              echo "===== [$MODE] what the app logged ====="
+              xcrun simctl spawn "$DEVICE" log show --last 3m \
+                --predicate 'processImagePath CONTAINS "Cozy Crumb"' \
+                --style compact 2>/dev/null | tail -80 || true
+
+              for c in $CRASHES; do
+                echo "===== [$MODE] crash report: $c ====="
+                head -140 "$c"
+              done
+              return 1
+            fi
+            return 0
+          }
+
+          FAILED=""
+          launch_in light || FAILED="$FAILED light"
+          launch_in dark  || FAILED="$FAILED dark"
+
+          if [ -n "$FAILED" ]; then
+            echo "::error::The app did not survive launch in:$FAILED"
+            exit 1
+          fi
+
+          echo "The app launched and stayed up in both appearances."
+
       # Runs against the shared scheme, which builds the app as the test host
       # and then the test bundle. The simulator is picked from whatever the
       # runner actually has rather than named outright — a hard-coded device
