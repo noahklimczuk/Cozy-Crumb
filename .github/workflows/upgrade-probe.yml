@@ -1,0 +1,212 @@
+name: Upgrade probe
+
+# A diagnostic, not a gate. The launch smoke test in ios.yml installs the app
+# onto a clean simulator every time, so it only ever exercises a first run: no
+# store, no defaults, nothing to migrate. The one report we have of a black
+# screen on launch comes from a phone that has been running this app for
+# weeks — an existing store, written by an older build, opened by a new one.
+#
+# That is the single scenario CI structurally cannot reach, and the smoke test
+# passing on main while the app is reported black is exactly the shape of a bug
+# that lives in it. So this builds both sides, runs the old one first to leave a
+# real store behind, and then upgrades over the top the way a phone does.
+#
+# Deliberately its own workflow: it builds the project twice and is worth
+# running while a launch bug is open, not on every push forever.
+
+on:
+  push:
+    branches:
+      - "claude/diagnose-**"
+  workflow_dispatch:
+
+concurrency:
+  group: upgrade-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The last commit before the redesign landed — merge of #59, the pantry
+  # revamp. A store written here is the one a user upgrading into the
+  # redesign actually brings with them.
+  BEFORE_REDESIGN: 4691b39
+
+jobs:
+  probe:
+    name: Old store, new binary
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+        with:
+          # Both sides of the upgrade are built from this clone, so the
+          # pre-redesign commit has to be in it.
+          fetch-depth: 0
+
+      - name: Build the pre-redesign app
+        run: |
+          set -o pipefail
+          git checkout --detach "$BEFORE_REDESIGN"
+          xcodebuild build \
+            -project "Cozy Crumb.xcodeproj" \
+            -target "Cozy Crumb" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            | tail -5
+          rm -rf /tmp/old-app && mkdir -p /tmp/old-app
+          cp -R "build/Debug-iphonesimulator/Cozy Crumb.app" /tmp/old-app/
+          rm -rf build
+
+      - name: Build the current app
+        run: |
+          set -o pipefail
+          git checkout --detach "$GITHUB_SHA"
+          xcodebuild build \
+            -project "Cozy Crumb.xcodeproj" \
+            -target "Cozy Crumb" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            | tail -5
+          rm -rf /tmp/new-app && mkdir -p /tmp/new-app
+          cp -R "build/Debug-iphonesimulator/Cozy Crumb.app" /tmp/new-app/
+
+      - name: Run the old build, then upgrade over it
+        timeout-minutes: 20
+        run: |
+          set -o pipefail
+          APP_OLD="/tmp/old-app/Cozy Crumb.app"
+          APP_NEW="/tmp/new-app/Cozy Crumb.app"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_NEW/Info.plist")
+          echo "Bundle: $BUNDLE_ID"
+
+          DEVICE=$(xcrun simctl list devices available \
+            | grep -E '^ +iPhone' \
+            | head -1 \
+            | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+          [ -n "$DEVICE" ] || { echo "::error::No iPhone simulator available."; exit 1; }
+
+          xcrun simctl boot "$DEVICE" 2>/dev/null || true
+          xcrun simctl bootstatus "$DEVICE" -b
+
+          REPORTS=~/Library/Logs/DiagnosticReports
+          mkdir -p "$REPORTS"; rm -f "$REPORTS"/*.ips 2>/dev/null || true
+
+          capture () {
+            LABEL="$1"
+            SHOT="/tmp/shot-$LABEL.png"
+            xcrun simctl io "$DEVICE" screenshot "$SHOT" >/dev/null 2>&1 || true
+            [ -f "$SHOT" ] || { echo "[$LABEL] no screenshot"; return 0; }
+
+            sips -Z 48 -s format bmp "$SHOT" --out "/tmp/small-$LABEL.bmp" >/dev/null 2>&1 || true
+            VERDICT=$(python3 .github/scripts/blank-screen.py "/tmp/small-$LABEL.bmp" || echo "unknown")
+            echo "[$LABEL] blank screen: $VERDICT"
+
+            sips -Z 220 "$SHOT" --out "/tmp/view-$LABEL.png" >/dev/null 2>&1 || true
+            echo "----- BEGIN SCREENSHOT $LABEL -----"
+            base64 -i "/tmp/view-$LABEL.png" | fold -w 200 || true
+            echo "----- END SCREENSHOT $LABEL -----"
+
+            case "$VERDICT" in yes*) return 1 ;; *) return 0 ;; esac
+          }
+
+          # The app's process is a real host process, so ask the host rather
+          # than spawning a probe inside the simulator — that probe is flaky
+          # and has already failed a run with a perfectly healthy app.
+          alive () {
+            [ -n "$PID" ] && ps -p "$PID" >/dev/null 2>&1
+          }
+
+          # Dark first: it is the appearance the black screen was reported in,
+          # and the generated launch screen (UILaunchScreen_Generation) is a
+          # bare systemBackground — which after dark is black. An app that
+          # never gets past its first render looks exactly like the complaint.
+          probe_appearance () {
+            MODE="$1"
+            echo "===== $MODE ====="
+            xcrun simctl ui "$DEVICE" appearance "$MODE" || true
+
+            # A clean slate, so the only store in play is the one the old
+            # build is about to write.
+            xcrun simctl uninstall "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
+            rm -f "$REPORTS"/*.ips 2>/dev/null || true
+
+            echo "--- old build ($BEFORE_REDESIGN), from nothing ---"
+            xcrun simctl install "$DEVICE" "$APP_OLD"
+            OUT=$(xcrun simctl launch "$DEVICE" "$BUNDLE_ID" || true)
+            echo "$OUT"
+            PID=$(printf '%s' "$OUT" | sed -nE 's/.*: *([0-9]+).*/\1/p')
+            # Long enough for the splash, the seed install and every backfill
+            # in RootTabView's .task to finish and be written down.
+            sleep 35
+            capture "$MODE-old" || true
+            xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
+            sleep 2
+
+            echo "--- new build over the top, same container ---"
+            # `install` over an existing app keeps the data container, which
+            # is the whole point: the store the old build just wrote is still
+            # there when the new binary opens it.
+            xcrun simctl install "$DEVICE" "$APP_NEW"
+            OUT=$(xcrun simctl launch "$DEVICE" "$BUNDLE_ID" || true)
+            echo "$OUT"
+            PID=$(printf '%s' "$OUT" | sed -nE 's/.*: *([0-9]+).*/\1/p')
+            echo "[$MODE] pid: ${PID:-unknown}"
+
+            sleep 2
+            UPGRADED_SPLASH=1
+            capture "$MODE-upgraded-splash" || UPGRADED_SPLASH=""
+
+            sleep 25
+            ALIVE=no
+            for _ in 1 2 3; do
+              if alive; then ALIVE=yes; break; fi
+              sleep 2
+            done
+            echo "[$MODE] still running after upgrade: $ALIVE"
+
+            UPGRADED_MAIN=1
+            capture "$MODE-upgraded-main" || UPGRADED_MAIN=""
+
+            CRASHES=$(grep -lF "Cozy Crumb" "$REPORTS"/*.ips 2>/dev/null || true)
+
+            # Printed every time, pass or fail. This workflow exists to find
+            # something, and the log of a launch that worked is the baseline
+            # the log of a launch that didn't gets read against.
+            echo "----- [$MODE] what the app logged -----"
+            xcrun simctl spawn "$DEVICE" log show --last 2m \
+              --predicate 'processImagePath CONTAINS "Cozy Crumb"' \
+              --style compact 2>/dev/null | tail -60 || true
+
+            for c in $CRASHES; do
+              echo "----- [$MODE] crash report: $c -----"
+              head -140 "$c"
+            done
+
+            if [ -n "$CRASHES" ] || [ "$ALIVE" = no ] \
+               || [ -z "$UPGRADED_SPLASH" ] || [ -z "$UPGRADED_MAIN" ]; then
+              return 1
+            fi
+            return 0
+          }
+
+          FAILED=""
+          probe_appearance dark  || FAILED="$FAILED dark"
+          probe_appearance light || FAILED="$FAILED light"
+
+          if [ -n "$FAILED" ]; then
+            echo "::error::The upgraded app failed in:$FAILED — this reproduces the reported black screen."
+            exit 1
+          fi
+
+          echo "The app survived the upgrade in both appearances."
