@@ -32,14 +32,21 @@ nonisolated enum LaunchTrace {
     /// process's own clock.
     private static let start = DispatchTime.now().uptimeNanoseconds
 
-    private static var elapsedMilliseconds: Double {
-        Double(DispatchTime.now().uptimeNanoseconds &- start) / 1_000_000
-    }
-
     /// Names a launch stage that has been *reached*. Call it after the work,
     /// not before, so the last line printed is the last thing that finished.
     static func mark(_ stage: String) {
-        let elapsed = String(format: "%.1fms", elapsedMilliseconds)
-        Log.app.notice("launch: \(stage, privacy: .public) at \(elapsed, privacy: .public)")
+        // `start` is read before the clock, and the order matters. It is a
+        // lazy static, so the very first `mark` is what initialises it —
+        // reading the clock first meant capturing a `now` from *before* the
+        // baseline existed, and the subtraction then went negative. The first
+        // line of every trace printed "18446744073709.5ms", which is what an
+        // unsigned wrap looks like when a masking `&-` swallows it.
+        let begin = start
+        let now = DispatchTime.now().uptimeNanoseconds
+        let elapsed = now > begin ? Double(now - begin) / 1_000_000 : 0
+
+        Log.app.notice(
+            "launch: \(stage, privacy: .public) at \(String(format: "%.1fms", elapsed), privacy: .public)"
+        )
     }
 }
