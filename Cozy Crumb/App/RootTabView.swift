@@ -138,7 +138,13 @@ struct RootTabView: View {
         .sheet(item: $sharedLink) { link in
             ImportFlowView(initialURL: link.url)
         }
+        // Every pass below is synchronous and runs on the main actor, over a
+        // store that grows with use. On a fresh simulator they are instant,
+        // which is exactly why they are worth timing on a real phone: a launch
+        // that is merely slow here and a launch that is stuck are the same
+        // black screen to whoever is holding it.
         .task {
+            LaunchTrace.mark("launch passes started")
             SeedData.installIfNeeded(in: modelContext)
             // Re-reads ingredient lines saved before the caption parsing
             // fixes, so recipes already in the library start scaling too.
@@ -160,6 +166,7 @@ struct RootTabView: View {
             // The recipes they mean to make and never do. Once a day.
             AspirationGapDetector.runIfDue(in: modelContext)
             TasteProfileStore.rebuildIfStale(in: modelContext)
+            LaunchTrace.mark("launch passes finished")
         }
     }
 }
