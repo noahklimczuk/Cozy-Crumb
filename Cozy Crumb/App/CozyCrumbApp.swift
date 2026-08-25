@@ -229,12 +229,22 @@ private struct CupcakeSplashView: View {
 
                 // Quiet and small — it is a progress line, not a headline —
                 // but legible enough to read off a photograph of the phone.
-                Text("\(progress.stage) · \(progress.elapsed)")
-                    .cozyText(CozyFont.caption2, color: CozyColor.inkOnAccent)
-                    .opacity(0.55)
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .padding(.top, CozySpacing.s)
+                VStack(spacing: 2) {
+                    Text("\(progress.stage) · \(progress.elapsed)")
+                        .monospacedDigit()
+
+                    // What the last attempt reached, if it never finished.
+                    // This is the line that can name the step a hang dies on —
+                    // the live one above cannot, because updating it needs the
+                    // main actor that the hang is holding.
+                    if let previous = LaunchTrace.previousLaunchStage {
+                        Text("last attempt stopped after: \(previous)")
+                    }
+                }
+                .cozyText(CozyFont.caption2, color: CozyColor.inkOnAccent)
+                .opacity(0.55)
+                .multilineTextAlignment(.center)
+                .padding(.top, CozySpacing.s)
             }
         }
         .accessibilityElement(children: .combine)

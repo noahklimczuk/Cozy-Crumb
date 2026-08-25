@@ -88,6 +88,10 @@ struct RootTabView: View {
     }
 
     var body: some View {
+        // Entered before anything is laid out, so a body that never returns
+        // still records that it started.
+        let _ = markBodyOnce("root tab view body")
+
         TabView(selection: $selection) {
             Tab(CozyTab.library.title, systemImage: CozyTab.library.symbol, value: .library) {
                 LibraryView()
@@ -169,6 +173,9 @@ struct RootTabView: View {
             await pass("taste profile") { TasteProfileStore.rebuildIfStale(in: modelContext) }
 
             LaunchTrace.mark("launch passes finished")
+            // Got all the way through, so the next launch has nothing to
+            // report about this one.
+            LaunchTrace.markLaunchComplete()
         }
     }
 
