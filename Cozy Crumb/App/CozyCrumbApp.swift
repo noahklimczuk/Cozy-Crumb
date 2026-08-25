@@ -191,6 +191,15 @@ private struct AppLaunchView<Content: View>: View {
 }
 
 private struct CupcakeSplashView: View {
+    /// The last launch stage that finished, shown under the tagline.
+    ///
+    /// A launch that stalls is invisible from outside — the app is up, the
+    /// screen is still, and nothing says whether it is working or stuck. This
+    /// makes the difference photographable: whatever this line reads when it
+    /// stops is the last thing that completed, and the problem is the step
+    /// after it.
+    @State private var progress = LaunchProgress.shared
+
     var body: some View {
         ZStack {
             // Sampled from the supplied icon's pink edge so the artwork appears
@@ -217,9 +226,18 @@ private struct CupcakeSplashView: View {
                     .cozyDisplayTracking(CozyTracking.title, relativeTo: .title)
                 Text(AppBranding.tagline)
                     .cozyText(CozyFont.subheadline, color: CozyColor.inkOnAccent)
+
+                // Quiet and small — it is a progress line, not a headline —
+                // but legible enough to read off a photograph of the phone.
+                Text("\(progress.stage) · \(progress.elapsed)")
+                    .cozyText(CozyFont.caption2, color: CozyColor.inkOnAccent)
+                    .opacity(0.55)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .padding(.top, CozySpacing.s)
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Cozy Crumb is loading")
+        .accessibilityLabel("Cozy Crumb is loading. \(progress.stage).")
     }
 }
