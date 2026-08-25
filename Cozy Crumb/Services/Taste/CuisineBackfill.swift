@@ -23,9 +23,23 @@ import os
 @MainActor
 enum CuisineBackfill {
 
+    /// Bumped whenever `CuisineClassifier` learns to place something it could
+    /// not place before. Same reasoning as `IngredientRepair.parserVersion`:
+    /// a recipe the classifier cannot read stays `nil`, so it is still a
+    /// candidate next launch and the pass never finishes on its own. The note
+    /// above called it "cheap enough to" run every launch on the strength of
+    /// "steady state is a single fetch and no writes" — but the fetch is every
+    /// recipe in the cookbook, and the classifier runs again on every one it
+    /// failed to place last time.
+    static let classifierVersion = 1
+
     /// Classifies everything that needs it. Returns how many were written.
     @discardableResult
-    static func run(in modelContext: ModelContext) -> Int {
+    static func run(in modelContext: ModelContext, defaults: UserDefaults = .standard) -> Int {
+        guard defaults.integer(forKey: CozyDefaultsKey.cuisineBackfillVersion) < classifierVersion else {
+            return 0
+        }
+
         let recipes: [Recipe]
         do {
             recipes = try modelContext.fetch(FetchDescriptor<Recipe>())
@@ -42,7 +56,10 @@ enum CuisineBackfill {
             written += 1
         }
 
-        guard written > 0 else { return 0 }
+        guard written > 0 else {
+            markDone(in: defaults)
+            return 0
+        }
 
         do {
             try modelContext.save()
@@ -52,7 +69,12 @@ enum CuisineBackfill {
         }
 
         Log.data.info("Classified \(written, privacy: .public) recipes by cuisine")
+        markDone(in: defaults)
         return written
+    }
+
+    private static func markDone(in defaults: UserDefaults) {
+        defaults.set(classifierVersion, forKey: CozyDefaultsKey.cuisineBackfillVersion)
     }
 
     /// Classifies one recipe now — called at the end of an import so a new

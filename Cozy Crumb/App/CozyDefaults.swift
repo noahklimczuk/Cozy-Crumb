@@ -41,4 +41,13 @@ nonisolated enum CozyDefaultsKey {
     static let hasSeenTasteOnboarding = "taste.hasSeenOnboarding"
     /// When the weekly reflection last ran.
     static let lastWeeklyReflectionAt = "taste.lastWeeklyReflectionAt"
+
+    /// The parser version the ingredient repair pass has already been run at,
+    /// and the classifier version the cuisine backfill has. Both passes walk
+    /// the whole store, and neither converges on its own: a line with no
+    /// quantity to find and a recipe the classifier cannot place stay
+    /// candidates forever, so without these they redo the same fruitless work
+    /// on every single launch. See `IngredientRepair.parserVersion`.
+    static let ingredientRepairVersion = "repair.ingredientParserVersion"
+    static let cuisineBackfillVersion = "repair.cuisineClassifierVersion"
 }
