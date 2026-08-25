@@ -24,7 +24,9 @@ struct CozyCrumbApp: App {
     @State private var isSplashSkipped = false
 
     init() {
+        LaunchTrace.mark("app init")
         modelContainer = Self.makeModelContainer()
+        LaunchTrace.mark("model container ready")
     }
 
     var body: some Scene {
@@ -45,11 +47,16 @@ struct CozyCrumbApp: App {
         let schema = Schema(versionedSchema: CozyCrumbCurrentSchema.self)
 
         do {
-            return try ModelContainer(
+            let container = try ModelContainer(
                 for: schema,
                 migrationPlan: CozyCrumbMigrationPlan.self,
                 configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             )
+            // Named separately from "model container ready" so the log
+            // distinguishes a store that opened from one that quietly fell
+            // back — an app that came up empty is a different bug report.
+            LaunchTrace.mark("persistent store opened")
+            return container
         } catch {
             Log.data.error(
                 "Persistent store unavailable, falling back to in-memory: \(error.localizedDescription, privacy: .public)"
@@ -57,10 +64,12 @@ struct CozyCrumbApp: App {
         }
 
         do {
-            return try ModelContainer(
+            let container = try ModelContainer(
                 for: schema,
                 configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
             )
+            LaunchTrace.mark("in-memory store opened")
+            return container
         } catch {
             fatalError("Could not create an in-memory ModelContainer: \(error)")
         }
@@ -87,8 +96,15 @@ private struct AppLaunchView<Content: View>: View {
                     .transition(.opacity)
             }
         }
+        // The single most useful line in the log. Reaching it means SwiftUI
+        // evaluated this whole ZStack — the splash *and* `content()`, which is
+        // the entire RootTabView — and put a frame on screen. Not reaching it
+        // means the app is still on the system launch screen, and everything
+        // after this point in launch is irrelevant to whatever went wrong.
+        .onAppear { LaunchTrace.mark("first frame on screen") }
         .task {
             try? await Task.sleep(for: .seconds(4))
+            LaunchTrace.mark("splash dismissed")
             hideSplash()
         }
         .onChange(of: isSkipped) { _, skipped in
