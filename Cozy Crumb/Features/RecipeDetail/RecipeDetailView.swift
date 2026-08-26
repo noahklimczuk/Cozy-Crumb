@@ -15,6 +15,7 @@ struct RecipeDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.cozyMotion) private var motion
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     @AppStorage(CozyDefaultsKey.measurementSystem)
     private var systemRaw = MeasurementSystem.asWritten.rawValue
@@ -64,7 +65,7 @@ struct RecipeDetailView: View {
         ScrollView {
             VStack(spacing: CozySpacing.l) {
                 hero(height: CozyMetrics.recipeHeroHeight)
-                heading
+                if !titleOnHero { heading(onHero: false) }
                 reviewBanner
                 cookModeButton
                 ingredientsSection
@@ -200,10 +201,12 @@ struct RecipeDetailView: View {
 
     // MARK: - Hero
 
-    /// The picture, full-bleed at the top of the recipe.
+    /// The picture and the title, as one thing.
     ///
-    /// Nothing is set over it any more — see `heading` for why the title came
-    /// back down onto the page.
+    /// The title used to sit on the page below the image, under an inline
+    /// navigation bar carrying it a second time. Setting it *on* the hero buys
+    /// back a whole screen-width of vertical space, and at 44pt in the display
+    /// face it is the recipe's name rather than a caption for the photograph.
     private func hero(height: CGFloat) -> some View {
         GeometryReader { proxy in
             let minY = proxy.frame(in: .named(Self.scrollSpace)).minY
@@ -215,23 +218,22 @@ struct RecipeDetailView: View {
                 .offset(y: -stretch)
         }
         .frame(height: height)
+        .overlay(alignment: .bottomLeading) {
+            if titleOnHero { heading(onHero: true) }
+        }
         .clipped()
     }
 
-    /// The recipe's name, on the page under the picture rather than on it.
+    /// Whether the title is set on the picture or on the page under it.
     ///
-    /// It used to be set over the hero, which meant ink on an unknown
-    /// photograph, which meant a scrim underneath to keep it readable — a
-    /// gradient that reads as a drop shadow smeared behind the title. Nothing
-    /// else in the app puts a shadow behind text, and the fix is not a better
-    /// scrim: it is not asking a photograph to be a background for 44pt type.
-    /// On cream the title is legible with nothing behind it at all.
-    ///
-    /// It also settles a layout problem the scrim never solved. The hero is a
-    /// fixed 330pt and a 44pt title at AX5 is not, so the heading already had
-    /// to come off the picture past AX1 or `.clipped()` would take the top off
-    /// the recipe's name. There is now one arrangement instead of two.
-    private var heading: some View {
+    /// The hero is a fixed 330pt, and a 44pt title at an accessibility size is
+    /// not: two lines of AX5 plus a summary and two pills is taller than the
+    /// image they are supposed to sit on, and `.clipped()` would take the top
+    /// off the recipe's name. So past AX1 the heading comes off the hero and
+    /// goes back on the page, where it can be as tall as it needs to be.
+    private var titleOnHero: Bool { !typeSize.isAccessibilitySize }
+
+    private func heading(onHero: Bool) -> some View {
         VStack(alignment: .leading, spacing: CozySpacing.s) {
             // Still the source *pill*, and still a link when there is one to
             // follow — it just isn't shaped like a chip any more.
@@ -244,28 +246,59 @@ struct RecipeDetailView: View {
             }
 
             Text(recipe.title)
-                .cozyText(CozyFont.display, color: CozyColor.inkPrimary)
+                .cozyText(CozyFont.display, color: onHero ? CozyColor.inkOnAccent : CozyColor.inkPrimary)
                 .cozyDisplayTracking(CozyTracking.display)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let summary = recipe.summary {
                 Text(summary)
-                    .cozyText(CozyFont.subheadline, color: CozyColor.inkSecondary)
+                    .cozyText(CozyFont.subheadline,
+                              color: onHero ? CozyColor.inkOnAccent : CozyColor.inkSecondary)
+                    .lineLimit(onHero ? 2 : nil)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            // creamDeep on cream: a real pill now that there is no photograph
-            // under it to make an opaque fill look like a sticker.
+            // Translucent white on the picture, creamDeep on the page: an
+            // opaque pill on a photograph is a sticker, and a translucent one
+            // on cream is barely a pill at all.
             HStack(spacing: CozySpacing.xs) {
                 if let time = recipe.totalTimeDisplay {
-                    PillTag(text: time, tint: CozyColor.creamDeep, ink: CozyColor.inkSecondary)
+                    PillTag(text: time, tint: pillFill(onHero), ink: pillInk(onHero))
                 }
                 PillTag(text: "Serves \(viewModel.servings)",
-                        tint: CozyColor.creamDeep, ink: CozyColor.inkSecondary)
+                        tint: pillFill(onHero), ink: pillInk(onHero))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, CozySpacing.l)
+        .padding(.bottom, onHero ? CozySpacing.l : 0)
+        .background(alignment: .bottom) {
+            // The hero can be a photograph, and ink on an unknown photograph is
+            // a coin toss. A scrim under the text costs nothing on the
+            // procedural placeholders and is the only thing making a 44pt
+            // title readable over a bright picture.
+            if onHero {
+                // `heroScrim`, not `surfaceOnAccent`: a scrim is a contrast
+                // guarantee rather than a surface, and it is opaque enough to
+                // be one. Both are now a single value in either appearance,
+                // because the ink over them — `inkOnAccent` — is too.
+                LinearGradient(
+                    colors: [CozyColor.heroScrim.opacity(0), CozyColor.heroScrim],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 260)
+                .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private func pillFill(_ onHero: Bool) -> Color {
+        onHero ? CozyColor.surfaceOnAccent : CozyColor.creamDeep
+    }
+
+    private func pillInk(_ onHero: Bool) -> Color {
+        onHero ? CozyColor.inkOnAccent : CozyColor.inkSecondary
     }
 
     /// The "I guessed at this one" warning.

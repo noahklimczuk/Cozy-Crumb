@@ -163,6 +163,13 @@ enum CozyColor {
     /// or its own offset shows through. See `cozyPaled`.
     nonisolated static let surfaceOnAccent = Color.white.opacity(0.80)
 
+    /// The scrim under a recipe's title where it is set over the hero.
+    ///
+    /// This one is not a surface, it is a contrast guarantee: the hero can be
+    /// any photograph the user imported. The ink over it is `inkOnAccent`,
+    /// which no longer changes with the appearance, so neither does this.
+    nonisolated static let heroScrim = Color.white.opacity(0.82)
+
     /// The grout in the tile grid where it runs over an accent ground.
     ///
     /// `outline` is tuned against cream, so over a painted ground it needs its
@@ -389,10 +396,19 @@ enum CozyMetrics {
     /// 92 rather than 58, because the bar is no longer a strip of glyphs: it
     /// is a painted blush slab with a selected item drawn in a 36pt block.
     ///
-    /// The Sous Chef's cupcake used to stand proud of the top of the bar, and
-    /// the bar reserved that overhang as real padding. It sits on the row with
-    /// the other four now, so there is nothing extra to reserve.
+    /// This is the painted slab only. The bar is `tabBarContentGap` taller.
     nonisolated static let tabBarHeight: CGFloat = 92
+
+    /// The clear strip above the painted slab, and the gap every scroll view
+    /// in the app stops at.
+    ///
+    /// `safeAreaInset` hands screens the bar's whole height, so this is the
+    /// only thing keeping content off the pink. It was introduced to reserve
+    /// room for the Sous Chef's cupcake standing out of the bar; the cupcake
+    /// sits on the row now, and removing the strip with it put the last row of
+    /// every list under the slab, along with the block that draws 4pt below
+    /// each card. It stays, for the job it was quietly also doing.
+    nonisolated static let tabBarContentGap: CGFloat = 16
 
     /// A quiet header glyph — the ellipsis on Groceries. Smaller than
     /// `addButtonDiameter`, still a full touch target thanks to its frame.
@@ -437,26 +453,42 @@ extension View {
     /// Offset straight down rather than diagonally, so it reads the same in a
     /// right-to-left layout.
     ///
-    /// SwiftUI shadows the composited view, so this belongs on something with
-    /// an opaque fill — on a bare `Text` it would draw a solid coloured copy
-    /// of the glyphs 4pt below them.
+    /// `compositingGroup()` first, and it is not optional.
+    ///
+    /// `.shadow()` does not shadow the finished picture. It propagates down
+    /// the subtree and shadows every drawing primitive in it separately, so a
+    /// card wearing this drew a hard offset copy of its own fill *and* a hard
+    /// offset copy of every glyph sitting on that fill — a 4pt drop shadow on
+    /// the title of every recipe card, on "Start cooking", on the text in every
+    /// pill. On a card with an opaque background that is not a subtle artefact:
+    /// the glyph copies land on top of the fill, where nothing hides them.
+    ///
+    /// `compositingGroup()` flattens the subtree into one layer first, so the
+    /// shadow is taken from the card's silhouette and the type on it stays flat.
     ///
     /// `color` defaults to the generic warm beige, which is what a white card
     /// wants. A control filled with a palette colour passes that palette's
     /// `block` instead, so its offset is a darker version of its own fill.
     func cozyBlockShadow(_ depth: CGFloat = CozyDepth.block,
                          color: Color = CozyColor.block) -> some View {
-        shadow(color: color, radius: 0, x: 0, y: depth)
+        compositingGroup()
+            .shadow(color: color, radius: 0, x: 0, y: depth)
     }
 
     /// Soft, warm-tinted elevation. Kept for the handful of things that really
     /// do float above the page — toasts, popovers — rather than sit on it.
+    ///
+    /// Composited for the same reason as `cozyBlockShadow`: a blurred copy of
+    /// the glyphs is harder to spot than a hard one, but it is the same bug and
+    /// it is what makes text on a floating card look faintly smeared.
     func cozyCardShadow() -> some View {
-        shadow(color: CozyColor.shadow, radius: 10, x: 0, y: 5)
+        compositingGroup()
+            .shadow(color: CozyColor.shadow, radius: 10, x: 0, y: 5)
     }
 
     /// Lighter blurred elevation, same caveat as `cozyCardShadow`.
     func cozyLiftShadow() -> some View {
-        shadow(color: CozyColor.shadow, radius: 6, x: 0, y: 3)
+        compositingGroup()
+            .shadow(color: CozyColor.shadow, radius: 6, x: 0, y: 3)
     }
 }
