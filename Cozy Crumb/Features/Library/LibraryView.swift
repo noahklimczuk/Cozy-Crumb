@@ -87,6 +87,10 @@ struct LibraryView: View {
             .navigationDestination(item: $openedCollection) { collection in
                 CollectionFolderView(collection: collection, sort: viewModel.sort)
             }
+            // Built when a card is tapped, not when the grid is laid out.
+            .navigationDestination(for: Recipe.self) { recipe in
+                RecipeDetailView(recipe: recipe)
+            }
             .sheet(isPresented: $isImporting) {
                 importSheet
             }
@@ -418,9 +422,13 @@ struct LibraryView: View {
 
         return LazyVGrid(columns: columns, spacing: CozySpacing.m) {
             ForEach(Array(recipes.enumerated()), id: \.element.id) { index, recipe in
-                NavigationLink {
-                    RecipeDetailView(recipe: recipe)
-                } label: {
+                // `NavigationLink(value:)`, not the closure form. The closure
+                // form builds its destination as the link is created, so a
+                // grid of eleven cards was constructing eleven entire recipe
+                // screens — each with its own queries and state — in order to
+                // draw eleven thumbnails, before the first frame. The value
+                // form builds nothing until the row is actually tapped.
+                NavigationLink(value: recipe) {
                     RecipeCard(recipe: recipe, index: index) {
                         toggleFavorite(recipe)
                     }
@@ -632,9 +640,10 @@ private struct CollectionFolderView: View {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: CozySpacing.m) {
                         ForEach(Array(sorted.enumerated()), id: \.element.id) { index, recipe in
-                            NavigationLink {
-                                RecipeDetailView(recipe: recipe)
-                            } label: {
+                            // Value-based for the same reason as the Cookbook's
+                            // grid: the closure form builds every destination up
+                            // front.
+                            NavigationLink(value: recipe) {
                                 RecipeCard(recipe: recipe, index: index) { toggleFavorite(recipe) }
                             }
                             .buttonStyle(.plain)

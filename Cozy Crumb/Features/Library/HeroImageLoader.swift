@@ -70,7 +70,14 @@ nonisolated enum HeroImageLoader {
     /// hands it to a detached task.
     static func decode(_ data: Data, id: UUID, maxPixelSize: CGFloat) -> UIImage? {
         if let hit = cache.object(forKey: key(id, maxPixelSize)) { return hit }
+        guard let image = downsample(data, maxPixelSize: maxPixelSize) else { return nil }
+        cache.setObject(image, forKey: key(id, maxPixelSize))
+        return image
+    }
 
+    /// The same decode without the cache, for images that have no recipe to be
+    /// keyed by — a photo being reviewed on the way in, for instance.
+    static func downsample(_ data: Data, maxPixelSize: CGFloat) -> UIImage? {
         // `kCGImageSourceShouldCache: false` on the source: the point is to
         // avoid holding the full-size representation anywhere, and caching it
         // here would put it straight back.
@@ -94,9 +101,7 @@ nonisolated enum HeroImageLoader {
             return nil
         }
 
-        let image = UIImage(cgImage: thumbnail)
-        cache.setObject(image, forKey: key(id, maxPixelSize))
-        return image
+        return UIImage(cgImage: thumbnail)
     }
 
     private static func key(_ id: UUID, _ maxPixelSize: CGFloat) -> NSString {
