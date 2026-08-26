@@ -47,7 +47,13 @@ nonisolated enum HeroImageLoader {
     /// `NSCache` rather than a dictionary: it evicts itself under memory
     /// pressure, which is the exact condition this code is here to avoid
     /// making worse.
-    private static let cache: NSCache<NSString, UIImage> = {
+    ///
+    /// `nonisolated(unsafe)` because `NSCache` predates `Sendable` and has
+    /// never been annotated, so the compiler assumes the worst. Apple
+    /// documents it as safe to use from multiple threads without external
+    /// locking, which is the whole reason it is the right container here: the
+    /// decode runs off the main actor and the lookup runs on it.
+    nonisolated(unsafe) private static let cache: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
         cache.countLimit = 60
         return cache
