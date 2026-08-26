@@ -7,9 +7,9 @@
 //  appearance and whether haptics fire.
 //
 //  The `TabView` is still here with the system bar hidden, and `MascotTabBar`
-//  drives its selection from the bottom inset. See the note at the top of that
-//  file for why the container stays: it owns the five children, so each tab
-//  keeps its own NavigationStack across a switch.
+//  drives its selection from an overlay at the bottom. See the note at the top
+//  of that file for why the container stays: it owns the five children, so each
+//  tab keeps its own NavigationStack across a switch.
 //
 
 import SwiftData
@@ -90,22 +90,23 @@ struct RootTabView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab(CozyTab.library.title, systemImage: CozyTab.library.symbol, value: .library) {
-                LibraryView()
+                LibraryView().cozyTabBarClearance()
             }
             Tab(CozyTab.groceries.title, systemImage: CozyTab.groceries.symbol, value: .groceries) {
-                GroceriesView()
+                GroceriesView().cozyTabBarClearance()
             }
             Tab(CozyTab.sousChef.title, systemImage: CozyTab.sousChef.symbol, value: .sousChef) {
-                SousChefView()
+                SousChefView().cozyTabBarClearance()
             }
             Tab(CozyTab.pantry.title, systemImage: CozyTab.pantry.symbol, value: .pantry) {
-                PantryView()
+                PantryView().cozyTabBarClearance()
             }
             Tab(CozyTab.settings.title, systemImage: CozyTab.settings.symbol, value: .settings) {
                 SettingsView(
                     accentSelection: accentBinding,
                     appearance: appearanceBinding
                 )
+                .cozyTabBarClearance()
             }
         }
         // The system bar goes away, but its owner does not — every tab keeps
@@ -113,7 +114,24 @@ struct RootTabView: View {
         // required and are what VoiceOver would fall back to if this hiding
         // ever stopped taking effect.
         .toolbar(.hidden, for: .tabBar)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        // An overlay, and the clearance done per tab above, rather than one
+        // `safeAreaInset` on the TabView.
+        //
+        // A safe-area inset on a `TabView` does not reliably reach the views
+        // inside its tabs. What it does reach is anything that reads the safe
+        // area *outside* — so the bar drew in the right place while the screens
+        // under it were laid out as though it were not there. Every screen with
+        // a bottom bar of its own put that bar underneath this one: the Sous
+        // Chef's composer, the grocery list's export bar, the meal plan's shop
+        // bar. They were sitting on the home indicator, which is exactly where
+        // a view that has been told about the home indicator and nothing else
+        // would sit.
+        //
+        // An overlay contributes no safe area at all, so there is now exactly
+        // one thing insetting content — `cozyTabBarClearance`, applied to each
+        // tab's own root, where a plain modifier propagates normally. One
+        // source of the number, and no way for the two to disagree.
+        .overlay(alignment: .bottom) {
             MascotTabBar(selection: $selection)
         }
         .tint(accent.deep)
