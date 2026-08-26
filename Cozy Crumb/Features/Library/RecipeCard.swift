@@ -34,9 +34,19 @@ struct RecipeCard: View {
             hero
             details
         }
-        // Fill the row's height so two cards side by side line up even when one
-        // title wraps to two lines and the other doesn't.
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Width only. `maxHeight: .infinity` here asked the cell to fill its
+        // row's height — but in a LazyVGrid the row's height is decided by the
+        // cells in it, so the cell was asking the row for a number the row was
+        // waiting on the cell to supply. With `ViewThatFits` measuring inside
+        // that same unresolved negotiation, the layout had no fixed point to
+        // settle on and body evaluation never returned.
+        //
+        // The two cards in a row no longer match heights exactly when one
+        // title wraps and its neighbour doesn't. `lineLimit(2,
+        // reservesSpace: true)` on the title already keeps them close, and a
+        // few points of difference is a far better trade than a launch that
+        // hangs.
+        .frame(maxWidth: .infinity, alignment: .top)
         .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.card, style: .continuous))
         .cozyBlockShadow()
         .opacity(hasAppeared ? 1 : 0)
@@ -133,12 +143,19 @@ struct RecipeCard: View {
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
 
-            // Two pills fit side by side on a half-width card at normal type,
-            // and stack rather than being clipped once the text grows.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: CozySpacing.xs) { pills }
-                VStack(alignment: .leading, spacing: CozySpacing.xs) { pills }
+            // A plain row, not `ViewThatFits`. Fitting two short pills is not
+            // worth a construct that measures every candidate against a
+            // proposed size — inside a lazy grid cell whose own height was
+            // still being negotiated, that measurement is half of why this
+            // card could not finish laying out.
+            //
+            // They are "35 min" and "4". At an accessibility text size the row
+            // wraps to two lines rather than being clipped, which is what the
+            // stacking candidate was there to achieve anyway.
+            HStack(spacing: CozySpacing.xs) {
+                pills
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(CozySpacing.m)
