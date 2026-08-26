@@ -388,6 +388,15 @@ struct SousChefView: View {
         }
         .padding(.horizontal, CozySpacing.l)
         .padding(.vertical, CozySpacing.m)
+        // The page's own colour behind it, because a `safeAreaInset` does not
+        // clip what scrolls under it: with nothing here the conversation slid
+        // through the composer, and a half-transparent line of chat behind the
+        // text field is not a design, it is a bug you can read.
+        //
+        // Flat accent rather than the tiled ground: the tile is drawn at 0.11
+        // and reads as texture, not as a pattern anyone can align to, so a
+        // solid block of the same colour joins onto it without a seam.
+        .background(accent.color)
     }
 }
 

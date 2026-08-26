@@ -402,13 +402,17 @@ enum CozyMetrics {
     /// The clear strip above the painted slab, and the gap every scroll view
     /// in the app stops at.
     ///
-    /// `safeAreaInset` hands screens the bar's whole height, so this is the
-    /// only thing keeping content off the pink. It was introduced to reserve
-    /// room for the Sous Chef's cupcake standing out of the bar; the cupcake
-    /// sits on the row now, and removing the strip with it put the last row of
-    /// every list under the slab, along with the block that draws 4pt below
-    /// each card. It stays, for the job it was quietly also doing.
+    /// It was introduced to reserve room for the Sous Chef's cupcake standing
+    /// out of the bar. The cupcake sits on the row now, and removing the strip
+    /// with it put the last row of every list under the slab, along with the
+    /// block that draws 4pt below each card. It stays, for the job it was
+    /// quietly also doing.
     nonisolated static let tabBarContentGap: CGFloat = 16
+
+    /// What every screen has to keep clear at the bottom: the slab plus its
+    /// strip. See `cozyTabBarClearance()`, which is the only thing that should
+    /// be reading this.
+    nonisolated static let tabBarTotalHeight: CGFloat = tabBarHeight + tabBarContentGap
 
     /// A quiet header glyph — the ellipsis on Groceries. Smaller than
     /// `addButtonDiameter`, still a full touch target thanks to its frame.

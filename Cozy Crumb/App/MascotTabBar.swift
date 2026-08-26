@@ -25,13 +25,31 @@
 //
 //  The bar is now a painted blush slab rather than a white strip — the same
 //  slab as the header at the other end of the screen, so the app is held
-//  between two of them. It is also much taller, because the cupcake stands out
-//  of the top of it. That overhang is reserved as padding on the bar itself,
-//  which means the safe-area inset handed back to each tab already accounts
-//  for it and no scroll view ever runs underneath the mascot.
+//  between two of them.
+//
+//  It draws as an overlay and reserves no space of its own. What keeps content
+//  off it is `cozyTabBarClearance()`, applied to each tab's root in
+//  `RootTabView` — see the note there for why the bar does not do that job
+//  itself. The number is `CozyMetrics.tabBarTotalHeight`, and this bar has to
+//  be exactly that tall: slab plus strip.
 //
 
 import SwiftUI
+
+extension View {
+    /// Keeps the bottom of a screen clear of `MascotTabBar`.
+    ///
+    /// `safeAreaPadding` rather than plain `padding`, because this has to be
+    /// safe *area*: a scroll view should still draw through the strip while
+    /// scrolling and simply come to rest above it, and a bottom bar of the
+    /// screen's own — the Sous Chef's composer, the grocery export bar —
+    /// should land on top of the strip rather than under the slab. Plain
+    /// padding would inset the frame instead and leave a dead band the page
+    /// colour does not reach.
+    func cozyTabBarClearance() -> some View {
+        safeAreaPadding(.bottom, CozyMetrics.tabBarTotalHeight)
+    }
+}
 
 struct MascotTabBar: View {
     @Environment(\.accentPalette) private var accent
@@ -50,18 +68,11 @@ struct MascotTabBar: View {
         .padding(.horizontal, CozySpacing.xs)
         .padding(.bottom, CozySpacing.m)
         .frame(maxWidth: .infinity, minHeight: CozyMetrics.tabBarHeight)
-        // A clear strip on top of the painted slab, and it is load-bearing.
-        //
-        // What `safeAreaInset` hands back to every screen is this view's whole
-        // height, so the strip is how far above the slab a scroll view stops.
-        // Without it content ends flush against the pink — the last row half
-        // under it, and a card's block, which draws 4pt outside its own frame,
-        // entirely under it. That is what "scrolling is broken and things
-        // overlap" looked like on every tab.
-        //
-        // It used to be here to reserve room for the cupcake standing out of
-        // the bar. The cupcake sits on the row now; the gap is still needed,
-        // for the other reason it was always doing this job.
+        // A clear strip on top of the painted slab, so what content stops at is
+        // the strip and not the pink. `cozyTabBarClearance` reserves the two
+        // together, which is why this padding and that number have to agree:
+        // slab plus strip is `tabBarTotalHeight`, and the bar is drawn exactly
+        // that tall. Change one and change the other.
         .padding(.top, CozyMetrics.tabBarContentGap)
         .background {
             // Solid accent, square across the top, no block. Squaring it off
