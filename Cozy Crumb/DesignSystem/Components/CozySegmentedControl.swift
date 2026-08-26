@@ -24,16 +24,19 @@
 import SwiftUI
 
 /// One choice in a `CozySegmentedControl`.
-struct CozySegment<Value: Hashable>: Identifiable {
+///
+/// `nonisolated` on the type rather than on the init: the target defaults
+/// types to MainActor, so the stored properties are isolated too, and a
+/// nonisolated init cannot assign to them. Marking the whole struct is the
+/// pattern the rest of the app already uses for plain value types — see
+/// `ShoppingAmount`.
+nonisolated struct CozySegment<Value: Hashable>: Identifiable {
     let value: Value
     let title: String
 
     var id: Value { value }
 
-    /// Explicitly nonisolated: the target defaults types to MainActor, which
-    /// would isolate the memberwise init and stop call sites building these
-    /// inside a `map`.
-    nonisolated init(value: Value, title: String) {
+    init(value: Value, title: String) {
         self.value = value
         self.title = title
     }
