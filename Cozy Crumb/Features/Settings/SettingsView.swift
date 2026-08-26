@@ -49,6 +49,8 @@ struct SettingsView: View {
     }
 
     var body: some View {
+        let _ = markBodyOnce("settings body")
+
         NavigationStack {
             VStack(spacing: 0) {
                 ScreenHeader(title: "Settings", eyebrow: AppBranding.appName)

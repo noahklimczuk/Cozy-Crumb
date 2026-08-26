@@ -58,6 +58,8 @@ struct GroceriesView: View {
     @State private var mode: GroceryTabMode = .list
 
     var body: some View {
+        let _ = markBodyOnce("groceries body")
+
         NavigationStack {
             switch mode {
             case .plan: MealPlanView(mode: $mode)
