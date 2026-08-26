@@ -44,17 +44,18 @@ enum CozyColor {
     nonisolated static let creamDeep = Color(light: Color(hex: "FDF3EA"), dark: Color(hex: "241E1C"))
 
     // Hero
-    nonisolated static let blush = Color(light: Color(hex: "F8C8D4"), dark: Color(hex: "683F48"))
-    nonisolated static let blushDeep = Color(light: Color(hex: "EFA3B8"), dark: Color(hex: "934C5B"))
+    nonisolated static let blush = Color(hex: "F8C8D4")
+    nonisolated static let blushDeep = Color(hex: "EFA3B8")
+    /// Still a pair, unlike `blush` and `blushDeep`. See `AccentPalette.soft`.
     nonisolated static let blushSoft = Color(light: Color(hex: "FDE8EE"), dark: Color(hex: "3E3033"))
 
     // Accents — rotated across chips, categories and collections
-    nonisolated static let mint = Color(light: Color(hex: "C5E6D4"), dark: Color(hex: "325142"))
-    nonisolated static let butter = Color(light: Color(hex: "FBEEC1"), dark: Color(hex: "524B32"))
-    nonisolated static let sky = Color(light: Color(hex: "CFE3F2"), dark: Color(hex: "394E5C"))
-    nonisolated static let lavender = Color(light: Color(hex: "DED4EE"), dark: Color(hex: "53436D"))
-    nonisolated static let peach = Color(light: Color(hex: "FFD9C4"), dark: Color(hex: "5C4639"))
-    nonisolated static let sage = Color(light: Color(hex: "D9E4C8"), dark: Color(hex: "434F31"))
+    nonisolated static let mint = Color(hex: "C5E6D4")
+    nonisolated static let butter = Color(hex: "FBEEC1")
+    nonisolated static let sky = Color(hex: "CFE3F2")
+    nonisolated static let lavender = Color(hex: "DED4EE")
+    nonisolated static let peach = Color(hex: "FFD9C4")
+    nonisolated static let sage = Color(hex: "D9E4C8")
 
     /// The deep step of each accent, hoisted out of `AccentPalette` so the
     /// rotation can reach them too.
@@ -64,12 +65,12 @@ enum CozyColor {
     /// colours while the accent picker only offers five. Deriving the second
     /// stop by mixing toward the ink instead would work and look wrong: it
     /// desaturates, so every placeholder would fade toward the same brown.
-    nonisolated static let mintDeep = Color(light: Color(hex: "A3D3BB"), dark: Color(hex: "376C51"))
-    nonisolated static let butterDeep = Color(light: Color(hex: "F0DFA2"), dark: Color(hex: "6D6038"))
-    nonisolated static let skyDeep = Color(light: Color(hex: "AECDE6"), dark: Color(hex: "42667F"))
-    nonisolated static let lavenderDeep = Color(light: Color(hex: "C7B9E0"), dark: Color(hex: "70529F"))
-    nonisolated static let peachDeep = Color(light: Color(hex: "F0B392"), dark: Color(hex: "805842"))
-    nonisolated static let sageDeep = Color(light: Color(hex: "B9CDA2"), dark: Color(hex: "536835"))
+    nonisolated static let mintDeep = Color(hex: "A3D3BB")
+    nonisolated static let butterDeep = Color(hex: "F0DFA2")
+    nonisolated static let skyDeep = Color(hex: "AECDE6")
+    nonisolated static let lavenderDeep = Color(hex: "C7B9E0")
+    nonisolated static let peachDeep = Color(hex: "F0B392")
+    nonisolated static let sageDeep = Color(hex: "B9CDA2")
 
     nonisolated static let accentRotation: [Color] = [mint, butter, sky, lavender, peach, sage]
     nonisolated static let accentDeepRotation: [Color] = [
@@ -134,16 +135,15 @@ enum CozyColor {
     /// | `accent.color` | 9.37 (blush) | 7.15 (sky) |
     /// | `accent.deep` | 6.99 (blush) | 5.03 (sky) |
     ///
-    /// Every accent the picker offers clears AA for body text in both
-    /// appearances, so switching to mint or butter can't quietly break a
-    /// screen — which is exactly what it used to do: the first cut of this
-    /// token measured 2.35:1 on dark lavender.
+    /// The accents are the same pastels in both appearances now, so this is
+    /// one dark ink rather than a pair. The contrast figures above are the
+    /// light-mode ones, and they are now the only ones: dark mode changes the
+    /// page under the slab, not the slab.
     ///
     /// Anything quieter on an accent — an unselected tab label — takes this at
     /// a lighter *weight*, never at reduced opacity. Opacity is what put the
     /// mockup's tab labels at 2.17:1.
-    nonisolated static let inkOnAccent = Color(light: Color(hex: "332B27"),
-                                               dark: Color(hex: "F2E7E0"))
+    nonisolated static let inkOnAccent = Color(hex: "332B27")
 
     nonisolated static let outline = Color(light: Color(hex: "E4D5CB"), dark: Color(hex: "4A3E39"))
     nonisolated static let outlineStrong = Color(light: Color(hex: "C9B4A8"), dark: Color(hex: "63534B"))
@@ -156,36 +156,27 @@ enum CozyColor {
     /// the surface it sits on. Translucent, so the tile grid still runs
     /// faintly underneath.
     ///
-    /// It flips the same way the ink does. White at 80% on a light accent is a
-    /// bright panel; on a dark accent it would be a floodlight, so after dark
-    /// it becomes a slight lift instead and the ink on it goes light with it.
+    /// One value in both appearances, because the accent under it is one
+    /// value in both appearances.
     ///
     /// Nothing wearing this may carry a block — a block needs an opaque fill
     /// or its own offset shows through. See `cozyPaled`.
-    nonisolated static let surfaceOnAccent = Color(light: Color.white.opacity(0.80),
-                                                   dark: Color.white.opacity(0.13))
-
-    /// The scrim under a recipe's title where it is set over the hero.
-    ///
-    /// This one is not a surface, it is a contrast guarantee: the hero can be
-    /// any photograph the user imported. It darkens or lightens *against the
-    /// ink*, which is why it inverts rather than following `surfaceOnAccent` —
-    /// dark ink needs a light scrim, light ink needs a dark one.
-    nonisolated static let heroScrim = Color(light: Color.white.opacity(0.82),
-                                             dark: Color.black.opacity(0.58))
+    nonisolated static let surfaceOnAccent = Color.white.opacity(0.80)
 
     /// The grout in the tile grid where it runs over an accent ground.
     ///
     /// `outline` is tuned against cream, so over a painted ground it needs its
-    /// own value: a dark hairline on the light accents, a light one on the
-    /// dark ones. Drawn at a low opacity by `TileBackground`.
-    /// The dark value carries its own opacity because `TileBackground` applies
-    /// one flat intensity to both: pure white at that intensity is a stronger
-    /// grid on a dark ground than the warm hairline is on a light one.
-    nonisolated static let tileOnAccent = Color(light: Color(hex: "6B5A52"),
-                                                dark: Color.white.opacity(0.6))
+    /// own value: a dark hairline, since the accents are pastel in both
+    /// appearances. Drawn at a low opacity by `TileBackground`.
+    nonisolated static let tileOnAccent = Color(hex: "6B5A52")
 
     // Semantic — gentle, even when wrong
+    //
+    /// These stay pairs, for the same reason `AccentPalette.soft` does: they
+    /// are status *surfaces*, not accent identities. Every one of them is used
+    /// as a fill under `inkPrimary` — usually through `cozyPaled`, which mixes
+    /// toward `cream` — and body ink goes light after dark. A banner that kept
+    /// its pale yellow into dark mode would be light ink on a light wash.
     nonisolated static let success = Color(light: Color(hex: "A8D5B5"), dark: Color(hex: "6FA382"))
     nonisolated static let warning = Color(light: Color(hex: "F5D08A"), dark: Color(hex: "B39355"))
     nonisolated static let danger = Color(light: Color(hex: "E8A0A0"), dark: Color(hex: "B36F6F"))
@@ -265,15 +256,22 @@ enum AccentPalette: String, CaseIterable, Identifiable, Sendable {
     /// past `deep`: #D98BA1 under blush, #E0CB92 under butter.
     nonisolated var block: Color {
         switch self {
-        case .blush: Color(light: Color(hex: "D98BA1"), dark: Color(hex: "4E2831"))
-        case .mint: Color(light: Color(hex: "8ABFA4"), dark: Color(hex: "1E392C"))
-        case .butter: Color(light: Color(hex: "E0CB92"), dark: Color(hex: "3A341E"))
-        case .sky: Color(light: Color(hex: "93B8D6"), dark: Color(hex: "233543"))
-        case .lavender: Color(light: Color(hex: "AF9ECF"), dark: Color(hex: "3C2C54"))
+        case .blush: Color(hex: "D98BA1")
+        case .mint: Color(hex: "8ABFA4")
+        case .butter: Color(hex: "E0CB92")
+        case .sky: Color(hex: "93B8D6")
+        case .lavender: Color(hex: "AF9ECF")
         }
     }
 
     /// Tinted fill behind content.
+    ///
+    /// The one step of the palette that still flips with the appearance, and
+    /// it flips because it is a background rather than a colour: `soft` is a
+    /// wash a few percent off the page, and what sits on it is `inkPrimary`,
+    /// which goes light after dark. `color`, `deep` and `block` are the same
+    /// pastels in both appearances — they carry `inkOnAccent`, which doesn't
+    /// move — but a near-white wash under light ink is a blank rectangle.
     nonisolated var soft: Color {
         switch self {
         case .blush: CozyColor.blushSoft
@@ -389,19 +387,12 @@ enum CozyMetrics {
     /// inset it sits above.
     ///
     /// 92 rather than 58, because the bar is no longer a strip of glyphs: it
-    /// is a painted blush slab with a selected item drawn in a 36pt block and
-    /// the Sous Chef mascot raised out of the top of it. The mascot's overhang
-    /// is `tabBarMascotLift` on top of this.
-    nonisolated static let tabBarHeight: CGFloat = 92
-
-    /// The Sous Chef mascot's diameter in the tab bar, and how far it stands
-    /// proud of the bar's top edge.
+    /// is a painted blush slab with a selected item drawn in a 36pt block.
     ///
-    /// The lift is not decoration the content can be allowed to slide under —
-    /// the safe-area inset the bar reserves is the sum of the two, so a
-    /// scroll view stops above the cupcake rather than behind it.
-    nonisolated static let tabBarMascotDiameter: CGFloat = 50
-    nonisolated static let tabBarMascotLift: CGFloat = 16
+    /// The Sous Chef's cupcake used to stand proud of the top of the bar, and
+    /// the bar reserved that overhang as real padding. It sits on the row with
+    /// the other four now, so there is nothing extra to reserve.
+    nonisolated static let tabBarHeight: CGFloat = 92
 
     /// A quiet header glyph — the ellipsis on Groceries. Smaller than
     /// `addButtonDiameter`, still a full touch target thanks to its frame.

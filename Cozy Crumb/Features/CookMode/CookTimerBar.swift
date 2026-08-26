@@ -52,15 +52,16 @@ struct CookTimerRow: View {
         HStack(spacing: CozySpacing.m) {
             countdown
 
+            // `inkOnAccent`, not the page's ink. The card under this is butter,
+            // and butter is an accent surface: it is the same pale yellow in
+            // both appearances, so the ink on it has to be the one that doesn't
+            // move either. Body ink goes light after dark and would vanish.
             VStack(alignment: .leading, spacing: 1) {
                 Text(timer.label)
-                    .cozyText(CozyFont.caption)
+                    .cozyText(CozyFont.caption, color: CozyColor.inkOnAccent)
                     .lineLimit(1)
                 Text(isFinished ? "Time's up!" : timer.recipeTitle)
-                    .cozyText(
-                        CozyFont.caption2,
-                        color: isFinished ? CozyColor.inkPrimary : CozyColor.inkSecondary
-                    )
+                    .cozyText(CozyFont.caption2, color: CozyColor.inkOnAccent.opacity(0.75))
                     .lineLimit(1)
             }
 
@@ -121,7 +122,7 @@ struct CookTimerRow: View {
 
             Text(timer.display(at: timers.now))
                 .font(CozyFont.numeralSmall)
-                .foregroundStyle(CozyColor.inkPrimary)
+                .foregroundStyle(CozyColor.inkOnAccent)
                 .minimumScaleFactor(0.6)
                 .padding(3)
         }
@@ -193,7 +194,7 @@ struct CookTimerChip: View {
                 .font(CozyFont.caption)
                 .monospacedDigit()
         }
-        .foregroundStyle(CozyColor.inkPrimary)
+        .foregroundStyle(chipInk)
         .padding(.horizontal, CozySpacing.m)
         .frame(minHeight: CozyMetrics.minimumTouchTarget)
         .background(chipFill, in: .capsule)
@@ -235,6 +236,17 @@ struct CookTimerChip: View {
     private var chipFill: Color {
         guard let running else { return CozyColor.butter }
         return running.hasFinished(at: timers.now) ? CozyColor.warning : accent.soft
+    }
+
+    /// Follows the fill, because the fills are two different kinds of colour.
+    ///
+    /// Butter is an accent surface: the same pale yellow in both appearances,
+    /// so it takes `inkOnAccent`, which doesn't move either. `accent.soft` and
+    /// `warning` are washes that go dark with the page, so they take the
+    /// page's own ink. Using one ink for both left the idle chip writing light
+    /// text on pale yellow after dark.
+    private var chipInk: Color {
+        running == nil ? CozyColor.inkOnAccent : CozyColor.inkPrimary
     }
 
     private func label(duration: String) -> String {

@@ -52,9 +52,15 @@ enum ServingsScaler {
     ///
     /// Order matters: scale first, convert second. Converting first would
     /// compound rounding error across the multiply.
+    ///
+    /// `ingredient` is the ingredient's name, and it is not decoration: going
+    /// metric answers volumes in grams where it can, and a cup only has a
+    /// weight once you know what is in it. Without the name, "1 cup flour"
+    /// converts to 237 ml instead of 125 g.
     nonisolated static func scale(
         quantity: Double?,
         unit: String?,
+        ingredient: String? = nil,
         from original: Int,
         to target: Int,
         system: MeasurementSystem = .asWritten
@@ -65,7 +71,12 @@ enum ServingsScaler {
 
         let scaled = quantity * factor(from: original, to: target)
 
-        if let converted = UnitConverter.convert(quantity: scaled, unit: unit, to: system) {
+        if let converted = UnitConverter.convert(
+            quantity: scaled,
+            unit: unit,
+            ingredient: ingredient,
+            to: system
+        ) {
             // A converted amount is already approximate — flagging it as
             // awkward would be noise.
             return Scaled(quantity: converted.quantity, unit: converted.unit, isAwkward: false)
@@ -88,6 +99,7 @@ enum ServingsScaler {
         scale(
             quantity: ingredient.quantity,
             unit: ingredient.unit,
+            ingredient: ingredient.name,
             from: original,
             to: target,
             system: system

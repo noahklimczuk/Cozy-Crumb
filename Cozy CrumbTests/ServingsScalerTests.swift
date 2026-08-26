@@ -102,6 +102,22 @@ struct ServingsScalerTests {
         expectClose(result.quantity, 453.592, tolerance: 0.01)
     }
 
+    @Test("The ingredient reaches the converter, so volumes can go to grams")
+    func ingredientReachesConverter() {
+        // Without the name this is 473 ml. With it, it's the number a scale
+        // can actually show.
+        let result = ServingsScaler.scale(
+            quantity: 1,
+            unit: "cup",
+            ingredient: "plain flour",
+            from: 4,
+            to: 8,
+            system: .metric
+        )
+        #expect(result.unit == "g")
+        expectClose(result.quantity, 250)
+    }
+
     @Test("Converted amounts are not flagged as awkward")
     func convertedNotAwkward() {
         // A converted number is already approximate; flagging it is noise.

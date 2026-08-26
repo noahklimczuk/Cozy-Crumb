@@ -253,7 +253,13 @@ struct ImportReviewView: View {
                         .lineLimit(1...8)
 
                     if let duration = DurationParser.display(seconds: step.durationSeconds) {
-                        PillTag(text: duration, systemImage: "timer", tint: CozyColor.butter)
+                        // `inkOnAccent`, because butter is an accent surface:
+                        // it stays the same pale yellow after dark, so the
+                        // pill's default body ink would go light on top of it.
+                        PillTag(text: duration,
+                                systemImage: "timer",
+                                tint: CozyColor.butter,
+                                ink: CozyColor.inkOnAccent)
                     }
                 }
                 .padding(.vertical, 2)

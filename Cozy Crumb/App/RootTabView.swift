@@ -146,7 +146,6 @@ struct RootTabView: View {
         .task {
             LaunchTrace.mark("launch passes started")
 
-            await pass("seed") { SeedData.installIfNeeded(in: modelContext) }
             // Re-reads ingredient lines saved before the caption parsing
             // fixes, so recipes already in the library start scaling too.
             await pass("ingredient repair") { await IngredientRepair.run(in: modelContext) }

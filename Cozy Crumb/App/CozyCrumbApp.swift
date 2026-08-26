@@ -197,11 +197,14 @@ private struct CupcakeSplashView: View {
     var body: some View {
         ZStack {
             // Sampled from the supplied icon's pink edge so the artwork appears
-            // to melt directly into the launch background — and a deep version
-            // of the same pink after dark, so the first thing anybody sees at
-            // night isn't a full-screen flash of it.
-            Color(light: Color(red: 254 / 255, green: 193 / 255, blue: 190 / 255),
-                  dark: Color(hex: "5A3238"))
+            // to melt directly into the launch background.
+            //
+            // The same pink in both appearances, like every other accent
+            // surface in the app. It used to go to a deep maroon after dark,
+            // which is now unreadable rather than merely different: the ink on
+            // an accent is one dark value in both appearances, so a ground
+            // that flips takes the app's own name down with it.
+            Color(red: 254 / 255, green: 193 / 255, blue: 190 / 255)
                 .ignoresSafeArea()
 
             VStack(spacing: CozySpacing.l) {
