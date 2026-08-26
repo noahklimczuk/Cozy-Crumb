@@ -61,7 +61,6 @@ struct PantryView: View {
     }
 
     var body: some View {
-        let _ = markBodyOnce("pantry body")
 
         NavigationStack {
             VStack(spacing: 0) {

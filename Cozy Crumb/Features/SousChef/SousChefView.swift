@@ -27,7 +27,6 @@ struct SousChefView: View {
     @AppStorage(CozyDefaultsKey.hasSeenTasteOnboarding) private var hasSeenOnboarding = false
 
     var body: some View {
-        let _ = markBodyOnce("sous chef body")
 
         NavigationStack {
             VStack(spacing: 0) {

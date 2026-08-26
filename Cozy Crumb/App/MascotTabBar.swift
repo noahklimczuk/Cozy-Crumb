@@ -40,7 +40,6 @@ struct MascotTabBar: View {
     @Binding var selection: CozyTab
 
     var body: some View {
-        let _ = markBodyOnce("tab bar body")
 
         // Bottom-aligned, so the five labels share a line before the Sous Chef
         // column is lifted off it. Centring them instead would stagger every

@@ -53,6 +53,9 @@ struct LibraryView: View {
     /// menu's list. The folder screen is no longer reached by tapping a card,
     /// so the push has to be driven from state rather than a NavigationLink.
     @State private var openedCollection: RecipeCollection?
+    /// Set by the recovery banner's button, so someone can ask for the full
+    /// cookbook back without relaunching.
+    @State private var hasDismissedRecovery = false
 
     private var columns: [GridItem] {
         CozyGrid.recipeColumns(for: horizontalSizeClass)
@@ -71,10 +74,6 @@ struct LibraryView: View {
     }
 
     var body: some View {
-        // The @Query properties above are read during this evaluation, which
-        // is the suspected stall.
-        let _ = markBodyOnce("cookbook body")
-
         NavigationStack {
             VStack(spacing: 0) {
                 header
@@ -159,7 +158,6 @@ struct LibraryView: View {
         // would break there anyway on a phone, and hard-coding it means the
         // two lines are the design on every width instead of only the narrow
         // ones. `heroTitle` hands VoiceOver the unbroken word.
-        let _ = markBodyOnce("cookbook header")
 
         return ScreenHeader(title: "Cook\nbook", eyebrow: AppBranding.appName) {
             HeaderMascotBadge(pose: .peeking)
@@ -273,8 +271,6 @@ struct LibraryView: View {
     /// them apart meant two copies of a heading, a sort control and a grid.
     @ViewBuilder
     private var content: some View {
-        let _ = markBodyOnce("cookbook content entered")
-        let _ = markBodyOnce("cookbook query returned \(recipes.count) recipes, \(collections.count) collections")
 
         if recipes.isEmpty && collections.isEmpty {
             EmptyStateView(
@@ -285,8 +281,62 @@ struct LibraryView: View {
                 action: { isImporting = true }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if isRecovering {
+            plainList
         } else {
             cookbook
+        }
+    }
+
+    /// True when the last launch never finished, and the grid is the prime
+    /// suspect for why.
+    ///
+    /// An app that failed to open last time should not run head-first into the
+    /// same wall. `LaunchTrace.previousLaunchStage` is non-nil exactly when the
+    /// previous launch stopped somewhere before the end, so this launch draws
+    /// the cookbook the simplest way it can instead — no grid, no cards, no
+    /// images, no navigation links. One row of text per recipe.
+    ///
+    /// It is also the experiment. Every reading so far has said the launch dies
+    /// inside a card, but every fix aimed there has failed, so "the card" is a
+    /// claim that has never actually been tested against its opposite. If the
+    /// app opens like this, the grid is the fault beyond argument. If it still
+    /// does not, the fault was never in the grid and eight fixes have been
+    /// aimed at the wrong thing.
+    private var isRecovering: Bool {
+        CookbookSafeMode.isOn && !hasDismissedRecovery
+    }
+
+    /// The cookbook with everything expensive taken out of it.
+    private var plainList: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Opening the simple way — the last launch didn't finish. Tap a recipe to read it, or use the button to try the full cookbook.")
+                    .cozyText(CozyFont.caption, color: CozyColor.inkSecondary)
+                    .padding(CozySpacing.m)
+
+                Button("Try the full cookbook") {
+                    CookbookSafeMode.isOn = false
+                    hasDismissedRecovery = true
+                }
+                .buttonStyle(.squishy)
+                .padding(.horizontal, CozySpacing.m)
+                .padding(.bottom, CozySpacing.m)
+
+                ForEach(recipes) { recipe in
+                    NavigationLink(value: recipe) {
+                        Text(recipe.title)
+                            .cozyText(CozyFont.body)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, CozySpacing.s)
+                            .padding(.horizontal, CozySpacing.m)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+                }
+            }
         }
     }
 
@@ -376,7 +426,6 @@ struct LibraryView: View {
     /// It is a hidden gesture, so the sort menu carries the same list in the
     /// open — see the note there.
     private var collectionChips: some View {
-        let _ = markBodyOnce("cookbook chips")
 
         return ScrollView(.horizontal) {
             HStack(spacing: CozySpacing.s) {
@@ -418,7 +467,6 @@ struct LibraryView: View {
     }
 
     private func recipeGrid(recipes: [Recipe]) -> some View {
-        let _ = markBodyOnce("cookbook grid, \(recipes.count) visible")
 
         return LazyVGrid(columns: columns, spacing: CozySpacing.m) {
             ForEach(Array(recipes.enumerated()), id: \.element.id) { index, recipe in

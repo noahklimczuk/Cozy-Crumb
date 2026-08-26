@@ -82,69 +82,29 @@ nonisolated enum LaunchTrace {
         defaults.set(stage, forKey: lastStageKey)
         defaults.set(false, forKey: completedKey)
 
-        // Also put it on the screen. Reading the log needs a Mac, a cable and
-        // Console.app, and someone whose app will not open is owed something
-        // better than that. The splash shows the last stage reached, so a
-        // launch that stops somewhere can be photographed instead of described.
-        //
-        // If the main actor is blocked this update never runs — which is the
-        // point. What stays on screen is the last stage that *did* complete,
-        // and the stall is whatever comes after it.
-        let reached = stage
-        let took = String(format: "%.1fms", elapsed)
-        Task { @MainActor in
-            LaunchProgress.shared.record(reached, took)
-        }
     }
 }
 
-/// The last launch stage that completed, for the splash to display.
+/// Whether the Cookbook should draw itself the simple way.
 ///
-/// This exists because four rounds of fixes were shipped against a launch
-/// nobody could see inside. Every one of them was aimed by inference from a
-/// simulator that has never once reproduced the problem. A line of text on the
-/// splash is worth more than any of that: it turns "it still doesn't launch"
-/// into "it stops after X", which is a bug report rather than a symptom.
-@MainActor
-@Observable
-final class LaunchProgress {
-    static let shared = LaunchProgress()
+/// Latched on by a launch that did not finish, and off only when someone asks
+/// for the full cookbook back. It has to latch rather than be recomputed each
+/// time: a simplified launch *does* reach the end, which would clear the signal
+/// and send the next launch straight back into whatever it could not survive.
+/// Alternating between working and not working is not a recovery.
+nonisolated enum CookbookSafeMode {
+    private static let key = "cookbook.safeMode"
 
-    private(set) var stage = "starting up"
-    private(set) var elapsed = ""
-
-    /// True once the app is past launch, so the splash can stop narrating.
-    private(set) var hasFinished = false
-
-    private init() {}
-
-    func record(_ stage: String, _ elapsed: String) {
-        self.stage = stage
-        self.elapsed = elapsed
+    static var isOn: Bool {
+        get { UserDefaults.standard.bool(forKey: key) }
+        set { UserDefaults.standard.set(newValue, forKey: key) }
     }
 
-    func finish() {
-        hasFinished = true
+    /// Called once at launch, before anything can hang.
+    static func latchIfPreviousLaunchFailed() {
+        guard LaunchTrace.previousLaunchStage != nil else { return }
+        isOn = true
+        Log.app.notice("Cookbook opening in simple mode: the last launch did not finish")
     }
 }
 
-/// Records a stage the first time a view's `body` is entered.
-///
-/// `onAppear` is no use for finding a hang in layout: it fires *after* the
-/// view has been laid out, so a body that never returns never reaches it. This
-/// is called from inside `body` itself, which is the only place that can say
-/// "evaluation got this far".
-///
-/// Called as `let _ = markBodyOnce("…")` at the top of a `body`. The set of
-/// stages already seen is deliberately not observable — this must not
-/// invalidate the view it is measuring.
-@MainActor
-func markBodyOnce(_ stage: String) {
-    guard LaunchBodyMarks.seen.insert(stage).inserted else { return }
-    LaunchTrace.mark(stage)
-}
-
-@MainActor
-private enum LaunchBodyMarks {
-    static var seen: Set<String> = []
-}
