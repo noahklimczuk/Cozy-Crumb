@@ -21,7 +21,6 @@ struct RecipeHeroView: View {
     @State private var decoded: UIImage?
 
     var body: some View {
-        let _ = markBodyOnce("card hero")
 
         // The image is drawn as an overlay on a zero-weight shape rather than
         // being laid out itself: `scaledToFill` reports the *filled* size, so a

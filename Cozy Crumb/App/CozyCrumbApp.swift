@@ -54,6 +54,8 @@ struct CozyCrumbApp: App {
     private func openStore() async {
         guard modelContainer == nil else { return }
 
+        // Read before this launch overwrites the record of the last one.
+        CookbookSafeMode.latchIfPreviousLaunchFailed()
         LaunchTrace.mark("app init")
 
         // Detached, so the open runs on a background thread and the splash
@@ -191,14 +193,6 @@ private struct AppLaunchView<Content: View>: View {
 }
 
 private struct CupcakeSplashView: View {
-    /// The last launch stage that finished, shown under the tagline.
-    ///
-    /// A launch that stalls is invisible from outside — the app is up, the
-    /// screen is still, and nothing says whether it is working or stuck. This
-    /// makes the difference photographable: whatever this line reads when it
-    /// stops is the last thing that completed, and the problem is the step
-    /// after it.
-    @State private var progress = LaunchProgress.shared
 
     var body: some View {
         ZStack {
@@ -226,28 +220,9 @@ private struct CupcakeSplashView: View {
                     .cozyDisplayTracking(CozyTracking.title, relativeTo: .title)
                 Text(AppBranding.tagline)
                     .cozyText(CozyFont.subheadline, color: CozyColor.inkOnAccent)
-
-                // Quiet and small — it is a progress line, not a headline —
-                // but legible enough to read off a photograph of the phone.
-                VStack(spacing: 2) {
-                    Text("\(progress.stage) · \(progress.elapsed)")
-                        .monospacedDigit()
-
-                    // What the last attempt reached, if it never finished.
-                    // This is the line that can name the step a hang dies on —
-                    // the live one above cannot, because updating it needs the
-                    // main actor that the hang is holding.
-                    if let previous = LaunchTrace.previousLaunchStage {
-                        Text("last attempt stopped after: \(previous)")
-                    }
-                }
-                .cozyText(CozyFont.caption2, color: CozyColor.inkOnAccent)
-                .opacity(0.55)
-                .multilineTextAlignment(.center)
-                .padding(.top, CozySpacing.s)
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Cozy Crumb is loading. \(progress.stage).")
+        .accessibilityLabel("Cozy Crumb is loading")
     }
 }

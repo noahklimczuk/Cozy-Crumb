@@ -74,10 +74,6 @@ struct LibraryView: View {
     }
 
     var body: some View {
-        // The @Query properties above are read during this evaluation, which
-        // is the suspected stall.
-        let _ = markBodyOnce("cookbook body")
-
         NavigationStack {
             VStack(spacing: 0) {
                 header
@@ -162,7 +158,6 @@ struct LibraryView: View {
         // would break there anyway on a phone, and hard-coding it means the
         // two lines are the design on every width instead of only the narrow
         // ones. `heroTitle` hands VoiceOver the unbroken word.
-        let _ = markBodyOnce("cookbook header")
 
         return ScreenHeader(title: "Cook\nbook", eyebrow: AppBranding.appName) {
             HeaderMascotBadge(pose: .peeking)
@@ -276,8 +271,6 @@ struct LibraryView: View {
     /// them apart meant two copies of a heading, a sort control and a grid.
     @ViewBuilder
     private var content: some View {
-        let _ = markBodyOnce("cookbook content entered")
-        let _ = markBodyOnce("cookbook query returned \(recipes.count) recipes, \(collections.count) collections")
 
         if recipes.isEmpty && collections.isEmpty {
             EmptyStateView(
@@ -311,7 +304,7 @@ struct LibraryView: View {
     /// does not, the fault was never in the grid and eight fixes have been
     /// aimed at the wrong thing.
     private var isRecovering: Bool {
-        LaunchTrace.previousLaunchStage != nil && !hasDismissedRecovery
+        CookbookSafeMode.isOn && !hasDismissedRecovery
     }
 
     /// The cookbook with everything expensive taken out of it.
@@ -323,6 +316,7 @@ struct LibraryView: View {
                     .padding(CozySpacing.m)
 
                 Button("Try the full cookbook") {
+                    CookbookSafeMode.isOn = false
                     hasDismissedRecovery = true
                 }
                 .buttonStyle(.squishy)
@@ -432,7 +426,6 @@ struct LibraryView: View {
     /// It is a hidden gesture, so the sort menu carries the same list in the
     /// open — see the note there.
     private var collectionChips: some View {
-        let _ = markBodyOnce("cookbook chips")
 
         return ScrollView(.horizontal) {
             HStack(spacing: CozySpacing.s) {
@@ -474,7 +467,6 @@ struct LibraryView: View {
     }
 
     private func recipeGrid(recipes: [Recipe]) -> some View {
-        let _ = markBodyOnce("cookbook grid, \(recipes.count) visible")
 
         return LazyVGrid(columns: columns, spacing: CozySpacing.m) {
             ForEach(Array(recipes.enumerated()), id: \.element.id) { index, recipe in

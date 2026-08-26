@@ -88,10 +88,6 @@ struct RootTabView: View {
     }
 
     var body: some View {
-        // Entered before anything is laid out, so a body that never returns
-        // still records that it started.
-        let _ = markBodyOnce("root tab view body")
-
         TabView(selection: $selection) {
             Tab(CozyTab.library.title, systemImage: CozyTab.library.symbol, value: .library) {
                 LibraryView()
