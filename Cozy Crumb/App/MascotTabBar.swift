@@ -53,18 +53,12 @@ struct MascotTabBar: View {
         .padding(.horizontal, CozySpacing.xs)
         .padding(.bottom, CozySpacing.m)
         .frame(maxWidth: .infinity, minHeight: CozyMetrics.tabBarHeight)
-        // The strip the cupcake stands up into. It is padding on the bar
-        // rather than an overhang drawn outside it, so the safe-area inset the
-        // bar hands back grows by exactly the amount the mascot rises — a
-        // scroll view stops above the cupcake instead of behind it.
-        .padding(.top, CozyMetrics.tabBarMascotLift)
         .background {
             // Solid accent, square across the top, no block. Squaring it off
             // is what makes it a painted bar rather than a card stuck to the
             // bottom of the screen; padding the fill down by the same strip
             // keeps the slab at tabBarHeight while the bar itself is taller.
             accent.color
-                .padding(.top, CozyMetrics.tabBarMascotLift)
                 .ignoresSafeArea(edges: .bottom)
         }
         // Five labels across the narrowest phone cannot also grow to AX5:
@@ -79,7 +73,6 @@ struct MascotTabBar: View {
 
     private func item(for tab: CozyTab) -> some View {
         let isSelected = tab == selection
-        let isRaised = tab == .sousChef
 
         return Button {
             // No haptic here: `.squishy` already fires one on press, and two
@@ -87,7 +80,7 @@ struct MascotTabBar: View {
             guard tab != selection else { return }
             withAnimation(motion(Motion.snappy)) { selection = tab }
         } label: {
-            VStack(spacing: isRaised ? 3 : 5) {
+            VStack(spacing: 5) {
                 icon(for: tab, isSelected: isSelected)
 
                 Text(tab.title)
@@ -103,17 +96,7 @@ struct MascotTabBar: View {
             .foregroundStyle(CozyColor.inkOnAccent)
             .frame(maxWidth: .infinity)
             .frame(minHeight: CozyMetrics.minimumTouchTarget)
-            // Shape first, then lift. `contentShape` fixes what counts as the
-            // button, and `offset` carries that shape along with the drawing,
-            // so the raised cupcake is tappable where it appears rather than
-            // where it would have been. Shaping *after* the offset would pin
-            // the hit area to the layout frame and leave the cupcake dead.
-            //
-            // The whole column rises, label included, rather than the circle
-            // alone: a tap target that doesn't match the thing you are looking
-            // at is the one bug in a tab bar nobody forgives.
             .contentShape(.rect)
-            .offset(y: isRaised ? -CozyMetrics.tabBarMascotLift : 0)
         }
         .buttonStyle(.squishy)
         .accessibilityLabel(tab.title)
@@ -137,12 +120,11 @@ struct MascotTabBar: View {
         }
     }
 
-    /// The Sous Chef's cupcake, standing out of the top of the bar.
+    /// The Sous Chef's cupcake, in the same slot as the other four icons.
     ///
-    /// Bigger than the blocks beside it and lifted clear of the slab by its
-    /// column's offset, so the tab the app is named after is the one thing in
-    /// the bar you can hit without looking. The bar reserves the lift as real
-    /// padding, so nothing above it is ever underneath the cupcake.
+    /// It used to be bigger than its neighbours and lifted clear of the slab,
+    /// which put one column out of line with the other four and made the bar
+    /// read as four tabs plus a button. It sits on the row now.
     ///
     /// Its selected state is the ring thickening and the label going bold,
     /// where the other four get a filled block. That is a quieter difference
@@ -156,13 +138,15 @@ struct MascotTabBar: View {
         Image("CupcakeMascot")
             .resizable()
             .scaledToFit()
-            .padding(9)
-            .frame(width: CozyMetrics.tabBarMascotDiameter,
-                   height: CozyMetrics.tabBarMascotDiameter)
+            .padding(5)
+            // The same 52x36 slot the four blocks occupy, so every icon in the
+            // bar shares one baseline.
+            .frame(width: 34, height: 34)
             .background(CozyColor.card, in: .circle)
             .overlay {
-                Circle().strokeBorder(accent.deep, lineWidth: isSelected ? 4 : 3)
+                Circle().strokeBorder(accent.deep, lineWidth: isSelected ? 3 : 2)
             }
+            .frame(width: 52, height: 36)
     }
 }
 
