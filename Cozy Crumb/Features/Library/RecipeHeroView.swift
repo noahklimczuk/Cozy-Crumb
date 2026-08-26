@@ -12,6 +12,13 @@ import UIKit
 struct RecipeHeroView: View {
     let recipe: Recipe
     var cornerRadius: CGFloat = 0
+    /// Longest edge to decode to. Cards want a card-sized photo; the recipe
+    /// screen draws it full width and asks for more.
+    var maxPixelSize: CGFloat = HeroImageLoader.cardPixelSize
+
+    /// Seeded from the cache so an image already decoded appears immediately
+    /// rather than flashing the placeholder on every scroll.
+    @State private var decoded: UIImage?
 
     var body: some View {
         // The image is drawn as an overlay on a zero-weight shape rather than
@@ -22,8 +29,14 @@ struct RecipeHeroView: View {
         // was given, at any card width.
         Color.clear
             .overlay {
-                if let data = recipe.heroImageData, let image = UIImage(data: data) {
-                    Image(uiImage: image)
+                // Never decodes here. `UIImage(data:)` in this position
+                // decoded the photo at full size while SwiftUI was evaluating
+                // the body around it, which is what stopped the app launching:
+                // a grid of full-size decodes on the main thread before the
+                // first frame. The placeholder stands in until the real one
+                // arrives from `task` below.
+                if let decoded {
+                    Image(uiImage: decoded)
                         .resizable()
                         .scaledToFill()
                 } else {
@@ -32,6 +45,26 @@ struct RecipeHeroView: View {
             }
             .clipShape(.rect(cornerRadius: cornerRadius, style: .continuous))
             .accessibilityHidden(true)
+            .task(id: recipe.id) { await load() }
+    }
+
+    private func load() async {
+        // A cache hit is free and synchronous, so a photo that has already
+        // been decoded never flashes its placeholder again.
+        if let hit = HeroImageLoader.cached(for: recipe.id, maxPixelSize: maxPixelSize) {
+            decoded = hit
+            return
+        }
+
+        guard let data = recipe.heroImageData else { return }
+
+        let id = recipe.id
+        let size = maxPixelSize
+        let image = await Task.detached(priority: .userInitiated) {
+            HeroImageLoader.decode(data, id: id, maxPixelSize: size)
+        }.value
+
+        decoded = image
     }
 
     private var placeholder: some View {
