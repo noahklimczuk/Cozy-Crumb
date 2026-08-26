@@ -48,6 +48,12 @@ struct SousChefView: View {
             // The bar is hidden, but the title is still what the screen is
             // called when anything asks.
             .navigationTitle("Sous Chef")
+            // Registered for the value-based links on the recommendation
+            // cards, so the recipe screen is built on tap rather than on
+            // layout.
+            .navigationDestination(for: Recipe.self) { recipe in
+                RecipeDetailView(recipe: recipe)
+            }
             .task {
                 await viewModel.loadReflection(in: modelContext)
             }
@@ -412,9 +418,9 @@ private struct RecommendedRecipeCard: View {
     var body: some View {
         Group {
             if let recipe {
-                NavigationLink {
-                    RecipeDetailView(recipe: recipe)
-                } label: {
+                // Value-based: the closure form builds a whole recipe screen
+                // per recommendation as the list is laid out.
+                NavigationLink(value: recipe) {
                     card(for: recipe)
                 }
                 .buttonStyle(.squishy)

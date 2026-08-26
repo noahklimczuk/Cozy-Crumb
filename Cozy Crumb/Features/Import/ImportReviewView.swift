@@ -113,7 +113,14 @@ struct ImportReviewView: View {
         return Section {
             PhotosPicker(selection: $pickedPhoto, matching: .images) {
                 ZStack {
-                    if let data = heroImageData, let image = UIImage(data: data) {
+                    // Downsampled, not decoded whole. Same reasoning as the
+                    // Cookbook's cards: an imported photo is routinely
+                    // 4000x3000, and this draws it into a strip a few hundred
+                    // points tall.
+                    if let data = heroImageData,
+                       let image = HeroImageLoader.downsample(
+                           data, maxPixelSize: HeroImageLoader.detailPixelSize
+                       ) {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
