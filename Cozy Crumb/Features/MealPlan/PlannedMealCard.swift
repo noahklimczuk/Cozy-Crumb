@@ -38,7 +38,9 @@ struct PlannedMealCard: View {
         }
         // Fill the row so two cards side by side line up, however their titles
         // wrap.
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Width only — same reasoning as RecipeCard: a cell cannot ask its
+        // grid row for a height the row is computing from that cell.
+        .frame(maxWidth: .infinity, alignment: .top)
         .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.card, style: .continuous))
         .cozyBlockShadow()
         .accessibilityElement(children: .ignore)
@@ -102,12 +104,13 @@ struct PlannedMealCard: View {
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
 
-            // Two pills fit side by side at normal type, and stack rather than
-            // clipping once the text grows.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: CozySpacing.xs) { pills }
-                VStack(alignment: .leading, spacing: CozySpacing.xs) { pills }
+            // A plain row, same as RecipeCard. Two short pills do not justify
+            // measuring candidates inside a grid cell that is still working
+            // out its own height.
+            HStack(spacing: CozySpacing.xs) {
+                pills
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(CozySpacing.m)
