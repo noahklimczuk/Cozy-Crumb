@@ -28,6 +28,8 @@ struct RecipeCard: View {
     @ScaledMetric(relativeTo: .headline) private var heroHeight = CozyMetrics.cardHeroHeight
 
     var body: some View {
+        let _ = markBodyOnce("card body")
+
         VStack(alignment: .leading, spacing: 0) {
             hero
             details

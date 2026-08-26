@@ -47,6 +47,10 @@ struct RecipeDetailView: View {
     /// the title sitting at a different place on every device, and this screen
     /// is read from the title down, not looked at from the top.
     var body: some View {
+        // If this ever appears during launch, NavigationLink is building its
+        // destination eagerly for every row in the grid — the classic trap.
+        let _ = markBodyOnce("recipe detail body")
+
         // The controls sit in a layer of their own rather than in the scroll
         // view, so they stay put while the recipe moves under them — a back
         // button that scrolls away is a back button you have to scroll back up
