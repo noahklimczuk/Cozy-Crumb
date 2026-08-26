@@ -213,7 +213,7 @@ struct RecipeDetailView: View {
             // Pulling down stretches the image instead of leaving a gap.
             let stretch = max(0, minY)
 
-            RecipeHeroView(recipe: recipe)
+            RecipeHeroView(recipe: recipe, maxPixelSize: HeroImageLoader.detailPixelSize)
                 .frame(width: proxy.size.width, height: height + stretch)
                 .offset(y: -stretch)
         }
