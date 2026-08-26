@@ -158,8 +158,16 @@ struct RecipeCard: View {
 
     private var entrance: Animation {
         guard !reduceMotion else { return Motion.reduced }
-        return Motion.bouncy.delay(Double(index) * 0.05)
+        // Capped. The stagger is 0.05s per grid position, which is a pleasant
+        // ripple across the first screenful and a bug beyond it: the 200th
+        // card in a real cookbook was waiting ten seconds to become visible,
+        // and the 500th nearly half a minute. The wave is over long before
+        // anyone scrolls that far, so past `staggerCap` they simply appear.
+        return Motion.bouncy.delay(min(Double(index) * 0.05, Self.staggerCap))
     }
+
+    /// Longest entrance delay any card will wait, however far down it sits.
+    private static let staggerCap: Double = 0.6
 
     private var accessibilityLabel: String {
         var parts = [recipe.title]

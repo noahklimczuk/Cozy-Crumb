@@ -30,7 +30,13 @@ struct LibraryView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.cozyMotion) private var motion
 
-    @Query private var recipes: [Recipe]
+    // Ordered by the database rather than in Swift. An unordered fetch meant
+    // every render sorted the whole cookbook again, and each comparison faults
+    // `createdAt` on a SwiftData object — so the default view of the app paid
+    // for a full traversal of every recipe it owns, repeatedly, on the main
+    // thread. Sorting here costs nothing extra: SQLite is already reading the
+    // rows.
+    @Query(sort: \Recipe.createdAt, order: .reverse) private var recipes: [Recipe]
     @Query(sort: \RecipeCollection.createdAt) private var collections: [RecipeCollection]
 
     @State private var viewModel = LibraryViewModel()
@@ -276,13 +282,21 @@ struct LibraryView: View {
     }
 
     private var cookbook: some View {
-        ScrollView {
+        // Bound once. `visibleRecipes` was read two or three times per pass —
+        // by the emptiness check, by the grid, and by the heading while
+        // searching — and each read filtered and sorted the entire cookbook
+        // from scratch. SwiftUI evaluates a body more than once during launch,
+        // so the first screen was doing that work several times over before it
+        // drew anything.
+        let visible = visibleRecipes
+
+        return ScrollView {
             VStack(alignment: .leading, spacing: CozySpacing.l) {
                 collectionChips
 
                 VStack(alignment: .leading, spacing: CozySpacing.m) {
                     HStack(spacing: CozySpacing.s) {
-                        Text(headingTitle)
+                        Text(headingTitle(visibleCount: visible.count))
                             .cozyText(CozyFont.title2)
                             .cozyDisplayTracking(CozyTracking.title2, relativeTo: .title2)
                             .lineLimit(1)
@@ -291,10 +305,10 @@ struct LibraryView: View {
                         sortControl
                     }
 
-                    if visibleRecipes.isEmpty {
+                    if visible.isEmpty {
                         emptyResults
                     } else {
-                        recipeGrid(recipes: visibleRecipes)
+                        recipeGrid(recipes: visible)
                     }
                 }
             }
@@ -305,10 +319,9 @@ struct LibraryView: View {
     /// What the grid is showing, said once above it. With the folder grid gone
     /// this heading is the only thing that names the filter in force — the lit
     /// chip is above it and scrolls away.
-    private var headingTitle: String {
+    private func headingTitle(visibleCount: Int) -> String {
         if viewModel.hasSearch {
-            let count = visibleRecipes.count
-            return "\(count) \(count == 1 ? "match" : "matches")"
+            return "\(visibleCount) \(visibleCount == 1 ? "match" : "matches")"
         }
         return selectedCollection?.name ?? "All recipes"
     }
@@ -595,8 +608,11 @@ private struct CollectionFolderView: View {
     }
 
     var body: some View {
-        Group {
-            if sortedRecipes.isEmpty {
+        // Same as the Cookbook: read once, not once per branch.
+        let sorted = sortedRecipes
+
+        return Group {
+            if sorted.isEmpty {
                 EmptyStateView(
                     title: "This folder is empty.",
                     message: "Add recipes from the Cookbook menu and they'll appear here.",
@@ -606,7 +622,7 @@ private struct CollectionFolderView: View {
             } else {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: CozySpacing.m) {
-                        ForEach(Array(sortedRecipes.enumerated()), id: \.element.id) { index, recipe in
+                        ForEach(Array(sorted.enumerated()), id: \.element.id) { index, recipe in
                             NavigationLink {
                                 RecipeDetailView(recipe: recipe)
                             } label: {
