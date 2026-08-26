@@ -66,7 +66,28 @@ struct CozyCrumbApp: App {
         }.value
 
         modelContainer = opened
+        Self.installSampleDataIfRequested(in: opened)
         LaunchTrace.mark("model container ready")
+    }
+
+    /// Fills an empty store with the sample recipes, when a launch argument
+    /// asked for them. See `LaunchOptions` — this is how CI gets a Cookbook
+    /// with something in it to photograph.
+    ///
+    /// Guarded twice: the argument has to be present, and the store has to be
+    /// completely empty. A real cookbook is never touched.
+    private static func installSampleDataIfRequested(in container: ModelContainer) {
+        guard LaunchOptions.wantsSampleData else { return }
+
+        let context = container.mainContext
+        let existing = (try? context.fetchCount(FetchDescriptor<Recipe>())) ?? 1
+        guard existing == 0 else { return }
+
+        for recipe in SeedData.allSamples {
+            context.insert(recipe)
+        }
+        try? context.save()
+        LaunchTrace.mark("sample data installed")
     }
 
     /// Builds the persistent store, falling back to an in-memory store so a
@@ -161,6 +182,13 @@ private struct AppLaunchView<Content: View>: View {
             // that returns on the same runloop turn, before anything is drawn.
             try? await Task.sleep(for: .milliseconds(120))
             buildContent()
+
+            // A screenshot two seconds in should be of the app, not of the
+            // cupcake. Nothing sets this but CI.
+            guard !LaunchOptions.skipsSplash else {
+                hideSplash()
+                return
+            }
 
             try? await Task.sleep(for: .seconds(3.9))
             LaunchTrace.mark("splash dismissed")

@@ -92,7 +92,7 @@ jobs:
       # the moment the process is spawned, and a SwiftUI crash happens a beat
       # later while the first view builds.
       - name: Launch smoke test
-        timeout-minutes: 8
+        timeout-minutes: 16
         run: |
           set -o pipefail
           APP="build/Debug-iphonesimulator/Cozy Crumb.app"
@@ -287,6 +287,60 @@ jobs:
           fi
 
           echo "The app launched and stayed up in both appearances."
+
+          # ----- Every screen, both appearances, as a downloadable artifact --
+          #
+          # Nobody working on this repository from a Linux checkout can see the
+          # app. Layout bugs were being diagnosed by reading code and guessing
+          # at pixel positions, which is how the tab bar came to eat the bottom
+          # of every scroll view. This turns that into a photograph.
+          #
+          # The app is relaunched per screen rather than driven through the UI:
+          # simctl cannot tap, and a UI test target is a lot of machinery for
+          # what a launch argument does in one line. `-cozyStartTab` opens on a
+          # tab, `-cozySampleData` fills an empty store so the Cookbook has
+          # cards in it, and `-cozySkipSplash` gets the cupcake out of the way.
+          #
+          # Never `exit 1`. This is a camera, not a test: a screenshot that
+          # fails to capture must not turn a green build red, or the real
+          # checks above start getting ignored.
+          echo "----- capturing screens -----"
+          mkdir -p "$RUNNER_TEMP/screens"
+
+          for MODE in light dark; do
+            xcrun simctl ui "$DEVICE" appearance "$MODE" || true
+
+            for TAB in library groceries sousChef pantry settings; do
+              xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
+              xcrun simctl launch "$DEVICE" "$BUNDLE_ID" \
+                -cozyStartTab "$TAB" \
+                -cozySampleData YES \
+                -cozySkipSplash YES >/dev/null 2>&1 || true
+
+              # Long enough for the launch passes to finish and the grid to
+              # settle. The passes sleep a frame between each of seven, and a
+              # hero photo decodes off the main thread after that.
+              sleep 4
+
+              SHOT="$RUNNER_TEMP/screens/$MODE-$TAB.png"
+              xcrun simctl io "$DEVICE" screenshot "$SHOT" >/dev/null 2>&1 \
+                && echo "captured $MODE/$TAB" \
+                || echo "could not capture $MODE/$TAB"
+            done
+          done
+
+
+      # Always, so a red build is still a build you can look at — a layout bug
+      # bad enough to fail the render check is exactly when the pictures are
+      # worth the most.
+      - name: Upload screens
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens
+          path: ${{ runner.temp }}/screens
+          if-no-files-found: ignore
+          retention-days: 14
 
       # Runs against the shared scheme, which builds the app as the test host
       # and then the test bundle. The simulator is picked from whatever the
