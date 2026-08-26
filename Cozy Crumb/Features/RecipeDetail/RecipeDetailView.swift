@@ -172,7 +172,9 @@ struct RecipeDetailView: View {
                 .padding(.vertical, CozySpacing.s)
                 .background(CozyColor.creamDeep, in: .capsule)
                 .cozyLiftShadow()
-                .padding(.bottom, CozySpacing.xl)
+                // Clear of the tab bar, which this screen still sits
+                // under: xl is 32, and the bar is 108.
+                .padding(.bottom, CozyMetrics.tabBarTotalHeight + CozySpacing.m)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .allowsHitTesting(false)
         }

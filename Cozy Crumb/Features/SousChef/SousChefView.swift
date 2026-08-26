@@ -363,7 +363,7 @@ struct SousChefView: View {
                 text: $viewModel.draft,
                 systemImage: "sparkles",
                 submitLabel: .send,
-                fill: CozyColor.surfaceOnAccent
+                surface: .onAccent
             ) {
                 Task { await viewModel.send(context: modelContext) }
             }

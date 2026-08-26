@@ -286,7 +286,10 @@ struct MealPlanView: View {
                 .padding(.vertical, CozySpacing.s)
                 .background(CozyColor.creamDeep, in: .capsule)
                 .cozyLiftShadow()
-                .padding(.bottom, 96)
+                // Clear of the tab bar, from the same number the bar is
+                // built from. 96 was a guess at a bar that is 108 tall,
+                // so every one of these was appearing behind it.
+                .padding(.bottom, CozyMetrics.tabBarTotalHeight + CozySpacing.m)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .allowsHitTesting(false)
         }

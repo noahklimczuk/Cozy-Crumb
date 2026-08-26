@@ -47,10 +47,40 @@ nonisolated enum LaunchTrace {
         return defaults.string(forKey: lastStageKey)
     }()
 
+    private static let streakKey = "launch.incompleteStreak"
+
+    /// How many launches in a row have failed to finish.
+    ///
+    /// Read once, before this launch touches it, for the same reason
+    /// `previousLaunchStage` is.
+    static let incompleteStreak: Int = {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: completedKey) { return 0 }
+        // The previous launch did not finish, so it counts as one on top of
+        // whatever streak it inherited.
+        return defaults.integer(forKey: streakKey) + 1
+    }()
+
     /// Called once the app is properly up, so a launch that worked leaves
     /// nothing behind for the next one to report.
+    ///
+    /// "Properly up" means the tab shell is on screen and usable. It used to
+    /// mean the seven launch maintenance passes had all finished, which is a
+    /// different and much later thing — and getting that wrong is what made
+    /// the app keep opening in simple mode. Backgrounding the app during the
+    /// splash, or force-quitting it, or iOS reclaiming it while it sat behind
+    /// something else, all left `completed` false; the next launch read that
+    /// as a failed launch and latched. Those are not failed launches. They are
+    /// Tuesday.
+    ///
+    /// The passes are maintenance, and maintenance not finishing is not a
+    /// launch that did not happen. What this still catches is the case it was
+    /// written for: a hang while the Cookbook's body is being evaluated, which
+    /// happens before the shell can appear.
     static func markLaunchComplete() {
-        UserDefaults.standard.set(true, forKey: completedKey)
+        let defaults = UserDefaults.standard
+        defaults.set(true, forKey: completedKey)
+        defaults.set(0, forKey: streakKey)
     }
     /// Set on first use, which is the first line of `CozyCrumbApp.init()` —
     /// close enough to process start to be worth reading, and it costs nothing
@@ -81,7 +111,9 @@ nonisolated enum LaunchTrace {
         let defaults = UserDefaults.standard
         defaults.set(stage, forKey: lastStageKey)
         defaults.set(false, forKey: completedKey)
-
+        // Carried forward so a run of bad launches is distinguishable from one
+        // interrupted launch. Read before it is written, as above.
+        defaults.set(incompleteStreak, forKey: streakKey)
     }
 }
 
@@ -94,17 +126,57 @@ nonisolated enum LaunchTrace {
 /// Alternating between working and not working is not a recovery.
 nonisolated enum CookbookSafeMode {
     private static let key = "cookbook.safeMode"
+    private static let ruleKey = "cookbook.safeModeRule"
+
+    /// Bumped whenever the rule that latches this changes.
+    ///
+    /// A latched flag only means something under the rule that set it. This
+    /// one was set by a rule that treated a single interrupted launch as a
+    /// failure, which is a thing that happens to everybody — so the flag on
+    /// disk right now says almost nothing, and anybody carrying it would go on
+    /// seeing "the last launch didn't finish" forever unless they found the
+    /// button. Clearing it once on upgrade is the only way the fix reaches the
+    /// people it was written for. If the next launch really does fail twice,
+    /// it latches again on its own.
+    private static let currentRule = 2
 
     static var isOn: Bool {
         get { UserDefaults.standard.bool(forKey: key) }
         set { UserDefaults.standard.set(newValue, forKey: key) }
     }
 
+    /// Drops a latch set under an older rule. Call before reading `isOn`.
+    static func clearIfSetUnderAnOlderRule() {
+        let defaults = UserDefaults.standard
+        guard defaults.integer(forKey: ruleKey) < currentRule else { return }
+        defaults.set(currentRule, forKey: ruleKey)
+
+        guard isOn else { return }
+        isOn = false
+        Log.app.notice("Cleared simple mode: it was latched under an older rule")
+    }
+
+    /// Two in a row, not one.
+    ///
+    /// One launch that did not finish is ordinary life: the app was
+    /// backgrounded during the splash, or force-quit, or reclaimed by iOS
+    /// while it sat behind something else. Latching on a single one meant the
+    /// app kept greeting people with "the last launch didn't finish" and a
+    /// stripped-back list, when nothing had gone wrong at all — and the only
+    /// way out was a button most people would never think to press.
+    ///
+    /// Two consecutive failures is a pattern, and a pattern is what simple
+    /// mode exists for.
+    private static let threshold = 2
+
     /// Called once at launch, before anything can hang.
     static func latchIfPreviousLaunchFailed() {
-        guard LaunchTrace.previousLaunchStage != nil else { return }
+        let streak = LaunchTrace.incompleteStreak
+        guard streak >= threshold else { return }
         isOn = true
-        Log.app.notice("Cookbook opening in simple mode: the last launch did not finish")
+        Log.app.notice(
+            "Cookbook opening in simple mode: \(streak, privacy: .public) launches in a row did not finish"
+        )
     }
 }
 
