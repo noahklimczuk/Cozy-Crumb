@@ -2,11 +2,12 @@
 //  SeedData.swift
 //  Cozy Crumb
 //
-//  Five realistic recipes so the Library has something to render on a fresh
-//  install, and so previews have real data to work with.
+//  Five realistic recipes for previews to work with.
 //
-//  Seeding runs once, guarded by a UserDefaults flag — deleting the samples
-//  does not bring them back.
+//  These used to be installed into a fresh store on first launch, so a new
+//  cookbook arrived with somebody else's recipes in it. It doesn't any more: a
+//  new install opens empty, and the empty state already says what to do about
+//  that. The samples stay because every preview in the app is built from them.
 //
 
 import Foundation
@@ -14,54 +15,6 @@ import SwiftData
 import os
 
 enum SeedData {
-
-    static let hasSeededKey = "data.hasSeededSampleRecipes"
-
-    /// Inserts the samples if this install has never been seeded.
-    @MainActor
-    static func installIfNeeded(in context: ModelContext) {
-        guard !UserDefaults.standard.bool(forKey: hasSeededKey) else { return }
-
-        // Belt and braces: never seed on top of existing recipes.
-        let existing = try? context.fetch(FetchDescriptor<Recipe>())
-        guard existing?.isEmpty ?? true else {
-            UserDefaults.standard.set(true, forKey: hasSeededKey)
-            return
-        }
-
-        let weeknight = RecipeCollection(name: "Weeknight")
-        let baking = RecipeCollection(name: "Baking")
-        let comfort = RecipeCollection(name: "Mom's")
-
-        for collection in [weeknight, baking, comfort] {
-            context.insert(collection)
-        }
-
-        // Relationships are assigned after insertion — SwiftData wants both
-        // sides of a many-to-many registered with the context first.
-        let pairs: [(Recipe, [RecipeCollection])] = [
-            (bananaBread(), [baking]),
-            (misoSalmon(), [weeknight]),
-            (cacioEPepe(), [weeknight]),
-            (chickpeaCurry(), [weeknight]),
-            (roastChicken(), [comfort])
-        ]
-
-        for (recipe, collections) in pairs {
-            context.insert(recipe)
-            recipe.collections = collections
-        }
-
-        let recipes = pairs.map(\.0)
-
-        do {
-            try context.save()
-            UserDefaults.standard.set(true, forKey: hasSeededKey)
-            Log.data.info("Seeded \(recipes.count, privacy: .public) sample recipes")
-        } catch {
-            Log.data.error("Seeding failed: \(error.localizedDescription, privacy: .public)")
-        }
-    }
 
     // MARK: - Recipes
 
