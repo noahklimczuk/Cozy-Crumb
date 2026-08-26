@@ -155,7 +155,9 @@ struct LibraryView: View {
         // would break there anyway on a phone, and hard-coding it means the
         // two lines are the design on every width instead of only the narrow
         // ones. `heroTitle` hands VoiceOver the unbroken word.
-        ScreenHeader(title: "Cook\nbook", eyebrow: AppBranding.appName) {
+        let _ = markBodyOnce("cookbook header")
+
+        return ScreenHeader(title: "Cook\nbook", eyebrow: AppBranding.appName) {
             HeaderMascotBadge(pose: .peeking)
         } below: {
             HStack(spacing: CozySpacing.m) {
@@ -267,6 +269,9 @@ struct LibraryView: View {
     /// them apart meant two copies of a heading, a sort control and a grid.
     @ViewBuilder
     private var content: some View {
+        let _ = markBodyOnce("cookbook content entered")
+        let _ = markBodyOnce("cookbook query returned \(recipes.count) recipes, \(collections.count) collections")
+
         if recipes.isEmpty && collections.isEmpty {
             EmptyStateView(
                 title: "Your cookbook's a blank page.",
@@ -367,7 +372,9 @@ struct LibraryView: View {
     /// It is a hidden gesture, so the sort menu carries the same list in the
     /// open — see the note there.
     private var collectionChips: some View {
-        ScrollView(.horizontal) {
+        let _ = markBodyOnce("cookbook chips")
+
+        return ScrollView(.horizontal) {
             HStack(spacing: CozySpacing.s) {
                 SelectableChip(
                     text: "All \(recipes.count)",
@@ -407,7 +414,9 @@ struct LibraryView: View {
     }
 
     private func recipeGrid(recipes: [Recipe]) -> some View {
-        LazyVGrid(columns: columns, spacing: CozySpacing.m) {
+        let _ = markBodyOnce("cookbook grid, \(recipes.count) visible")
+
+        return LazyVGrid(columns: columns, spacing: CozySpacing.m) {
             ForEach(Array(recipes.enumerated()), id: \.element.id) { index, recipe in
                 NavigationLink {
                     RecipeDetailView(recipe: recipe)
