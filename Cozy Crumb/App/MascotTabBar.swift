@@ -41,10 +41,7 @@ struct MascotTabBar: View {
 
     var body: some View {
 
-        // Bottom-aligned, so the five labels share a line before the Sous Chef
-        // column is lifted off it. Centring them instead would stagger every
-        // label against its neighbour, because the cupcake's column is taller
-        // than the four beside it.
+        // Bottom-aligned, so the five labels share a line.
         HStack(alignment: .bottom, spacing: 0) {
             ForEach(CozyTab.allCases) { tab in
                 item(for: tab)
@@ -53,12 +50,26 @@ struct MascotTabBar: View {
         .padding(.horizontal, CozySpacing.xs)
         .padding(.bottom, CozySpacing.m)
         .frame(maxWidth: .infinity, minHeight: CozyMetrics.tabBarHeight)
+        // A clear strip on top of the painted slab, and it is load-bearing.
+        //
+        // What `safeAreaInset` hands back to every screen is this view's whole
+        // height, so the strip is how far above the slab a scroll view stops.
+        // Without it content ends flush against the pink — the last row half
+        // under it, and a card's block, which draws 4pt outside its own frame,
+        // entirely under it. That is what "scrolling is broken and things
+        // overlap" looked like on every tab.
+        //
+        // It used to be here to reserve room for the cupcake standing out of
+        // the bar. The cupcake sits on the row now; the gap is still needed,
+        // for the other reason it was always doing this job.
+        .padding(.top, CozyMetrics.tabBarContentGap)
         .background {
             // Solid accent, square across the top, no block. Squaring it off
             // is what makes it a painted bar rather than a card stuck to the
             // bottom of the screen; padding the fill down by the same strip
             // keeps the slab at tabBarHeight while the bar itself is taller.
             accent.color
+                .padding(.top, CozyMetrics.tabBarContentGap)
                 .ignoresSafeArea(edges: .bottom)
         }
         // Five labels across the narrowest phone cannot also grow to AX5:

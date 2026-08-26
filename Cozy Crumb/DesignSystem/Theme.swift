@@ -396,10 +396,19 @@ enum CozyMetrics {
     /// 92 rather than 58, because the bar is no longer a strip of glyphs: it
     /// is a painted blush slab with a selected item drawn in a 36pt block.
     ///
-    /// The Sous Chef's cupcake used to stand proud of the top of the bar, and
-    /// the bar reserved that overhang as real padding. It sits on the row with
-    /// the other four now, so there is nothing extra to reserve.
+    /// This is the painted slab only. The bar is `tabBarContentGap` taller.
     nonisolated static let tabBarHeight: CGFloat = 92
+
+    /// The clear strip above the painted slab, and the gap every scroll view
+    /// in the app stops at.
+    ///
+    /// `safeAreaInset` hands screens the bar's whole height, so this is the
+    /// only thing keeping content off the pink. It was introduced to reserve
+    /// room for the Sous Chef's cupcake standing out of the bar; the cupcake
+    /// sits on the row now, and removing the strip with it put the last row of
+    /// every list under the slab, along with the block that draws 4pt below
+    /// each card. It stays, for the job it was quietly also doing.
+    nonisolated static let tabBarContentGap: CGFloat = 16
 
     /// A quiet header glyph — the ellipsis on Groceries. Smaller than
     /// `addButtonDiameter`, still a full touch target thanks to its frame.
