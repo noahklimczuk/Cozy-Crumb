@@ -105,12 +105,25 @@ struct RecipeCard: View {
             // heart in blush on a blush-ish photo was doing the same job as
             // the picture behind it; butter is the one colour on a recipe card
             // that means nothing else.
+            //
+            // `inkOnAccent` in both states, not just the favourited one. Both
+            // fills are light surfaces that stay light after dark, and the
+            // unfavourited heart was drawn in `inkPrimary` — which goes light
+            // with the page. On a dark phone that was a pale outline on a white
+            // disc: the heart was there, and invisible.
             Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
                 .font(.footnote.weight(.bold))
-                .foregroundStyle(recipe.isFavorite ? CozyColor.inkOnAccent : CozyColor.inkPrimary)
+                .foregroundStyle(CozyColor.inkOnAccent)
                 .frame(width: 26, height: 26)
                 .background(recipe.isFavorite ? CozyColor.butter : CozyColor.surfaceOnAccent,
                             in: .circle)
+                // A hairline, because the disc has to read on a hero of any
+                // colour and the heroes are the same palette it is drawn from.
+                // A butter badge on the butter-tinted placeholder was one shape
+                // in one colour.
+                .overlay {
+                    Circle().strokeBorder(CozyColor.inkOnAccent.opacity(0.14), lineWidth: 1)
+                }
                 .scaleEffect(heartPop ? 1.25 : 1)
                 .animation(reduceMotion ? Motion.reduced : Motion.bouncy, value: heartPop)
                 // Keep a full-size hit area behind the small drawn circle.
