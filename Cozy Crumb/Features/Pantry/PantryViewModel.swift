@@ -72,7 +72,7 @@ final class PantryViewModel {
     }
 
     var canReadPhotos: Bool {
-        keychain.hasValue(for: .geminiAPIKey)
+        GeminiAPIKey.isAvailable(keychain: keychain)
     }
 
     // MARK: - Grouping

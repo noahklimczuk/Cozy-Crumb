@@ -91,7 +91,7 @@ struct SettingsView: View {
             } label: {
                 SettingsRowLabel(
                     title: "Key and model",
-                    detail: KeychainStore.shared.hasValue(for: .geminiAPIKey)
+                    detail: GeminiAPIKey.isAvailable()
                         ? "Awake, using \(GeminiModel.preferred.displayName)"
                         : "Asleep — no key yet",
                     showsChevron: true

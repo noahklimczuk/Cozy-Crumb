@@ -87,7 +87,7 @@ final class ImportViewModel {
 
     /// Whether the Sous Chef is awake. Everything social depends on it.
     var isAIAvailable: Bool {
-        keychain.hasValue(for: .geminiAPIKey)
+        GeminiAPIKey.isAvailable(keychain: keychain)
     }
 
     // MARK: - Entry points

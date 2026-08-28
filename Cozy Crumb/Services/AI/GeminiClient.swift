@@ -223,7 +223,7 @@ actor GeminiClient {
     }
 
     nonisolated var hasAPIKey: Bool {
-        keychain.hasValue(for: .geminiAPIKey)
+        GeminiAPIKey.isAvailable(keychain: keychain)
     }
 
     // MARK: - Generate
@@ -240,7 +240,7 @@ actor GeminiClient {
         thinking: GeminiThinkingConfig? = .low,
         timeout: TimeInterval = GeminiClient.textTimeout
     ) async -> Result<String, CozyError> {
-        guard let apiKey = keychain.string(for: .geminiAPIKey) else {
+        guard let apiKey = GeminiAPIKey.resolved(keychain: keychain) else {
             return .failure(.missingAPIKey)
         }
 
@@ -315,7 +315,7 @@ actor GeminiClient {
         maxOutputTokens: Int = 8192,
         timeout: TimeInterval = GeminiClient.textTimeout
     ) async -> Result<GeminiReply, CozyError> {
-        guard let apiKey = keychain.string(for: .geminiAPIKey) else {
+        guard let apiKey = GeminiAPIKey.resolved(keychain: keychain) else {
             return .failure(.missingAPIKey)
         }
 
