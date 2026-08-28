@@ -31,6 +31,7 @@
 //
 
 import Foundation
+import os
 
 /// The shape of Secrets.plist. Decodable rather than a dictionary cast so a
 /// typo in the file is a decode failure we can log, not a silent nil.
