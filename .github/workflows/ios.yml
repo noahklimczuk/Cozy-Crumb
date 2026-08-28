@@ -16,6 +16,12 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 30
 
+    # Write access, for one thing only: republishing the screen captures onto
+    # the `ci/screens` branch. See that step for why an artifact alone is not
+    # enough. Nothing else in this workflow writes to the repository.
+    permissions:
+      contents: write
+
     steps:
       - name: Check out
         uses: actions/checkout@v5
@@ -92,7 +98,7 @@ jobs:
       # the moment the process is spawned, and a SwiftUI crash happens a beat
       # later while the first view builds.
       - name: Launch smoke test
-        timeout-minutes: 8
+        timeout-minutes: 16
         run: |
           set -o pipefail
           APP="build/Debug-iphonesimulator/Cozy Crumb.app"
@@ -287,6 +293,112 @@ jobs:
           fi
 
           echo "The app launched and stayed up in both appearances."
+
+          # ----- Every screen, both appearances, as a downloadable artifact --
+          #
+          # Nobody working on this repository from a Linux checkout can see the
+          # app. Layout bugs were being diagnosed by reading code and guessing
+          # at pixel positions, which is how the tab bar came to eat the bottom
+          # of every scroll view. This turns that into a photograph.
+          #
+          # The app is relaunched per screen rather than driven through the UI:
+          # simctl cannot tap, and a UI test target is a lot of machinery for
+          # what a launch argument does in one line. `-cozyStartTab` opens on a
+          # tab, `-cozySampleData` fills an empty store so the Cookbook has
+          # cards in it, and `-cozySkipSplash` gets the cupcake out of the way.
+          #
+          # Never `exit 1`. This is a camera, not a test: a screenshot that
+          # fails to capture must not turn a green build red, or the real
+          # checks above start getting ignored.
+          echo "----- capturing screens -----"
+          mkdir -p "$RUNNER_TEMP/screens"
+
+          for MODE in light dark; do
+            xcrun simctl ui "$DEVICE" appearance "$MODE" || true
+
+            for TAB in library groceries sousChef pantry settings; do
+              xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
+              xcrun simctl launch "$DEVICE" "$BUNDLE_ID" \
+                -cozyStartTab "$TAB" \
+                -cozySampleData YES \
+                -cozySkipSplash YES >/dev/null 2>&1 || true
+
+              # Long enough for the launch passes to finish and the grid to
+              # settle. The passes sleep a frame between each of seven, and a
+              # hero photo decodes off the main thread after that.
+              sleep 4
+
+              SHOT="$RUNNER_TEMP/screens/$MODE-$TAB.png"
+              xcrun simctl io "$DEVICE" screenshot "$SHOT" >/dev/null 2>&1 \
+                && echo "captured $MODE/$TAB" \
+                || echo "could not capture $MODE/$TAB"
+            done
+          done
+
+
+      # Always, so a red build is still a build you can look at — a layout bug
+      # bad enough to fail the render check is exactly when the pictures are
+      # worth the most.
+      - name: Upload screens
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens
+          path: ${{ runner.temp }}/screens
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # The same pictures again, on a branch, because the artifact above can
+      # only be reached by a person with a browser.
+      #
+      # An artifact download redirects to blob.core.windows.net, and the agent
+      # sandbox that does the actual fixing cannot reach that host — so the
+      # captures were visible to everyone except the one reader who needed
+      # them. Git talks to github.com, which is reachable, so the pictures go
+      # where the reader already is.
+      #
+      # A fresh repository every time and a force push, so `ci/screens` is
+      # always exactly one commit holding the current pictures. It never grows,
+      # it is never merged, and nothing builds from it.
+      #
+      # `continue-on-error`, like the capture itself: publishing pictures must
+      # never be what turns a build red.
+      - name: Publish screens to the ci/screens branch
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SRC="$RUNNER_TEMP/screens"
+          ls "$SRC"/*.png >/dev/null 2>&1 || { echo "No screens to publish."; exit 0; }
+
+          WORK="$RUNNER_TEMP/screens-branch"
+          rm -rf "$WORK" && mkdir -p "$WORK"
+          cp "$SRC"/*.png "$WORK"/
+
+          {
+            echo "# Screens"
+            echo
+            echo "Captured from \`$GITHUB_REF_NAME\` at \`$GITHUB_SHA\`."
+            echo
+            echo "Five tabs, light and dark. Rebuilt and force-pushed by every"
+            echo "run of the iOS workflow — this branch is a noticeboard, not"
+            echo "history. Nothing merges it."
+            echo
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$WORK/README.md"
+
+          cd "$WORK"
+          git init -q
+          git checkout -q -b ci/screens
+          git config user.name "Cozy Crumb CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Screens from $GITHUB_REF_NAME @ ${GITHUB_SHA:0:7}"
+          git push -q --force \
+            "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" \
+            ci/screens
+          echo "Published $(ls -1 *.png | wc -l | tr -d ' ') screens to ci/screens."
 
       # Runs against the shared scheme, which builds the app as the test host
       # and then the test bundle. The simulator is picked from whatever the

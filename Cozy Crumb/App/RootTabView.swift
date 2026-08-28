@@ -60,7 +60,9 @@ struct RootTabView: View {
     /// out of the way rather than making the import wait behind it.
     var onSharedLink: () -> Void = {}
 
-    @State private var selection: CozyTab = .library
+    /// `LaunchOptions.startTab` is nil unless a launch argument named one, so
+    /// this is `.library` for everybody who is not a screenshot.
+    @State private var selection: CozyTab = LaunchOptions.startTab ?? .library
     /// A link handed over from outside the app — the share extension, a
     /// shortcut, anything that opens the cozycrumb:// scheme.
     @State private var sharedLink: SharedLink?
