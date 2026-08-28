@@ -114,6 +114,14 @@ struct MascotTabBar: View {
                     .lineLimit(1)
                     // Takes up the last of the slack inside the cap above.
                     .minimumScaleFactor(0.85)
+                    // A gutter each side, so neighbours cannot touch.
+                    //
+                    // The AX5 capture read "Cookbo…Groceries Sous Ch…" — three
+                    // labels with no space between them, which is less legible
+                    // than a shorter label would have been. `minimumScaleFactor`
+                    // shrinks the glyphs but nothing was reserving the gap, so
+                    // the columns grew until they met.
+                    .padding(.horizontal, 2)
             }
             .foregroundStyle(CozyColor.inkOnAccent)
             .frame(maxWidth: .infinity)
