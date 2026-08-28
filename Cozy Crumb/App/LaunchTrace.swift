@@ -107,13 +107,46 @@ nonisolated enum LaunchTrace {
 
         // Written synchronously, before anything can block, so the next launch
         // can report where this one stopped even if it never draws again.
+        _ = armLaunch
+        UserDefaults.standard.set(stage, forKey: lastStageKey)
+    }
+
+    /// Says "a launch is under way, and it has not finished" — exactly once
+    /// per process.
+    ///
+    /// This used to be part of `mark`, which meant every stage cleared the
+    /// finished flag. That was harmless while completion was recorded last,
+    /// and wrong the moment it moved earlier: the shell would appear, mark the
+    /// launch complete, and then the very next maintenance pass would call
+    /// `mark` and unset it again. Every launch therefore still looked failed,
+    /// the streak still climbed, and the app still opened in simple mode — the
+    /// fix for that had been written and then immediately undone, one line
+    /// later, by this.
+    ///
+    /// A lazy static runs once and is thread-safe, which is the whole
+    /// requirement: arm at the first mark, and never touch it again.
+    private static let armLaunch: Void = {
+        // Both of these read the values the *previous* launch left behind, so
+        // they have to be forced before anything below overwrites them.
         _ = previousLaunchStage
+        let streak = incompleteStreak
+
         let defaults = UserDefaults.standard
-        defaults.set(stage, forKey: lastStageKey)
         defaults.set(false, forKey: completedKey)
-        // Carried forward so a run of bad launches is distinguishable from one
-        // interrupted launch. Read before it is written, as above.
-        defaults.set(incompleteStreak, forKey: streakKey)
+        defaults.set(streak, forKey: streakKey)
+    }()
+
+    /// Wipes what previous launches recorded about themselves.
+    ///
+    /// For when the rule that produced those records has changed and they no
+    /// longer mean anything — see `CookbookSafeMode.clearIfSetUnderAnOlderRule`.
+    /// Call before anything reads `incompleteStreak` or `previousLaunchStage`,
+    /// which is why it happens at the very top of `openStore`.
+    static func forgetPreviousLaunches() {
+        let defaults = UserDefaults.standard
+        defaults.set(true, forKey: completedKey)
+        defaults.set(0, forKey: streakKey)
+        defaults.removeObject(forKey: lastStageKey)
     }
 }
 
@@ -138,7 +171,11 @@ nonisolated enum CookbookSafeMode {
     /// button. Clearing it once on upgrade is the only way the fix reaches the
     /// people it was written for. If the next launch really does fail twice,
     /// it latches again on its own.
-    private static let currentRule = 2
+    /// Rule 3, not 2, and for the same reason twice over: under rule 2 every
+    /// stage mark still cleared the finished flag, so the streak went on
+    /// climbing over launches that had in fact succeeded. Those counts are as
+    /// meaningless as the flag, so the reset drops them too.
+    private static let currentRule = 3
 
     static var isOn: Bool {
         get { UserDefaults.standard.bool(forKey: key) }
@@ -150,6 +187,10 @@ nonisolated enum CookbookSafeMode {
         let defaults = UserDefaults.standard
         guard defaults.integer(forKey: ruleKey) < currentRule else { return }
         defaults.set(currentRule, forKey: ruleKey)
+
+        // The streak goes with the flag: it was counted by the same broken
+        // rule, and leaving it behind would re-latch on the very next launch.
+        LaunchTrace.forgetPreviousLaunches()
 
         guard isOn else { return }
         isOn = false
