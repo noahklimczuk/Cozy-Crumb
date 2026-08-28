@@ -94,7 +94,7 @@ final class SousChefViewModel {
     }
 
     var isAwake: Bool {
-        keychain.hasValue(for: .geminiAPIKey)
+        GeminiAPIKey.isAvailable(keychain: keychain)
     }
 
     var canSend: Bool {
