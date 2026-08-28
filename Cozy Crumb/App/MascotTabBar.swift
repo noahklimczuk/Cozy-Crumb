@@ -164,7 +164,9 @@ struct MascotTabBar: View {
             // The same 52x36 slot the four blocks occupy, so every icon in the
             // bar shares one baseline.
             .frame(width: 34, height: 34)
-            .background(CozyColor.card, in: .circle)
+            // The bar is a painted slab, so the disc is the slab's badge.
+            // `card` here drew a black circle round the cupcake at night.
+            .background(CozyColor.Surface.onAccent.badge, in: .circle)
             .overlay {
                 Circle().strokeBorder(accent.deep, lineWidth: isSelected ? 3 : 2)
             }

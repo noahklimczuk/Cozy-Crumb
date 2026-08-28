@@ -496,7 +496,7 @@ struct PantryView: View {
             text: $viewModel.draft,
             systemImage: "plus.circle",
             submitLabel: .done,
-            fill: CozyColor.surfaceOnAccent
+            surface: .onAccent
         ) {
             withAnimation(motion(Motion.gentle)) {
                 viewModel.addTyped(in: modelContext)

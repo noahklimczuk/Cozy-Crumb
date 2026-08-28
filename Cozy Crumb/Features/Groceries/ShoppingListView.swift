@@ -269,9 +269,10 @@ struct ShoppingListView: View {
                 text: $newItemText,
                 systemImage: "plus.circle",
                 submitLabel: .done,
-                // Translucent, because it sits on the slab rather than on the
-                // page — solid white here punches a hole in the header.
-                fill: CozyColor.surfaceOnAccent
+                // On the slab rather than on the page, so it takes the
+                // slab's fill *and* the slab's ink. Solid white here would
+                // punch a hole in the header.
+                surface: .onAccent
             ) {
                 addTypedItem()
             }
@@ -361,7 +362,10 @@ struct ShoppingListView: View {
                 .padding(.vertical, CozySpacing.s)
                 .background(CozyColor.creamDeep, in: .capsule)
                 .cozyLiftShadow()
-                .padding(.bottom, 96)
+                // Clear of the tab bar, from the same number the bar is
+                // built from. 96 was a guess at a bar that is 108 tall,
+                // so every one of these was appearing behind it.
+                .padding(.bottom, CozyMetrics.tabBarTotalHeight + CozySpacing.m)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .allowsHitTesting(false)
         }

@@ -55,6 +55,7 @@ struct CozyCrumbApp: App {
         guard modelContainer == nil else { return }
 
         // Read before this launch overwrites the record of the last one.
+        CookbookSafeMode.clearIfSetUnderAnOlderRule()
         CookbookSafeMode.latchIfPreviousLaunchFailed()
         LaunchTrace.mark("app init")
 
