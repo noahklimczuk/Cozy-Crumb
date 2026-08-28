@@ -6,42 +6,82 @@
 //
 //  Two sources, in this order:
 //    1. A key the owner typed into Settings, read from the Keychain.
-//    2. The key built into this build, below.
+//    2. The key this build ships with, read from `Secrets.plist` in the app
+//       bundle.
 //
-//  A built-in key ships inside the app bundle, so it is readable by anyone
-//  who has the binary — `strings` over the app is all it takes. Only ship a
-//  key you are willing to have in the open, keep it restricted to the
-//  Generative Language API, and rotate it if it starts being spent by
-//  someone else.
+//  Secrets.plist is deliberately *not* in git. This repository is public, and
+//  a Gemini key committed to a public repository is found by GitHub's secret
+//  scanning and disabled by Google, usually the same day — a key in the repo
+//  is a key that stops working. Keeping the file out of git costs one manual
+//  copy per checkout and is the difference between a build that works and one
+//  that mysteriously stops.
+//
+//  To give a build its own key:
+//
+//      cp Config/Secrets.example.plist "Cozy Crumb/Resources/Secrets.plist"
+//      # then put the key in the GeminiAPIKey entry
+//
+//  `Cozy Crumb` is a synchronised group, so Xcode picks the file up and copies
+//  it into the app with no project changes. Without it there is no built-in
+//  key and the app is bring-your-own, exactly as it was before.
+//
+//  A key shipped this way is still readable by anyone holding the binary — a
+//  plist inside an .ipa is just a plist. Keep it restricted to the Generative
+//  Language API, and rotatable.
 //
 
 import Foundation
 
-enum GeminiAPIKey {
+/// The shape of Secrets.plist. Decodable rather than a dictionary cast so a
+/// typo in the file is a decode failure we can log, not a silent nil.
+private nonisolated struct GeminiSecretsFile: Decodable {
+    var geminiAPIKey: String?
 
-    /// The key baked into this build. Paste it between the quotes.
-    ///
-    /// Empty means this build carries no key of its own, and the app behaves
-    /// exactly as it did before: bring-your-own, entered in Settings.
-    nonisolated static let builtIn = ""
-
-    /// The built-in key, or nil when this build doesn't carry one.
-    nonisolated static var builtInKey: String? {
-        let trimmed = builtIn.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+    enum CodingKeys: String, CodingKey {
+        case geminiAPIKey = "GeminiAPIKey"
     }
+}
+
+nonisolated enum GeminiAPIKey {
+
+    private static let secretsResource = "Secrets"
+    private static let secretsEntry = "GeminiAPIKey"
+
+    /// The key this build ships with, or nil when it ships without one.
+    ///
+    /// Read once: a file inside the bundle cannot change under a running app.
+    static let builtInKey: String? = {
+        // No file is the ordinary case for a fresh checkout and for CI. It is
+        // not a failure, so it is not logged.
+        guard let url = Bundle.main.url(forResource: secretsResource, withExtension: "plist") else {
+            return nil
+        }
+
+        guard let data = try? Data(contentsOf: url),
+              let secrets = try? PropertyListDecoder().decode(GeminiSecretsFile.self, from: data),
+              let key = secrets.geminiAPIKey?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !key.isEmpty else {
+            // Shipped but unreadable looks exactly like no key at all from the
+            // outside, which is a miserable thing to debug. Say so — the name
+            // of the missing entry only, never a value.
+            Log.ai.error("Secrets.plist carries no usable \(secretsEntry, privacy: .public)")
+            return nil
+        }
+
+        return key
+    }()
 
     /// The key to put on the wire.
     ///
     /// The owner's own key wins: someone who has gone to the trouble of
     /// pasting one into Settings wants their quota used, not ours.
-    nonisolated static func resolved(keychain: KeychainStore = .shared) -> String? {
+    static func resolved(keychain: KeychainStore = .shared) -> String? {
         keychain.string(for: .geminiAPIKey) ?? builtInKey
     }
 
     /// Whether the app can talk to Gemini at all — the one gate every AI
     /// feature checks before offering itself.
-    nonisolated static func isAvailable(keychain: KeychainStore = .shared) -> Bool {
+    static func isAvailable(keychain: KeychainStore = .shared) -> Bool {
         resolved(keychain: keychain) != nil
     }
 }
