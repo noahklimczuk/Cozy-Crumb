@@ -313,27 +313,55 @@ jobs:
           echo "----- capturing screens -----"
           mkdir -p "$RUNNER_TEMP/screens"
 
+          # One tab, once, into a named file. Everything below is a loop
+          # around this.
+          capture () {
+            LABEL="$1"; TAB="$2"
+            xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
+            xcrun simctl launch "$DEVICE" "$BUNDLE_ID" \
+              -cozyStartTab "$TAB" \
+              -cozySampleData YES \
+              -cozySkipSplash YES >/dev/null 2>&1 || true
+
+            # Long enough for the launch passes to finish and the grid to
+            # settle. The passes sleep a frame between each of seven, and a
+            # hero photo decodes off the main thread after that.
+            sleep 4
+
+            SHOT="$RUNNER_TEMP/screens/$LABEL-$TAB.png"
+            xcrun simctl io "$DEVICE" screenshot "$SHOT" >/dev/null 2>&1 \
+              && echo "captured $LABEL/$TAB" \
+              || echo "could not capture $LABEL/$TAB"
+          }
+
           for MODE in light dark; do
             xcrun simctl ui "$DEVICE" appearance "$MODE" || true
-
             for TAB in library groceries sousChef pantry settings; do
-              xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
-              xcrun simctl launch "$DEVICE" "$BUNDLE_ID" \
-                -cozyStartTab "$TAB" \
-                -cozySampleData YES \
-                -cozySkipSplash YES >/dev/null 2>&1 || true
-
-              # Long enough for the launch passes to finish and the grid to
-              # settle. The passes sleep a frame between each of seven, and a
-              # hero photo decodes off the main thread after that.
-              sleep 4
-
-              SHOT="$RUNNER_TEMP/screens/$MODE-$TAB.png"
-              xcrun simctl io "$DEVICE" screenshot "$SHOT" >/dev/null 2>&1 \
-                && echo "captured $MODE/$TAB" \
-                || echo "could not capture $MODE/$TAB"
+              capture "$MODE" "$TAB"
             done
           done
+
+          # A third pass at the largest accessibility text size.
+          #
+          # Every layout in this app has been judged at the default size, so
+          # "does this break at AX5" has been a guess every time it came up —
+          # and the answers have not been good: a 4pt bullet in front of type
+          # that grows to 53pt, a fixed-height row, a title that wraps
+          # mid-word. `simctl ui content_size` sets it from outside, so this
+          # costs five launches and no app code.
+          #
+          # Light only. The question here is whether things fit, and that is
+          # the same question in both appearances.
+          if xcrun simctl ui "$DEVICE" appearance light \
+            && xcrun simctl ui "$DEVICE" content_size accessibility-extra-extra-extra-large; then
+            for TAB in library groceries sousChef pantry settings; do
+              capture "ax5" "$TAB"
+            done
+            # Put it back, so a later step never inherits AX5 by surprise.
+            xcrun simctl ui "$DEVICE" content_size large || true
+          else
+            echo "content_size is not supported here; skipping the AX5 pass."
+          fi
 
 
       # Always, so a red build is still a build you can look at — a layout bug

@@ -131,6 +131,26 @@ struct CozyCrumbApp: App {
     }
 }
 
+/// How long the cupcake holds the screen before handing over.
+///
+/// It was 3.9 seconds, which is a long time to look at a picture of a cupcake
+/// several times a day — and close to the problem this app has actually had.
+/// A launch that hangs and a launch that is merely greeting you are the same
+/// still image, so four seconds of greeting trains people to read a stall as
+/// normal and normal as a stall. It also stretches the window in which
+/// backgrounding or force-quitting the app counts as an interrupted launch.
+///
+/// The store opens in about 40ms, so none of this was ever waiting for
+/// anything. 1.1s is long enough to register as a greeting and short enough
+/// that nobody wonders whether the app is stuck. One number, easy to move if
+/// it reads as hurried.
+///
+/// At file scope rather than on `AppLaunchView`, which is generic over its
+/// content — and Swift has no static stored properties in generic types.
+private enum SplashTiming {
+    static let dwell: Double = 1.1
+}
+
 /// A short, branded handoff after iOS's system launch screen. Keeping this in
 /// SwiftUI lets the cupcake greet the user while SwiftData opens the store.
 private struct AppLaunchView<Content: View>: View {
@@ -138,6 +158,8 @@ private struct AppLaunchView<Content: View>: View {
     /// specific, like import a shared link.
     let isSkipped: Bool
     let content: () -> Content
+
+    @Environment(\.cozyMotion) private var motion
 
     @State private var isShowingSplash = true
 
@@ -191,7 +213,7 @@ private struct AppLaunchView<Content: View>: View {
                 return
             }
 
-            try? await Task.sleep(for: .seconds(3.9))
+            try? await Task.sleep(for: .seconds(SplashTiming.dwell))
             LaunchTrace.mark("splash dismissed")
             hideSplash()
         }
@@ -215,7 +237,10 @@ private struct AppLaunchView<Content: View>: View {
 
         guard isShowingSplash else { return }
 
-        withAnimation(.easeOut(duration: 0.28)) {
+        // Through the resolver like everything else. A cross-fade is exactly
+        // the kind of thing Reduce Motion asks to be shortened, and this was
+        // the one animation in the app still deciding for itself.
+        withAnimation(motion(.easeOut(duration: 0.28))) {
             isShowingSplash = false
         }
     }
