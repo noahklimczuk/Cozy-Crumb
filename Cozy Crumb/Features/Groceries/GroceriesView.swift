@@ -44,13 +44,24 @@ struct GroceryModePicker: View {
     @Binding var mode: GroceryTabMode
 
     var body: some View {
-        Picker("View", selection: $mode) {
-            ForEach(GroceryTabMode.allCases) { mode in
-                Text(mode.title).tag(mode)
-            }
-        }
-        .pickerStyle(.segmented)
-        .accessibilityLabel("Which list")
+        // Not `.pickerStyle(.segmented)`. That brings iOS's grey capsule with
+        // it — the one piece of system chrome left in a warm app, and the
+        // reason Settings grew its own segmented control months ago. On the
+        // painted header slab it was worse than grey: the system control
+        // styles itself from the *appearance*, so after dark it drew light-on-
+        // dark chrome onto a slab that is pink in both, and neither half of it
+        // could be read.
+        //
+        // Same control as Settings now, which is the point of it being in the
+        // design system rather than in one screen.
+        CozySegmentedControl(
+            label: "Which list",
+            surface: .onAccent,
+            options: GroceryTabMode.allCases.map {
+                CozySegment(value: $0, title: $0.title)
+            },
+            selection: $mode
+        )
     }
 }
 

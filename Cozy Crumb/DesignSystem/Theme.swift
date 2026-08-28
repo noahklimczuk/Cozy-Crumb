@@ -177,6 +177,74 @@ enum CozyColor {
     /// appearances. Drawn at a low opacity by `TileBackground`.
     nonisolated static let tileOnAccent = Color(hex: "6B5A52")
 
+    /// Which ground a control is standing on.
+    ///
+    /// Not a new palette — a pairing of the one that already exists. The app
+    /// has two kinds of ground and they take opposite ink: the page goes dark
+    /// after dark and carries `inkPrimary`, which goes light with it; a painted
+    /// slab is the same pastel in both appearances and carries `inkOnAccent`,
+    /// which never moves. Every contrast bug in this app so far has been a
+    /// control that took its fill from one of those and its ink from the other.
+    ///
+    /// A control that can appear on both asks for a surface instead of a
+    /// colour, and gets a matched set. The pairing stops being something each
+    /// call site has to remember.
+    nonisolated enum Surface: Sendable {
+        /// A cream page or a white card.
+        case page
+        /// A header slab, the tab bar, or one of the accent-ground screens.
+        case onAccent
+
+        /// Fill for a field or an unselected control.
+        nonisolated var field: Color {
+            switch self {
+            case .page: CozyColor.card
+            case .onAccent: CozyColor.surfaceOnAccent
+            }
+        }
+
+        /// Fill for a quieter well — an unselected segment.
+        nonisolated var well: Color {
+            switch self {
+            case .page: CozyColor.creamDeep
+            case .onAccent: Color.white.opacity(0.28)
+            }
+        }
+
+        /// Opaque disc behind a badge — the mascot in the header, the cupcake
+        /// in the tab bar.
+        ///
+        /// Opaque, unlike `field`: these hold artwork, and a translucent disc
+        /// lets the slab tint the cupcake. `card` cannot do this job on a slab
+        /// because it goes near-black after dark, which is how the tab bar's
+        /// cupcake came to sit in a black hole on a pink bar.
+        nonisolated var badge: Color {
+            switch self {
+            case .page: CozyColor.card
+            case .onAccent: Color(hex: "FFFDFB")
+            }
+        }
+
+        nonisolated var ink: Color {
+            switch self {
+            case .page: CozyColor.inkPrimary
+            case .onAccent: CozyColor.inkOnAccent
+            }
+        }
+
+        /// Placeholders, icons and other second-rank marks.
+        ///
+        /// On an accent surface this is `inkOnAccent` softened rather than
+        /// `inkSecondary`, because `inkSecondary` goes light after dark and
+        /// this surface does not.
+        nonisolated var inkQuiet: Color {
+            switch self {
+            case .page: CozyColor.inkSecondary
+            case .onAccent: CozyColor.inkOnAccent.opacity(0.62)
+            }
+        }
+    }
+
     // Semantic — gentle, even when wrong
     //
     /// These stay pairs, for the same reason `AccentPalette.soft` does: they

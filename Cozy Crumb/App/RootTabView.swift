@@ -60,7 +60,9 @@ struct RootTabView: View {
     /// out of the way rather than making the import wait behind it.
     var onSharedLink: () -> Void = {}
 
-    @State private var selection: CozyTab = .library
+    /// `LaunchOptions.startTab` is nil unless a launch argument named one, so
+    /// this is `.library` for everybody who is not a screenshot.
+    @State private var selection: CozyTab = LaunchOptions.startTab ?? .library
     /// A link handed over from outside the app — the share extension, a
     /// shortcut, anything that opens the cozycrumb:// scheme.
     @State private var sharedLink: SharedLink?
@@ -156,6 +158,14 @@ struct RootTabView: View {
         .sheet(item: $sharedLink) { link in
             ImportFlowView(initialURL: link.url)
         }
+        // The shell is on screen and usable, which is what launching means.
+        //
+        // This used to be recorded at the end of the maintenance passes below,
+        // seven of them, several seconds later. Anything that interrupted the
+        // app in between — backgrounding it, force-quitting it, iOS reclaiming
+        // it — left the launch marked unfinished, and the next one opened in
+        // simple mode over a launch that had worked perfectly well.
+        .onAppear { LaunchTrace.markLaunchComplete() }
         // Every pass below is synchronous and runs on the main actor, over a
         // store that grows with use. On a fresh simulator they are instant,
         // which is exactly why they are worth timing on a real phone: a launch
@@ -186,9 +196,6 @@ struct RootTabView: View {
             await pass("taste profile") { TasteProfileStore.rebuildIfStale(in: modelContext) }
 
             LaunchTrace.mark("launch passes finished")
-            // Got all the way through, so the next launch has nothing to
-            // report about this one.
-            LaunchTrace.markLaunchComplete()
         }
     }
 

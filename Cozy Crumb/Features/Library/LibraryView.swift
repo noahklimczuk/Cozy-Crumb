@@ -168,6 +168,9 @@ struct LibraryView: View {
                     text: $viewModel.searchText,
                     systemImage: "magnifyingglass",
                     submitLabel: .search,
+                    // The header slab, not the page. Left on `.page` this drew
+                    // a near-black field into the pink after dark.
+                    surface: .onAccent,
                     // Only submitted searches are logged. Recording every
                     // keystroke would fill the log with the prefixes of one word.
                     onSubmit: { SignalLog.searched(viewModel.searchText, in: modelContext) }

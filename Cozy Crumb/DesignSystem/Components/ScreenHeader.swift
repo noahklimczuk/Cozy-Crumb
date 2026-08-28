@@ -282,7 +282,9 @@ struct HeaderMascotBadge: View {
     var body: some View {
         MascotView(pose: pose, size: diameter * 0.75)
             .frame(width: diameter, height: diameter)
-            .background(CozyColor.card, in: .circle)
+            // The slab's badge disc, not the page's card. `card` goes
+            // near-black after dark, which put the mascot in a hole.
+            .background(CozyColor.Surface.onAccent.badge, in: .circle)
             .overlay { Circle().strokeBorder(accent.deep, lineWidth: ring) }
             .accessibilityHidden(true)
     }
@@ -298,7 +300,8 @@ struct HeaderMascotBadge: View {
             HeaderMascotBadge()
         } below: {
             HStack(spacing: CozySpacing.m) {
-                CozyTextField(placeholder: "Search recipes", text: $search, systemImage: "magnifyingglass")
+                CozyTextField(placeholder: "Search recipes", text: $search,
+                              systemImage: "magnifyingglass", surface: .onAccent)
                 HeaderActionButton(systemImage: "plus", accessibilityLabel: "Add a recipe") {}
             }
         }
