@@ -28,6 +28,7 @@ private struct QuickPastedLink: Identifiable {
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.cozyMotion) private var motion
 
     // Ordered by the database rather than in Swift. An unordered fetch meant
@@ -243,7 +244,11 @@ struct LibraryView: View {
                 Image(systemName: "arrow.up.arrow.down")
                     .font(.footnote.weight(.semibold))
                 Text(viewModel.sort.displayName)
-                    .lineLimit(1)
+                    // One line while it shares a row with the heading; as many
+                    // as it needs once it has the row to itself. "R…" is not a
+                    // sort order.
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+                    .multilineTextAlignment(.leading)
             }
             .font(CozyFont.subheadline)
             .foregroundStyle(CozyColor.inkSecondary)
@@ -357,15 +362,7 @@ struct LibraryView: View {
                 collectionChips
 
                 VStack(alignment: .leading, spacing: CozySpacing.m) {
-                    HStack(spacing: CozySpacing.s) {
-                        Text(headingTitle(visibleCount: visible.count))
-                            .cozyText(CozyFont.title2)
-                            .cozyDisplayTracking(CozyTracking.title2, relativeTo: .title2)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        Spacer()
-                        sortControl
-                    }
+                    headingRow(visibleCount: visible.count)
 
                     if visible.isEmpty {
                         emptyResults
@@ -375,6 +372,41 @@ struct LibraryView: View {
                 }
             }
             .padding(CozySpacing.l)
+        }
+    }
+
+    /// The heading and the sort control, side by side or stacked.
+    ///
+    /// Side by side they share one line, and at an accessibility text size
+    /// there is not a line's worth of room for both: the AX5 capture had "All
+    /// rec…" next to a sort button reading "↑↓ R…", which is two controls
+    /// telling you nothing. Past AX1 they stack instead, each with the width
+    /// of the screen, and the title is allowed to wrap rather than truncate —
+    /// a section heading that cannot say its own name is not a heading.
+    ///
+    /// Branching on the size rather than using `ViewThatFits`: that measures
+    /// every candidate on each layout pass, and this grid has already had one
+    /// circular-constraint bug from measuring things it did not need to.
+    @ViewBuilder
+    private func headingRow(visibleCount: Int) -> some View {
+        let title = Text(headingTitle(visibleCount: visibleCount))
+            .cozyText(CozyFont.title2)
+            .cozyDisplayTracking(CozyTracking.title2, relativeTo: .title2)
+
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: CozySpacing.s) {
+                title.fixedSize(horizontal: false, vertical: true)
+                sortControl
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            HStack(spacing: CozySpacing.s) {
+                title
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer()
+                sortControl
+            }
         }
     }
 
