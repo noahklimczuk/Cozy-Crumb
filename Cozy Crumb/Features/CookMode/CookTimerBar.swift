@@ -208,7 +208,9 @@ struct CookTimerChip: View {
     private func card(duration: String) -> some View {
         HStack(spacing: CozySpacing.m) {
             Image(systemName: running == nil ? "timer" : "stop.circle")
-                .font(.system(size: 26, weight: .semibold))
+                // Sized against the countdown beside it, which is `title2`.
+                // Frozen at 26pt it shrank away from the numbers as they grew.
+                .font(.title2.weight(.semibold))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(label(duration: duration))

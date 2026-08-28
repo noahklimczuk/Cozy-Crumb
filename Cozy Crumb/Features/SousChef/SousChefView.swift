@@ -573,7 +573,9 @@ private struct BulletLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: CozySpacing.s) {
             configuration.icon
-                .font(.system(size: 4))
+                // A bullet, and it has to stay a bullet at every text size.
+                // Pinned at 4pt it was a speck in front of AX5 type.
+                .font(.caption2)
                 .foregroundStyle(CozyColor.inkSecondary)
             configuration.title
                 .fixedSize(horizontal: false, vertical: true)

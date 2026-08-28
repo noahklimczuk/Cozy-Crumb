@@ -46,7 +46,10 @@ struct SourcePill: View {
     private func chip(isLink: Bool) -> some View {
         HStack(spacing: CozySpacing.xs) {
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .bold))
+                // Relative, not 10pt: this sits beside the source's name, and
+                // a symbol frozen next to type that grows to AX5 is a speck
+                // with a sentence after it.
+                .font(.caption2.weight(.bold))
 
             Text(name)
                 .lineLimit(1)
@@ -54,7 +57,7 @@ struct SourcePill: View {
             if isLink {
                 // A small, honest affordance: this one goes somewhere.
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.caption2.weight(.bold))
             }
         }
         .cozyEyebrow(color: CozyColor.inkOnAccent, tracking: CozyTracking.eyebrow)
