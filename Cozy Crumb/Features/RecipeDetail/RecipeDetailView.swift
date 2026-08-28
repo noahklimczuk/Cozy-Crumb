@@ -573,7 +573,8 @@ struct RecipeDetailView: View {
                             HStack(spacing: 1) {
                                 ForEach(0..<rating, id: \.self) { _ in
                                     Image(systemName: "star.fill")
-                                        .font(.system(size: 9))
+                                        // Beside the date, so it grows with it.
+                                        .font(.caption2)
                                         .foregroundStyle(CozyColor.warning)
                                 }
                             }

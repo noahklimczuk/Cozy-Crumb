@@ -337,7 +337,8 @@ struct ShoppingListView: View {
     private func exportLabel(_ title: String, systemImage: String, isProminent: Bool) -> some View {
         HStack(spacing: CozySpacing.xs) {
             Image(systemName: systemImage)
-                .font(.system(size: 15, weight: .semibold))
+                // Paired with the label beside it, so it scales with it.
+                .font(.subheadline.weight(.semibold))
             Text(title)
                 .font(CozyFont.caption.weight(.bold))
                 .lineLimit(1)
