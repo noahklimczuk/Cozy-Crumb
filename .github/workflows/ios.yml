@@ -131,14 +131,29 @@ jobs:
           # outcome to be handled, not a failure.
           AVAILABLE=$(xcrun simctl list devices available || true)
 
+          # Matched by shape rather than by model number. Naming a generation
+          # is how this silently stops working: the runner image moves forward
+          # every few weeks, and "iPhone 16" is simply not on an image that
+          # ships iPhone 17s. What the captures care about is the width, and
+          # that is what the suffix tells you — a Pro Max or a Plus is the
+          # widest thing on the image, whatever number it carries.
+          #
+          # `simctl list` prints "    iPhone 17 Pro Max (UDID) (Shutdown)", so
+          # anchoring on the leading spaces and the opening paren keeps
+          # "iPhone 17 Pro" from matching the Pro Max pattern.
+          pick_device () {
+            printf '%s\n' "$AVAILABLE" | grep -E "^ +$1 \(" | head -1 || true
+          }
+
           DEVICE=""
-          for NAME in "iPhone 16 Pro Max" "iPhone 16 Pro" "iPhone 16"; do
-            DEVICE=$(printf '%s\n' "$AVAILABLE" \
-              | grep -F "$NAME (" \
-              | head -1 \
-              | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/' || true)
+          DEVICE_NAME=""
+          for PAT in 'iPhone [0-9]+ Pro Max' 'iPhone [0-9]+ Plus' 'iPhone [0-9]+ Pro' 'iPhone [0-9]+'; do
+            LINE=$(pick_device "$PAT")
+            [ -n "$LINE" ] || continue
+            DEVICE=$(printf '%s\n' "$LINE" | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/' || true)
+            DEVICE_NAME=$(printf '%s\n' "$LINE" | sed -E 's/^ +([^(]+) \(.*/\1/' || true)
             if [ -n "$DEVICE" ]; then
-              echo "Simulator: $NAME"
+              echo "Simulator: $DEVICE_NAME"
               break
             fi
           done
@@ -376,11 +391,29 @@ jobs:
           #
           # Light and AX5 only. Dark changes colour, not width, and width is
           # the entire question this pass exists to ask.
+          # Same rule as above, read the other way: the narrow phone is the one
+          # with no suffix at all. `[0-9]+e?` so an "iPhone 17e" counts — those
+          # are narrow too, and skipping the pass because the image happened to
+          # ship an "e" would be exactly the silent nothing this pass exists to
+          # avoid. The first attempt at this asked for `iPhone 1[4-6]`, found
+          # nothing on a runner full of iPhone 17s, and skipped without anyone
+          # noticing until the screens came back missing.
           WIDE="$DEVICE"
-          NARROW=$(printf '%s\n' "$AVAILABLE" \
-            | grep -E '^ +iPhone 1[4-6] \(' \
-            | head -1 \
+          WIDE_NAME="$DEVICE_NAME"
+          NARROW_LINE=$(pick_device 'iPhone [0-9]+e?')
+          NARROW=$(printf '%s\n' "$NARROW_LINE" \
             | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/' || true)
+          NARROW_NAME=$(printf '%s\n' "$NARROW_LINE" | sed -E 's/^ +([^(]+) \(.*/\1/' || true)
+
+          # Written where it can actually be read. The job log is the obvious
+          # place and it is the one place that did not help: this pass skipped
+          # once already, and the log was too long to page back through. The
+          # noticeboard branch is small, always published, and says what it
+          # shot — so a missing capture set explains itself next time.
+          {
+            echo "wide=${WIDE_NAME:-none}"
+            echo "narrow=${NARROW_NAME:-none}"
+          } > "$RUNNER_TEMP/screens/devices.txt"
 
           if [ -n "$NARROW" ] && [ "$NARROW" != "$WIDE" ]; then
             echo "----- capturing on the narrow phone -----"
@@ -456,10 +489,19 @@ jobs:
             echo
             echo "Captured from \`$GITHUB_REF_NAME\` at \`$GITHUB_SHA\`."
             echo
-            echo "Five tabs each way. On a Pro Max: \`light\`, \`dark\`, \`ax5\`."
-            echo "On a standard iPhone: \`narrow\`, \`narrow-ax5\` — the second"
-            echo "install goes on one, and 47pt narrower is where truncation"
-            echo "lives."
+            echo "Five tabs each way. On the wide phone: \`light\`, \`dark\`,"
+            echo "\`ax5\`. On the narrow one: \`narrow\`, \`narrow-ax5\` — the"
+            echo "second install goes on a standard iPhone, and those ~47pt"
+            echo "are where truncation lives."
+            echo
+            if [ -f "$SRC/devices.txt" ]; then
+              echo "Shot on:"
+              echo
+              sed 's/^/    /' "$SRC/devices.txt"
+              echo
+              echo "\`narrow=none\` means the runner had no plain iPhone and"
+              echo "that pass was skipped — the captures are wide-only."
+            fi
             echo
             echo "Rebuilt and force-pushed by every run of the iOS workflow —"
             echo "this branch is a noticeboard, not history. Nothing merges it."
