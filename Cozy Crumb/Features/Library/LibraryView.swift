@@ -239,16 +239,32 @@ struct LibraryView: View {
         } label: {
             HStack(spacing: CozySpacing.xs) {
                 Image(systemName: "arrow.up.arrow.down")
-                    .font(.footnote.weight(.semibold))
-                Text(viewModel.sort.displayName)
-                    // One line while it shares a row with the heading; as many
-                    // as it needs once it has the row to itself. "R…" is not a
-                    // sort order.
-                    .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
-                    .multilineTextAlignment(.leading)
+                    .font(.system(size: 13, weight: .semibold))
+
+                // The glyph alone at an accessibility size.
+                //
+                // This went through two wrong answers first. Sharing the row
+                // with the heading, it truncated to "R…", which is not a sort
+                // order. Stacked under the heading it read in full and was two
+                // lines tall — and between the heading and those two lines the
+                // first recipe card was pushed off the bottom, so the Cookbook
+                // at AX5 showed no recipe at all. Making the person who needs
+                // AX5 scroll past the furniture to reach the content is worse
+                // than either.
+                //
+                // So the label goes and the heading keeps its row. What is
+                // lost is the sort order being legible at a glance; it is
+                // still the first thing in the menu, and `accessibilityValue`
+                // below speaks it, so VoiceOver loses nothing at all.
+                if !typeSize.isAccessibilitySize {
+                    Text(viewModel.sort.displayName)
+                        .lineLimit(1)
+                        .multilineTextAlignment(.leading)
+                }
             }
             .font(CozyFont.subheadline)
             .foregroundStyle(CozyColor.inkSecondary)
+            .frame(minWidth: CozyMetrics.minimumTouchTarget)
             .padding(.horizontal, CozySpacing.m)
             .frame(minHeight: CozyMetrics.minimumTouchTarget)
             .background(
@@ -372,38 +388,39 @@ struct LibraryView: View {
         }
     }
 
-    /// The heading and the sort control, side by side or stacked.
+    /// The heading and the sort control, side by side at every size.
     ///
-    /// Side by side they share one line, and at an accessibility text size
-    /// there is not a line's worth of room for both: the AX5 capture had "All
-    /// rec…" next to a sort button reading "↑↓ R…", which is two controls
-    /// telling you nothing. Past AX1 they stack instead, each with the width
-    /// of the screen, and the title is allowed to wrap rather than truncate —
-    /// a section heading that cannot say its own name is not a heading.
+    /// They stopped fitting at an accessibility size — the capture had "All
+    /// rec…" beside a sort button reading "↑↓ R…", two controls telling you
+    /// nothing — and the answer then was to stack them. That read in full and
+    /// cost the entire first row of recipes: at AX5 the Cookbook opened on a
+    /// heading, a two-line button, and no recipe at all.
     ///
-    /// Branching on the size rather than using `ViewThatFits`: that measures
-    /// every candidate on each layout pass, and this grid has already had one
-    /// circular-constraint bug from measuring things it did not need to.
+    /// Room now comes from the control instead of from the layout: it drops
+    /// to its glyph past AX1, so one row fits again and the grid starts where
+    /// it always did. The heading takes all the space that frees up and wraps
+    /// rather than truncating — a section heading that cannot say its own name
+    /// is not a heading.
     @ViewBuilder
     private func headingRow(visibleCount: Int) -> some View {
         let title = Text(headingTitle(visibleCount: visibleCount))
             .cozyText(CozyFont.title2)
             .cozyDisplayTracking(CozyTracking.title2, relativeTo: .title2)
 
-        if typeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: CozySpacing.s) {
-                title.fixedSize(horizontal: false, vertical: true)
-                sortControl
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            HStack(spacing: CozySpacing.s) {
-                title
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Spacer()
-                sortControl
-            }
+        // One row at every size now that the sort control is a glyph at an
+        // accessibility size. The stacked version this replaces was costing
+        // the whole first row of recipes — see the note in `sortControl`.
+        //
+        // The heading still wraps rather than truncating, because it can:
+        // it is the only thing on the row that grows, and the control beside
+        // it is a fixed width.
+        HStack(alignment: .firstTextBaseline, spacing: CozySpacing.s) {
+            title
+                .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: CozySpacing.s)
+            sortControl
         }
     }
 
@@ -483,7 +500,19 @@ struct LibraryView: View {
                     .contextMenu { collectionMenu(for: collection) }
                 }
 
-                SelectableChip(text: "New collection", systemImage: "plus", isSelected: false) {
+                // The "+" alone at an accessibility size. "New collection" is
+                // the longest thing in the row by some margin, and at AX5 it
+                // ran off the right edge cut mid-word. The row does scroll —
+                // but its indicator is hidden, so nothing on screen says so,
+                // and a label cut to "New collec" reads as broken rather than
+                // as scrollable. The glyph is the one label here that a plus
+                // sign already says.
+                SelectableChip(
+                    text: "New collection",
+                    systemImage: "plus",
+                    iconOnlyAtAccessibilitySizes: true,
+                    isSelected: false
+                ) {
                     isNamingCollection = true
                 }
             }

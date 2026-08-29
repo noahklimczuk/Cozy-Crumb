@@ -363,6 +363,53 @@ jobs:
             echo "content_size is not supported here; skipping the AX5 pass."
           fi
 
+          # And the whole thing again on a narrow phone.
+          #
+          # Everything above is an iPhone 16 Pro Max: 440pt, the widest phone
+          # Apple sells, and until now the only one this app had ever been
+          # photographed on. The second install is going on a standard iPhone
+          # at 393pt. Those 47pt are the difference between a row that fits
+          # and a row that truncates, and every truncation bug found here so
+          # far has really been a width bug wearing a text-size costume — they
+          # only showed up at AX5 because that was the only way the captures
+          # had of making anything narrow.
+          #
+          # Light and AX5 only. Dark changes colour, not width, and width is
+          # the entire question this pass exists to ask.
+          WIDE="$DEVICE"
+          NARROW=$(printf '%s\n' "$AVAILABLE" \
+            | grep -E '^ +iPhone 1[4-6] \(' \
+            | head -1 \
+            | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/' || true)
+
+          if [ -n "$NARROW" ] && [ "$NARROW" != "$WIDE" ]; then
+            echo "----- capturing on the narrow phone -----"
+
+            # Free the wide one first. Two booted simulators on a runner is
+            # not fatal, but it is slower than it needs to be and this pass
+            # has no further use for it.
+            xcrun simctl shutdown "$WIDE" 2>/dev/null || true
+
+            DEVICE="$NARROW"
+            xcrun simctl boot "$DEVICE" 2>/dev/null || true
+            xcrun simctl bootstatus "$DEVICE" -b || true
+            xcrun simctl install "$DEVICE" "$APP" || true
+
+            xcrun simctl ui "$DEVICE" appearance light || true
+            for TAB in library groceries sousChef pantry settings; do
+              capture "narrow" "$TAB"
+            done
+
+            if xcrun simctl ui "$DEVICE" content_size accessibility-extra-extra-extra-large; then
+              for TAB in library groceries sousChef pantry settings; do
+                capture "narrow-ax5" "$TAB"
+              done
+              xcrun simctl ui "$DEVICE" content_size large || true
+            fi
+          else
+            echo "No separate narrow iPhone on this runner; skipping that pass."
+          fi
+
 
       # Always, so a red build is still a build you can look at — a layout bug
       # bad enough to fail the render check is exactly when the pictures are
@@ -409,9 +456,13 @@ jobs:
             echo
             echo "Captured from \`$GITHUB_REF_NAME\` at \`$GITHUB_SHA\`."
             echo
-            echo "Five tabs, light and dark. Rebuilt and force-pushed by every"
-            echo "run of the iOS workflow — this branch is a noticeboard, not"
-            echo "history. Nothing merges it."
+            echo "Five tabs each way. On a Pro Max: \`light\`, \`dark\`, \`ax5\`."
+            echo "On a standard iPhone: \`narrow\`, \`narrow-ax5\` — the second"
+            echo "install goes on one, and 47pt narrower is where truncation"
+            echo "lives."
+            echo
+            echo "Rebuilt and force-pushed by every run of the iOS workflow —"
+            echo "this branch is a noticeboard, not history. Nothing merges it."
             echo
             echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           } > "$WORK/README.md"
