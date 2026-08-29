@@ -78,6 +78,24 @@ struct CozySegmentedControl<Value: Hashable>: View {
         .accessibilityLabel(label)
     }
 
+    /// What the lit segment is filled with, which depends on the ground.
+    ///
+    /// It used to be `accent.color` on both, and on the header slab that is
+    /// the colour of the slab — so the selected segment was invisible and the
+    /// *unselected* one, wearing the pale `well`, was the only shape you could
+    /// see. The Groceries capture opens on Shopping and looks like it has
+    /// This week selected. A control that reads as the opposite of its own
+    /// state is worse than one with no styling at all.
+    ///
+    /// `deep` on a painted ground, which is what `MascotTabBar` already fills
+    /// its selected block with, for the same reason and against the same pink.
+    private var selectedFill: Color {
+        switch surface {
+        case .page: accent.color
+        case .onAccent: accent.deep
+        }
+    }
+
     private func segment(_ option: CozySegment<Value>) -> some View {
         let isSelected = option.value == selection
 
@@ -96,7 +114,7 @@ struct CozySegmentedControl<Value: Hashable>: View {
                 .minimumScaleFactor(0.8)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: CozyMetrics.minimumTouchTarget)
-                .background(isSelected ? accent.color : surface.well,
+                .background(isSelected ? selectedFill : surface.well,
                             in: .rect(cornerRadius: 11, style: .continuous))
                 .contentShape(.rect)
         }
