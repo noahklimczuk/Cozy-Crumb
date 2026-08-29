@@ -57,7 +57,7 @@ struct LibraryView: View {
     /// cookbook back without relaunching.
     @State private var hasDismissedRecovery = false
 
-    private var columns: [GridItem] { CozyGrid.recipeColumns }
+    private var columns: [GridItem] { CozyGrid.recipeColumns(for: typeSize) }
 
     /// The lit chip, resolved against what actually exists. A collection
     /// deleted while its chip was selected simply stops matching, and the grid
@@ -704,6 +704,7 @@ struct LibraryView: View {
 private struct CollectionFolderView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     @Bindable var collection: RecipeCollection
     let sort: LibrarySort
@@ -712,7 +713,7 @@ private struct CollectionFolderView: View {
     @State private var name = ""
     @State private var isConfirmingDeletion = false
 
-    private var columns: [GridItem] { CozyGrid.recipeColumns }
+    private var columns: [GridItem] { CozyGrid.recipeColumns(for: typeSize) }
 
     private var sortedRecipes: [Recipe] {
         switch sort {
