@@ -27,7 +27,6 @@ private struct QuickPastedLink: Identifiable {
 
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.cozyMotion) private var motion
 
@@ -58,9 +57,7 @@ struct LibraryView: View {
     /// cookbook back without relaunching.
     @State private var hasDismissedRecovery = false
 
-    private var columns: [GridItem] {
-        CozyGrid.recipeColumns(for: horizontalSizeClass)
-    }
+    private var columns: [GridItem] { CozyGrid.recipeColumns }
 
     /// The lit chip, resolved against what actually exists. A collection
     /// deleted while its chip was selected simply stops matching, and the grid
@@ -679,8 +676,6 @@ private struct CollectionFolderView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
     @Bindable var collection: RecipeCollection
     let sort: LibrarySort
 
@@ -688,9 +683,7 @@ private struct CollectionFolderView: View {
     @State private var name = ""
     @State private var isConfirmingDeletion = false
 
-    private var columns: [GridItem] {
-        CozyGrid.recipeColumns(for: horizontalSizeClass)
-    }
+    private var columns: [GridItem] { CozyGrid.recipeColumns }
 
     private var sortedRecipes: [Recipe] {
         switch sort {
