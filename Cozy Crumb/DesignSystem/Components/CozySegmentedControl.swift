@@ -44,6 +44,7 @@ nonisolated struct CozySegment<Value: Hashable>: Identifiable {
 
 struct CozySegmentedControl<Value: Hashable>: View {
     @Environment(\.accentPalette) private var accent
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     /// What the whole control is called, for VoiceOver.
     let label: String
@@ -53,7 +54,22 @@ struct CozySegmentedControl<Value: Hashable>: View {
     @Binding var selection: Value
 
     var body: some View {
-        HStack(spacing: 6) {
+        // Side by side normally, stacked at an accessibility size.
+        //
+        // Two segments splitting a phone's width give each about 195pt, and
+        // "Shopping" in bold caption at AX5 wants more than that. The AX5
+        // capture of the Groceries header had the two titles touching with
+        // "Shopping" running off the right edge of the screen — a control you
+        // cannot read half of is worse than a tall one.
+        //
+        // `AnyLayout` rather than an `if`, so the segments keep their identity
+        // across the switch: the selection stays put and the fill animates
+        // instead of the whole control being rebuilt.
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: 6))
+            : AnyLayout(HStackLayout(spacing: 6))
+
+        return layout {
             ForEach(options) { option in
                 segment(option)
             }
