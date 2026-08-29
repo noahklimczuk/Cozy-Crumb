@@ -14,6 +14,7 @@ import SwiftUI
 struct RecipeCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accentPalette) private var accent
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     let recipe: Recipe
     /// Position in the grid, used to stagger the entrance.
@@ -41,10 +42,10 @@ struct RecipeCard: View {
         // settle on and body evaluation never returned.
         //
         // The two cards in a row no longer match heights exactly when one
-        // title wraps and its neighbour doesn't. `lineLimit(2,
-        // reservesSpace: true)` on the title already keeps them close, and a
-        // few points of difference is a far better trade than a launch that
-        // hangs.
+        // title wraps and its neighbour doesn't. The reserved two lines on
+        // the title keep them close at ordinary sizes — see `title`, which
+        // gives that up past AX1 — and a few points of difference is a far
+        // better trade than a launch that hangs.
         .frame(maxWidth: .infinity, alignment: .top)
         .background(CozyColor.card, in: .rect(cornerRadius: CozyRadius.card, style: .continuous))
         .cozyBlockShadow()
@@ -150,17 +151,40 @@ struct RecipeCard: View {
         }
     }
 
+    /// The recipe's name, capped at two lines — until it can't be.
+    ///
+    /// Two lines with the space reserved is what keeps the two cards in a row
+    /// roughly level when one title wraps and its neighbour doesn't. At an
+    /// accessibility size two lines is no longer enough to hold a recipe
+    /// name: the AX5 capture read "Sunda / y Ro…" for a recipe called Sunday
+    /// Roast Chicken, on a card whose picture is a coloured placeholder. Two
+    /// cards you cannot tell apart is a worse grid than two cards of unequal
+    /// height, so past AX1 the title takes the lines it needs.
+    ///
+    /// Nothing here reserves or fills height — the cell's own height is still
+    /// decided by its contents, which is what keeps this clear of the layout
+    /// hang described on `body`.
+    @ViewBuilder
+    private var title: some View {
+        let text = Text(recipe.title)
+            .cozyText(CozyFont.cardTitle)
+            .cozyDisplayTracking(CozyTracking.cardTitle, relativeTo: .headline)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+
+        if typeSize.isAccessibilitySize {
+            text
+        } else {
+            text.lineLimit(2, reservesSpace: true)
+        }
+    }
+
     private var details: some View {
         VStack(alignment: .leading, spacing: CozySpacing.s) {
             // The display face, not SF Rounded semibold. A card's title is the
             // thing the grid is read for, and in the old weight it was losing
             // to the picture above it and competing with the pills below.
-            Text(recipe.title)
-                .cozyText(CozyFont.cardTitle)
-                .cozyDisplayTracking(CozyTracking.cardTitle, relativeTo: .headline)
-                .lineLimit(2, reservesSpace: true)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
+            title
 
             // A plain row, not `ViewThatFits`. Fitting two short pills is not
             // worth a construct that measures every candidate against a
