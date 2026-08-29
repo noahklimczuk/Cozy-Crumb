@@ -112,9 +112,21 @@ struct AisleTag: View {
 /// suggestion chips. Keeps a full 44pt hit area even though it draws smaller.
 struct SelectableChip: View {
     @Environment(\.accentPalette) private var accent
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     let text: String
     var systemImage: String?
+
+    /// Drop the written label at accessibility sizes and keep the glyph alone.
+    ///
+    /// Only for a chip whose glyph already says the whole thing — the "+" that
+    /// makes a new collection. A collection's *name* can never do this: there
+    /// is no icon for "Weeknight", and a row of identical folder glyphs is
+    /// worse than a row that scrolls.
+    ///
+    /// The chip keeps its full name in `accessibilityLabel`, so this changes
+    /// what is drawn and nothing about what VoiceOver reads.
+    var iconOnlyAtAccessibilitySizes = false
     /// The selected fill. Defaults to whatever the user has set as the app
     /// accent, which is what most call sites want; pass a colour only where
     /// the chip stands for something that already has one of its own (a
@@ -125,6 +137,10 @@ struct SelectableChip: View {
 
     private var selectedFill: Color { tint ?? accent.color }
 
+    private var isIconOnly: Bool {
+        iconOnlyAtAccessibilitySizes && systemImage != nil && typeSize.isAccessibilitySize
+    }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: CozySpacing.xs) {
@@ -132,8 +148,10 @@ struct SelectableChip: View {
                     Image(systemName: systemImage)
                         .font(.caption.weight(.semibold))
                 }
-                Text(text)
-                    .font(CozyFont.caption.weight(.semibold))
+                if !isIconOnly {
+                    Text(text)
+                        .font(CozyFont.caption.weight(.semibold))
+                }
             }
             .foregroundStyle(isSelected ? CozyColor.inkOnAccent : CozyColor.inkPrimary)
             .padding(.horizontal, CozySpacing.l)
