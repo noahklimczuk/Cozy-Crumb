@@ -204,7 +204,11 @@ struct ShoppingListView: View {
                 message: "Open a recipe and tap \"Add to groceries\" — or type something in above.",
                 pose: .idle
             )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // The `List` above scrolls; this branch replaces it, so without
+            // this the empty state is the one state of this screen that can't.
+            // The modifier fills the width too, which is what the
+            // `maxWidth: .infinity` that used to be here was for.
+            .cozyScrollsWhenTall()
         }
     }
 

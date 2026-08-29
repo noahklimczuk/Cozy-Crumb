@@ -44,6 +44,7 @@ nonisolated struct CozySegment<Value: Hashable>: Identifiable {
 
 struct CozySegmentedControl<Value: Hashable>: View {
     @Environment(\.accentPalette) private var accent
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     /// What the whole control is called, for VoiceOver.
     let label: String
@@ -53,13 +54,46 @@ struct CozySegmentedControl<Value: Hashable>: View {
     @Binding var selection: Value
 
     var body: some View {
-        HStack(spacing: 6) {
+        // Side by side normally, stacked at an accessibility size.
+        //
+        // Two segments splitting a phone's width give each about 195pt, and
+        // "Shopping" in bold caption at AX5 wants more than that. The AX5
+        // capture of the Groceries header had the two titles touching with
+        // "Shopping" running off the right edge of the screen — a control you
+        // cannot read half of is worse than a tall one.
+        //
+        // `AnyLayout` rather than an `if`, so the segments keep their identity
+        // across the switch: the selection stays put and the fill animates
+        // instead of the whole control being rebuilt.
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: 6))
+            : AnyLayout(HStackLayout(spacing: 6))
+
+        return layout {
             ForEach(options) { option in
                 segment(option)
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(label)
+    }
+
+    /// What the lit segment is filled with, which depends on the ground.
+    ///
+    /// It used to be `accent.color` on both, and on the header slab that is
+    /// the colour of the slab — so the selected segment was invisible and the
+    /// *unselected* one, wearing the pale `well`, was the only shape you could
+    /// see. The Groceries capture opens on Shopping and looks like it has
+    /// This week selected. A control that reads as the opposite of its own
+    /// state is worse than one with no styling at all.
+    ///
+    /// `deep` on a painted ground, which is what `MascotTabBar` already fills
+    /// its selected block with, for the same reason and against the same pink.
+    private var selectedFill: Color {
+        switch surface {
+        case .page: accent.color
+        case .onAccent: accent.deep
+        }
     }
 
     private func segment(_ option: CozySegment<Value>) -> some View {
@@ -80,7 +114,7 @@ struct CozySegmentedControl<Value: Hashable>: View {
                 .minimumScaleFactor(0.8)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: CozyMetrics.minimumTouchTarget)
-                .background(isSelected ? accent.color : surface.well,
+                .background(isSelected ? selectedFill : surface.well,
                             in: .rect(cornerRadius: 11, style: .continuous))
                 .contentShape(.rect)
         }

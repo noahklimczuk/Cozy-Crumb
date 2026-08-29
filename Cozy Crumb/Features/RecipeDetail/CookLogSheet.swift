@@ -86,7 +86,7 @@ struct CookLogSheet: View {
                     rating = (rating == value) ? nil : value
                 } label: {
                     Image(systemName: (rating ?? 0) >= value ? "star.fill" : "star")
-                        .font(.title2)
+                        .font(.system(size: 22))
                         .foregroundStyle((rating ?? 0) >= value ? CozyColor.warning : CozyColor.inkSecondary)
                         .frame(width: CozyMetrics.minimumTouchTarget,
                                height: CozyMetrics.minimumTouchTarget)

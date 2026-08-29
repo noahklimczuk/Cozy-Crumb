@@ -111,8 +111,15 @@ struct RecipeCard: View {
             // unfavourited heart was drawn in `inkPrimary` — which goes light
             // with the page. On a dark phone that was a pale outline on a white
             // disc: the heart was there, and invisible.
+            // A fixed point size, not `.footnote`, because the disc under it
+            // is a fixed 26pt. A text style scales with Dynamic Type and the
+            // frame does not, so at AX5 the heart grew to roughly three times
+            // its badge and sat on the photo as a bare black glyph with the
+            // disc lost somewhere behind it. Every other glyph-in-a-badge in
+            // the app is already sized this way — the tab bar, the header
+            // buttons, the send button.
             Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
-                .font(.footnote.weight(.bold))
+                .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(CozyColor.inkOnAccent)
                 .frame(width: 26, height: 26)
                 .background(recipe.isFavorite ? CozyColor.butter : CozyColor.surfaceOnAccent,

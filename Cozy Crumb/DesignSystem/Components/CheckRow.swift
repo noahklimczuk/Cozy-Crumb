@@ -137,7 +137,7 @@ struct CheckRow<Accessory: View>: View {
             }
 
             Image(systemName: "checkmark")
-                .font(.caption2.weight(.black))
+                .font(.system(size: 11, weight: .black))
                 .foregroundStyle(CozyColor.inkOnAccent)
                 .opacity(isChecked ? 1 : 0)
         }

@@ -54,8 +54,23 @@ struct AisleTag: View {
     var systemImage: String?
     var count: Int?
     var tint: Color = CozyColor.creamDeep
-    /// What the count is counting. "3 items", "2 going off".
-    var countNoun: String = "items"
+    /// What the count is counting, in the singular. "3 items", "1 item".
+    ///
+    /// It used to be the plural and was used verbatim, so a shelf with one
+    /// thing on it read "1 items". Every Pantry category with a single
+    /// ingredient said so, in every capture.
+    var countNoun: String = "item"
+
+    /// The plural, where adding an "s" is wrong — "2 going off" is the same
+    /// phrase at any count.
+    var countNounPlural: String?
+
+    /// "1 item", "5 items", or nothing when there is no count to show.
+    private var countLabel: String? {
+        guard let count else { return nil }
+        let noun = count == 1 ? countNoun : (countNounPlural ?? countNoun + "s")
+        return "\(count) \(noun)"
+    }
 
     var body: some View {
         HStack(spacing: CozySpacing.s) {
@@ -65,6 +80,12 @@ struct AisleTag: View {
                         .font(.caption2.weight(.bold))
                 }
                 Text(title)
+                    // A shelf name is one word, and one word must never break
+                    // across two lines: the AX5 Pantry capture read "PANT /
+                    // RY" inside the butter tile. Tracked-out capitals are
+                    // wide, so the last of the slack comes from scaling.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
             .cozyEyebrow(color: CozyColor.inkOnAccent, tracking: CozyTracking.eyebrowTight)
             .padding(.horizontal, 11)
@@ -75,13 +96,14 @@ struct AisleTag: View {
             // is a fixed, coloured, tracked-out label; the count is live and
             // changes as things are ticked off, and the two stopped reading as
             // one object the moment the tag became a small hard-edged tile.
-            if let count {
-                Text("\(count) \(countNoun)")
+            if let countLabel {
+                Text(countLabel)
                     .cozyText(CozyFont.caption.weight(.semibold), color: CozyColor.inkSecondary)
+                    .lineLimit(1)
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(count.map { "\(title), \($0) \(countNoun)" } ?? title)
+        .accessibilityLabel(countLabel.map { "\(title), \($0)" } ?? title)
         .accessibilityAddTraits(.isHeader)
     }
 }

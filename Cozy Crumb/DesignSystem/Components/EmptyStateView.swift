@@ -10,6 +10,35 @@
 import Foundation
 import SwiftUI
 
+extension View {
+    /// Lets a screen-filling layout scroll once it outgrows the screen.
+    ///
+    /// An empty state is normally centred in whatever space is left over, and
+    /// at ordinary text sizes it fits with room to spare. At an accessibility
+    /// size it does not: the AX5 capture of the Sous Chef showed the mascot
+    /// sliced off by the Dynamic Island at the top and the paragraph running
+    /// off past the tab bar at the bottom, because nothing in that screen
+    /// could scroll. A centred layout that overflows loses content at *both*
+    /// ends, which is the worst version of this bug.
+    ///
+    /// `minHeight` is the container's own height, so the content is still
+    /// centred exactly as before whenever it fits; it only starts scrolling
+    /// once it doesn't. `.basedOnSize` keeps the bounce away in the common
+    /// case, so a screen that fits doesn't suddenly feel like a list.
+    ///
+    /// Apply this only where the caller already fills the space it is given.
+    /// Inside a self-sizing container — a card — the `GeometryReader` would
+    /// take every point on offer and stretch it.
+    func cozyScrollsWhenTall() -> some View {
+        GeometryReader { proxy in
+            ScrollView {
+                self.frame(maxWidth: .infinity, minHeight: proxy.size.height)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+    }
+}
+
 struct EmptyStateView: View {
     let title: String
     let message: String
@@ -25,6 +54,13 @@ struct EmptyStateView: View {
                 Text(title)
                     .cozyText(CozyFont.title2)
                     .multilineTextAlignment(.center)
+                    // The same `fixedSize` the message below has always had,
+                    // and the reason the two behaved differently at large
+                    // text sizes. Without it the title is offered a single
+                    // line's worth of height and truncates rather than wraps:
+                    // the AX5 captures read "Nothing o…" and "The Sou…" while
+                    // the paragraph under them wrapped perfectly well.
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text(message)
                     .cozyText(CozyFont.subheadline, color: CozyColor.inkSecondary)

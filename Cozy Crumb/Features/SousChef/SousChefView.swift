@@ -128,8 +128,13 @@ struct SousChefView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
         .padding(CozySpacing.l)
+        // The card is taller than the screen at accessibility sizes, and this
+        // branch has no list or scroll view of its own to absorb that. See the
+        // modifier: `maxHeight: .infinity` used to sit here, which centred the
+        // card and then let it overflow past both ends of the screen.
+        .cozyScrollsWhenTall()
     }
 
     // MARK: - Conversation
@@ -375,7 +380,7 @@ struct SousChefView: View {
                 Task { await viewModel.send(context: modelContext) }
             } label: {
                 Image(systemName: "arrow.up")
-                    .font(.body.weight(.bold))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(CozyColor.inkOnAccent)
                     .frame(width: 52, height: 52)
                     .background(CozyColor.butter,
