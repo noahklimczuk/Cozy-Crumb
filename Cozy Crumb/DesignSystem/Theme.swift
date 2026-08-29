@@ -490,18 +490,18 @@ enum CozyMetrics {
 // MARK: - Grids
 
 enum CozyGrid {
-    /// Recipe grids: two columns on a phone, and as many comfortable columns as
-    /// fit on an iPad or in landscape, rather than two very wide ones.
-    nonisolated static func recipeColumns(for sizeClass: UserInterfaceSizeClass?) -> [GridItem] {
-        guard sizeClass == .regular else {
-            return [
-                GridItem(.flexible(), spacing: CozySpacing.m),
-                GridItem(.flexible(), spacing: CozySpacing.m)
-            ]
-        }
-
-        return [GridItem(.adaptive(minimum: 200, maximum: 280), spacing: CozySpacing.m)]
-    }
+    /// Recipe grids: two columns, always.
+    ///
+    /// This used to branch on the horizontal size class and lay out adaptive
+    /// columns when it was `.regular` — for an iPad, or a Max in landscape.
+    /// The app is now iPhone-only and portrait-locked, so the size class is
+    /// `.compact` on every device it can run on and that branch could never be
+    /// reached. A layout nobody can see is a layout nobody has checked, so it
+    /// is gone rather than left to rot.
+    nonisolated static let recipeColumns: [GridItem] = [
+        GridItem(.flexible(), spacing: CozySpacing.m),
+        GridItem(.flexible(), spacing: CozySpacing.m)
+    ]
 }
 
 // MARK: - Elevation
