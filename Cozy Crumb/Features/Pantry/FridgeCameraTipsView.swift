@@ -111,7 +111,7 @@ struct FridgeCameraTipsView: View {
         CrumbCard(padding: CozySpacing.m) {
             HStack(alignment: .top, spacing: CozySpacing.m) {
                 Image(systemName: tip.symbol)
-                    .font(.title3)
+                    .font(.system(size: 20))
                     .foregroundStyle(CozyColor.blushDeep)
                     .frame(width: 32)
 

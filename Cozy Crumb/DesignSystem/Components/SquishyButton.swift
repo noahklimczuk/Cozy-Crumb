@@ -155,7 +155,7 @@ struct SquishyIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.body.weight(.bold))
+                .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(isOn ? CozyColor.inkOnAccent : CozyColor.inkPrimary)
                 .frame(width: CozyMetrics.minimumTouchTarget,
                        height: CozyMetrics.minimumTouchTarget)
