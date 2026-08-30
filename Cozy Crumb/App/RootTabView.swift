@@ -63,6 +63,11 @@ struct RootTabView: View {
     /// `LaunchOptions.startTab` is nil unless a launch argument named one, so
     /// this is `.library` for everybody who is not a screenshot.
     @State private var selection: CozyTab = LaunchOptions.startTab ?? .library
+
+    /// The home indicator's height, measured at the window rather than assumed.
+    /// Zero on a phone with a home button, 34 on everything since. See where it
+    /// is read below.
+    @State private var windowBottomInset: CGFloat = 0
     /// A link handed over from outside the app — the share extension, a
     /// shortcut, anything that opens the cozycrumb:// scheme.
     @State private var sharedLink: SharedLink?
@@ -136,6 +141,30 @@ struct RootTabView: View {
         .overlay(alignment: .bottom) {
             MascotTabBar(selection: $selection)
         }
+        // The window's own bottom inset — the home indicator, and nothing
+        // else — read out here and handed to the tabs.
+        //
+        // It has to be read from outside the `TabView`, because inside a tab
+        // it is no longer available: `.toolbar(.hidden, for: .tabBar)` hides
+        // the system bar but does not stop it reserving space, so a tab's own
+        // bottom inset is the home indicator plus a tab bar that is never
+        // drawn. `cozyTabBarClearance` needs both numbers to tell those apart
+        // — see the note on `TabBarClearance` for what went wrong when it had
+        // only one.
+        //
+        // A background rather than a wrapper: this view is the whole app, and
+        // a `GeometryReader` around it would take over the layout of every
+        // screen in it.
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { windowBottomInset = proxy.safeAreaInsets.bottom }
+                    .onChange(of: proxy.safeAreaInsets.bottom) { _, new in
+                        windowBottomInset = new
+                    }
+            }
+        }
+        .environment(\.cozyWindowBottomInset, windowBottomInset)
         .tint(accent.deep)
         .environment(\.accentPalette, accent)
         .environment(\.hapticsEnabled, hapticsEnabled)

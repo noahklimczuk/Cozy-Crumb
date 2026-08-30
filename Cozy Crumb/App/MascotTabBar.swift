@@ -36,8 +36,23 @@
 
 import SwiftUI
 
+/// The window's own bottom safe area — the home indicator, and nothing else.
+///
+/// Published by `RootTabView` from outside the `TabView`, because inside a tab
+/// that number is no longer available: see `TabClearanceRuler`.
+private struct CozyWindowBottomInsetKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+extension EnvironmentValues {
+    var cozyWindowBottomInset: CGFloat {
+        get { self[CozyWindowBottomInsetKey.self] }
+        set { self[CozyWindowBottomInsetKey.self] = newValue }
+    }
+}
+
 extension View {
-    /// Keeps the bottom of a screen clear of `MascotTabBar`.
+    /// Keeps the bottom of a screen clear of `MascotTabBar`, and no clearer.
     ///
     /// `safeAreaPadding` rather than plain `padding`, because this has to be
     /// safe *area*: a scroll view should still draw through the strip while
@@ -47,54 +62,84 @@ extension View {
     /// padding would inset the frame instead and leave a dead band the page
     /// colour does not reach.
     func cozyTabBarClearance() -> some View {
-        modifier(TabClearanceRuler())
+        modifier(TabBarClearance())
     }
 }
 
-/// Applies the clearance, and — only under `-cozyLayoutRuler YES` — prints the
-/// numbers behind it across the top of the screen.
+/// Makes a tab's bottom inset equal what the bar actually occupies, rather
+/// than adding the bar's height to whatever was already there.
 ///
-/// "The scrolling is cut off" has been reported three times and answered wrong
-/// twice, both times by reasoning about which modifier insets what. The
-/// ordinary captures cannot settle it: they photograph every screen at rest at
-/// the top, and a screen at rest looks identical whether its bottom inset is
-/// right or twice too big.
+/// That distinction is the bug this fixes, and it took an instrument to find.
+/// `.toolbar(.hidden, for: .tabBar)` hides the system tab bar but does *not*
+/// stop it reserving space: inside a tab, the bottom safe area measured 83 on
+/// a phone whose home indicator is 34. The missing 49 is a tab bar that is not
+/// drawn. Adding another 108 on top of that reserved 191 for a bar occupying
+/// 142, so every scroll view in the app stopped 49pt early — which is exactly
+/// how it was reported: content ending short, with a gap, on every screen.
 ///
-/// The number that settles it is `system bottom` — the inset a tab's content
-/// is handed *before* this modifier adds anything. On a phone whose only
-/// bottom furniture is the home indicator that is 34. If it reads closer to
-/// 83, the system tab bar is still contributing its own inset despite
-/// `.toolbar(.hidden, for: .tabBar)`, and every screen in the app is reserving
-/// that twice — which is exactly the reported symptom.
+/// So the padding is a *target* now, not an increment. The bar is an overlay
+/// on the `TabView`, aligned to the window's safe area, so its top edge sits
+/// `tabBarTotalHeight` above the home indicator. Content should stop in the
+/// same place, which means the total bottom inset wants to be
+/// `windowBottom + tabBarTotalHeight` however much of that the system has
+/// already supplied.
 ///
-/// Drawn at the top, deliberately. The first version of this drew a marker at
-/// the bottom, applied after the padding, so it aligned to the padded view's
-/// outer bounds and rendered underneath the tab bar: an instrument for
-/// measuring the bottom of the screen, hidden by the thing at the bottom of
-/// the screen. Nothing covers the top.
-private struct TabClearanceRuler: ViewModifier {
+/// Self-correcting, deliberately: if a future iOS stops reserving space for a
+/// hidden tab bar, the measured inset falls to the home indicator alone and
+/// this adds the full `tabBarTotalHeight` again, with nothing to change here.
+/// A hard-coded 49 would silently become a 49pt overlap on that day.
+private struct TabBarClearance: ViewModifier {
+    @Environment(\.cozyWindowBottomInset) private var windowBottom
+
+    /// What the system hands this tab, measured rather than assumed.
+    @State private var systemBottom: CGFloat?
+
+    private var target: CGFloat { windowBottom + CozyMetrics.tabBarTotalHeight }
+
+    private var extra: CGFloat {
+        max(0, target - (systemBottom ?? windowBottom))
+    }
+
     func body(content: Content) -> some View {
-        if LaunchOptions.showsLayoutRuler {
-            GeometryReader { outer in
-                content
-                    .safeAreaPadding(.bottom, CozyMetrics.tabBarTotalHeight)
-                    .overlay(alignment: .top) {
-                        Text(
-                            "system bottom \(Int(outer.safeAreaInsets.bottom))"
-                            + " · top \(Int(outer.safeAreaInsets.top))"
-                            + " · h \(Int(outer.size.height))"
-                            + " · reserved \(Int(CozyMetrics.tabBarTotalHeight))"
-                        )
-                        .font(.system(size: 13, weight: .black))
-                        .foregroundStyle(.white)
-                        .padding(6)
-                        .frame(maxWidth: .infinity)
-                        .background(.red)
-                    }
+        content
+            // Measured before the padding, so it reads what the system gave
+            // rather than what this modifier just added. A background rather
+            // than a wrapper: a `GeometryReader` around a tab's root would
+            // take over its layout, and these roots own `NavigationStack`s.
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { systemBottom = proxy.safeAreaInsets.bottom }
+                        .onChange(of: proxy.safeAreaInsets.bottom) { _, new in
+                            systemBottom = new
+                        }
+                }
             }
-        } else {
-            content.safeAreaPadding(.bottom, CozyMetrics.tabBarTotalHeight)
-        }
+            .safeAreaPadding(.bottom, extra)
+            .overlay(alignment: .top) {
+                if LaunchOptions.showsLayoutRuler {
+                    rulerReadout
+                }
+            }
+    }
+
+    /// Only under `-cozyLayoutRuler YES`, and drawn across the top where
+    /// nothing can cover it. The first version of this drew at the bottom,
+    /// after the padding, so it aligned to the padded view's outer bounds and
+    /// rendered underneath the tab bar: an instrument for measuring the bottom
+    /// of the screen, hidden by the thing at the bottom of the screen.
+    private var rulerReadout: some View {
+        Text(
+            "system \(Int(systemBottom ?? -1))"
+            + " · window \(Int(windowBottom))"
+            + " · target \(Int(target))"
+            + " · added \(Int(extra))"
+        )
+        .font(.system(size: 13, weight: .black))
+        .foregroundStyle(.white)
+        .padding(6)
+        .frame(maxWidth: .infinity)
+        .background(.red)
     }
 }
 
