@@ -66,7 +66,10 @@ struct GroceryModePicker: View {
 }
 
 struct GroceriesView: View {
-    @State private var mode: GroceryTabMode = .list
+    /// Opens on the shopping list, unless a launch argument says otherwise.
+    /// See `LaunchOptions.groceryMode` — that is how CI photographs the meal
+    /// plan, which is otherwise a screen no capture has ever opened.
+    @State private var mode: GroceryTabMode = LaunchOptions.groceryMode ?? .list
 
     var body: some View {
 

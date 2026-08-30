@@ -47,4 +47,31 @@ nonisolated enum LaunchOptions {
     static var skipsSplash: Bool {
         UserDefaults.standard.bool(forKey: "cozySkipSplash")
     }
+
+    /// Which half of the Groceries tab to open on.
+    ///
+    /// The tab opens on the shopping list, so the meal plan is a screen the
+    /// captures have never once seen — which is how `PlannedMealCard` came to
+    /// be fixed by reading rather than by photograph. One `@State` in
+    /// `GroceriesView` decides it, so this costs a launch and nothing else.
+    static var groceryMode: GroceryTabMode? {
+        guard let raw = UserDefaults.standard.string(forKey: "cozyGroceryMode") else { return nil }
+        return GroceryTabMode(rawValue: raw)
+    }
+
+    /// Draws the first recipe's detail screen as the Cookbook's root.
+    ///
+    /// The detail screen is the one people spend the most time on and the one
+    /// the camera has never pointed at: every capture so far is a tab root,
+    /// and this screen is a push behind one.
+    ///
+    /// Drawn as the root rather than pushed onto a path. `RecipeDetailView`
+    /// already hides the navigation bar and draws its own back chevron, so the
+    /// picture is the same either way — and a `NavigationPath` binding would
+    /// mean mixing path-driven and `item:`-driven destinations in one stack,
+    /// which is the sort of thing that quietly breaks opening a collection.
+    /// A debugging affordance is not allowed to put weight on real navigation.
+    static var opensFirstRecipe: Bool {
+        UserDefaults.standard.bool(forKey: "cozyOpenRecipe")
+    }
 }

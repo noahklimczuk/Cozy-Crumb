@@ -73,9 +73,28 @@ struct LibraryView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                header
-                content
+            Group {
+                // CI only, and inert without the launch argument. The detail
+                // screen is where the most time is spent and the only screen
+                // in the app the captures have never shown: every one of them
+                // is a tab root, and this is a push behind one.
+                //
+                // Drawn as the root rather than pushed. `RecipeDetailView`
+                // hides the navigation bar and draws its own back chevron, so
+                // the photograph is the same either way — and driving a real
+                // push would mean giving this stack a `NavigationPath`
+                // alongside the `item:` destination that opens a collection.
+                // Mixing those is how you break opening a collection, and a
+                // debugging affordance does not get to put weight on real
+                // navigation.
+                if LaunchOptions.opensFirstRecipe, let first = recipes.first {
+                    RecipeDetailView(recipe: first)
+                } else {
+                    VStack(spacing: 0) {
+                        header
+                        content
+                    }
+                }
             }
             .cozyScreenBackground()
             // The header is the title now. Leaving the navigation bar on as
