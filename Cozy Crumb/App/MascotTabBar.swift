@@ -39,7 +39,7 @@ import SwiftUI
 /// The window's own bottom safe area — the home indicator, and nothing else.
 ///
 /// Published by `RootTabView` from outside the `TabView`, because inside a tab
-/// that number is no longer available: see `TabClearanceRuler`.
+/// that number is no longer available: see `TabBarClearance`.
 private struct CozyWindowBottomInsetKey: EnvironmentKey {
     static let defaultValue: CGFloat = 0
 }
@@ -69,100 +69,70 @@ extension View {
 /// Makes a tab's bottom inset equal what the bar actually occupies, rather
 /// than adding the bar's height to whatever was already there.
 ///
-/// That distinction is the bug this fixes, and it took an instrument to find.
 /// `.toolbar(.hidden, for: .tabBar)` hides the system tab bar but does *not*
-/// stop it reserving space: inside a tab, the bottom safe area measured 83 on
-/// a phone whose home indicator is 34. The missing 49 is a tab bar that is not
-/// drawn. Adding another 108 on top of that reserved 191 for a bar occupying
-/// 142, so every scroll view in the app stopped 49pt early — which is exactly
-/// how it was reported: content ending short, with a gap, on every screen.
+/// stop it reserving space: measured inside a tab, the bottom safe area is 83
+/// on a phone whose home indicator is 34. The missing 49 is a tab bar that is
+/// never drawn. Adding another 108 on top reserved 191 for a bar occupying
+/// 142, so every scroll view in the app stopped 49pt short — which is exactly
+/// how it was reported: content ending early, with a gap, on every screen.
 ///
-/// So the padding is a *target* now, not an increment. The bar is an overlay
-/// on the `TabView`, aligned to the window's safe area, so its top edge sits
-/// `tabBarTotalHeight` above the home indicator. Content should stop in the
-/// same place, which means the total bottom inset wants to be
-/// `windowBottom + tabBarTotalHeight` however much of that the system has
-/// already supplied.
+/// The bar is an overlay on the `TabView`, aligned to the window's safe area,
+/// so its top edge sits `tabBarTotalHeight` above the home indicator. Content
+/// has to stop in the same place, which means a bottom inset of exactly
+/// `windowBottom + tabBarTotalHeight`.
 ///
-/// Self-correcting, deliberately: if a future iOS stops reserving space for a
-/// hidden tab bar, the measured inset falls to the home indicator alone and
-/// this adds the full `tabBarTotalHeight` again, with nothing to change here.
-/// A hard-coded 49 would silently become a 49pt overlap on that day.
+/// So the tab's own bottom inset is dropped outright and that number set in
+/// its place. Setting rather than adding is the whole point: an earlier
+/// version of this measured the inset and added the difference, which put the
+/// measurement downstream of its own output — `safeAreaPadding` does not
+/// resize the view, so the reading never showed the padding's effect, and what
+/// it did show was the padding itself. It reported `system 108` where the
+/// system gives 83, and 108 was simply the number that pass had just applied.
+/// A control loop reading its own output is worse than no measurement, because
+/// it looks like one.
+///
+/// `windowBottom` is measured, but outside the `TabView` where it is only ever
+/// the home indicator, and it never feeds back into anything here.
 private struct TabBarClearance: ViewModifier {
     @Environment(\.cozyWindowBottomInset) private var windowBottom
 
-    /// What the system hands this tab, measured rather than assumed.
-    @State private var systemBottom: CGFloat?
-
-    /// The height of the region the content actually lays out in, which is the
-    /// only number that says whether this worked.
-    ///
-    /// Everything else here is an input. On a 956pt screen with a 62pt top
-    /// inset, a correct bottom inset of 142 leaves 752. 811 would mean the
-    /// bottom is only 83 and content now runs under the bar; 703 would mean it
-    /// is back to the original 191 and the gap never went away.
-    @State private var contentHeight: CGFloat?
-
-    private var target: CGFloat { windowBottom + CozyMetrics.tabBarTotalHeight }
-
-    private var extra: CGFloat {
-        max(0, target - (systemBottom ?? windowBottom))
-    }
-
     func body(content: Content) -> some View {
         content
-            // Measured before the padding, so it reads what the system gave
-            // rather than what this modifier just added. A background rather
-            // than a wrapper: a `GeometryReader` around a tab's root would
-            // take over its layout, and these roots own `NavigationStack`s.
-            .background {
-                GeometryReader { proxy in
-                    Color.clear
-                        .onAppear { systemBottom = proxy.safeAreaInsets.bottom }
-                        .onChange(of: proxy.safeAreaInsets.bottom) { _, new in
-                            systemBottom = new
-                        }
-                }
-            }
-            .safeAreaPadding(.bottom, extra)
-            // Measured after the padding, and deliberately a separate reading
-            // from the one above: the input to this modifier and its output
-            // are different numbers, and conflating them is how a measurement
-            // ends up describing itself.
-            .background {
-                GeometryReader { proxy in
-                    Color.clear
-                        .onAppear { contentHeight = proxy.size.height }
-                        .onChange(of: proxy.size.height) { _, new in
-                            contentHeight = new
-                        }
-                }
-            }
-            .overlay(alignment: .top) {
-                if LaunchOptions.showsLayoutRuler {
-                    rulerReadout
-                }
-            }
+            // Drop what the tab was given — home indicator *and* the tab bar
+            // that is not drawn — so the next line is the only thing deciding
+            // where content stops.
+            .ignoresSafeArea(.container, edges: .bottom)
+            .safeAreaPadding(.bottom, windowBottom + CozyMetrics.tabBarTotalHeight)
+            .modifier(TabClearanceProbe())
     }
+}
 
-    /// Only under `-cozyLayoutRuler YES`, and drawn across the top where
-    /// nothing can cover it. The first version of this drew at the bottom,
-    /// after the padding, so it aligned to the padded view's outer bounds and
-    /// rendered underneath the tab bar: an instrument for measuring the bottom
-    /// of the screen, hidden by the thing at the bottom of the screen.
-    private var rulerReadout: some View {
-        Text(
-            "system \(Int(systemBottom ?? -1))"
-            + " · window \(Int(windowBottom))"
-            + " · target \(Int(target))"
-            + " · added \(Int(extra))"
-            + " · content h \(Int(contentHeight ?? -1))"
-        )
-        .font(.system(size: 13, weight: .black))
-        .foregroundStyle(.white)
-        .padding(6)
-        .frame(maxWidth: .infinity)
-        .background(.red)
+/// Draws a line exactly where content is allowed to end, under
+/// `-cozyLayoutRuler YES`.
+///
+/// `safeAreaInset` rather than an overlay or a `GeometryReader`, after three
+/// probes that each measured the wrong thing. An overlay aligns to the view's
+/// outer bounds, so the first one rendered underneath the tab bar — an
+/// instrument for measuring the bottom of the screen, hidden by the thing at
+/// the bottom of the screen. A `GeometryReader` on the view reports the view's
+/// frame, which `safeAreaPadding` does not change, so the second and third
+/// read 811 either way.
+///
+/// `safeAreaInset` places its content against the inside edge of the safe area
+/// as it stands, which is the one thing actually being asked about. The line
+/// should land flush on the top of the pink slab; any daylight between them is
+/// the bug, still there, in pixels.
+private struct TabClearanceProbe: ViewModifier {
+    func body(content: Content) -> some View {
+        if LaunchOptions.showsLayoutRuler {
+            content.safeAreaInset(edge: .bottom, spacing: 0) {
+                Rectangle()
+                    .fill(.red)
+                    .frame(height: 6)
+            }
+        } else {
+            content
+        }
     }
 }
 
