@@ -47,48 +47,53 @@ extension View {
     /// padding would inset the frame instead and leave a dead band the page
     /// colour does not reach.
     func cozyTabBarClearance() -> some View {
-        safeAreaPadding(.bottom, CozyMetrics.tabBarTotalHeight)
-            .modifier(TabClearanceRuler())
+        modifier(TabClearanceRuler())
     }
 }
 
-/// Draws where a tab's content actually ends, and the numbers behind it.
+/// Applies the clearance, and — only under `-cozyLayoutRuler YES` — prints the
+/// numbers behind it across the top of the screen.
 ///
-/// Off unless `-cozyLayoutRuler YES`, and it exists because "the scrolling is
-/// cut off" has now been reported three times and diagnosed wrong twice. Both
-/// wrong answers came from reasoning about which modifier insets what; the
-/// captures could not settle it, because they photograph every screen at rest
-/// at the top, which is exactly the state in which a wrong bottom inset is
-/// invisible.
+/// "The scrolling is cut off" has been reported three times and answered wrong
+/// twice, both times by reasoning about which modifier insets what. The
+/// ordinary captures cannot settle it: they photograph every screen at rest at
+/// the top, and a screen at rest looks identical whether its bottom inset is
+/// right or twice too big.
 ///
-/// So this stops being an argument. The bar is
-/// `CozyMetrics.tabBarTotalHeight` tall above the home indicator, so on a
-/// phone with a 34pt indicator the red edge should land 142pt from the bottom
-/// of the screen — exactly on the bar's top edge, with no gap. Any gap between
-/// the red line and the pink slab in a screenshot is the bug, in pixels, and
-/// `residual bottom` says whether something other than this modifier is still
-/// insetting: it should read 0, because the padding above is supposed to have
-/// consumed the whole safe area.
+/// The number that settles it is `system bottom` — the inset a tab's content
+/// is handed *before* this modifier adds anything. On a phone whose only
+/// bottom furniture is the home indicator that is 34. If it reads closer to
+/// 83, the system tab bar is still contributing its own inset despite
+/// `.toolbar(.hidden, for: .tabBar)`, and every screen in the app is reserving
+/// that twice — which is exactly the reported symptom.
+///
+/// Drawn at the top, deliberately. The first version of this drew a marker at
+/// the bottom, applied after the padding, so it aligned to the padded view's
+/// outer bounds and rendered underneath the tab bar: an instrument for
+/// measuring the bottom of the screen, hidden by the thing at the bottom of
+/// the screen. Nothing covers the top.
 private struct TabClearanceRuler: ViewModifier {
     func body(content: Content) -> some View {
         if LaunchOptions.showsLayoutRuler {
-            content.overlay(alignment: .bottom) {
-                GeometryReader { proxy in
-                    Text(
-                        "content h \(Int(proxy.size.height))"
-                        + " · residual bottom \(Int(proxy.safeAreaInsets.bottom))"
-                        + " · reserved \(Int(CozyMetrics.tabBarTotalHeight))"
-                    )
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.red)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
-                }
+            GeometryReader { outer in
+                content
+                    .safeAreaPadding(.bottom, CozyMetrics.tabBarTotalHeight)
+                    .overlay(alignment: .top) {
+                        Text(
+                            "system bottom \(Int(outer.safeAreaInsets.bottom))"
+                            + " · top \(Int(outer.safeAreaInsets.top))"
+                            + " · h \(Int(outer.size.height))"
+                            + " · reserved \(Int(CozyMetrics.tabBarTotalHeight))"
+                        )
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundStyle(.white)
+                        .padding(6)
+                        .frame(maxWidth: .infinity)
+                        .background(.red)
+                    }
             }
         } else {
-            content
+            content.safeAreaPadding(.bottom, CozyMetrics.tabBarTotalHeight)
         }
     }
 }
