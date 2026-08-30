@@ -490,18 +490,36 @@ enum CozyMetrics {
 // MARK: - Grids
 
 enum CozyGrid {
-    /// Recipe grids: two columns, always.
+    /// Recipe grids: two columns, or one when the text is big enough to need
+    /// the whole width.
     ///
-    /// This used to branch on the horizontal size class and lay out adaptive
-    /// columns when it was `.regular` — for an iPad, or a Max in landscape.
-    /// The app is now iPhone-only and portrait-locked, so the size class is
+    /// This branched on the horizontal size class once, laying out adaptive
+    /// columns when it was `.regular` — an iPad, or a Max in landscape. The
+    /// app is iPhone-only and portrait-locked now, so the size class is
     /// `.compact` on every device it can run on and that branch could never be
-    /// reached. A layout nobody can see is a layout nobody has checked, so it
-    /// is gone rather than left to rot.
-    nonisolated static let recipeColumns: [GridItem] = [
-        GridItem(.flexible(), spacing: CozySpacing.m),
-        GridItem(.flexible(), spacing: CozySpacing.m)
-    ]
+    /// reached. It is text size that decides the count instead, which is the
+    /// thing that actually varies.
+    ///
+    /// Two columns on the widest phone is about 200pt each. At AX5 that is
+    /// narrower than the *word* "Sunday", so a title cannot break anywhere but
+    /// mid-word: the capture reads "Sunda" over a card whose recipe is called
+    /// Sunday Roast Chicken. Raising the line limit let it keep going instead
+    /// of truncating, which fixed the clipping and not the reason for it.
+    /// No line limit rescues a column narrower than one word.
+    ///
+    /// One column past AX1, therefore — around 360pt, which is enough for a
+    /// title to break where English breaks. Fewer recipes on screen at a text
+    /// size that was always going to show fewer of them.
+    nonisolated static func recipeColumns(for typeSize: DynamicTypeSize) -> [GridItem] {
+        guard typeSize.isAccessibilitySize else {
+            return [
+                GridItem(.flexible(), spacing: CozySpacing.m),
+                GridItem(.flexible(), spacing: CozySpacing.m)
+            ]
+        }
+
+        return [GridItem(.flexible(), spacing: CozySpacing.m)]
+    }
 }
 
 // MARK: - Elevation

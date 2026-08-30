@@ -16,6 +16,7 @@ import SwiftUI
 
 struct PlannedMealCard: View {
     @Environment(\.accentPalette) private var accent
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     let recipe: Recipe
 
@@ -92,17 +93,30 @@ struct PlannedMealCard: View {
             }
     }
 
+    /// The recipe's name, capped at two lines until an accessibility size,
+    /// where two lines cannot hold one. Same rule as `RecipeCard`, for the
+    /// same reason and deliberately in step with it — see the note there.
+    @ViewBuilder
+    private var title: some View {
+        let text = Text(recipe.title)
+            .cozyText(CozyFont.cardTitle)
+            .cozyDisplayTracking(CozyTracking.cardTitle, relativeTo: .headline)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+
+        if typeSize.isAccessibilitySize {
+            text
+        } else {
+            text.lineLimit(2, reservesSpace: true)
+        }
+    }
+
     private var details: some View {
         VStack(alignment: .leading, spacing: CozySpacing.s) {
             // Matches the Cookbook's card exactly — same face, same size, same
             // tracking. These two cards sit in grids one tab apart and any
             // drift between them is visible immediately.
-            Text(recipe.title)
-                .cozyText(CozyFont.cardTitle)
-                .cozyDisplayTracking(CozyTracking.cardTitle, relativeTo: .headline)
-                .lineLimit(2, reservesSpace: true)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
+            title
 
             // A plain row, same as RecipeCard. Two short pills do not justify
             // measuring candidates inside a grid cell that is still working
