@@ -68,8 +68,9 @@ struct RootTabView: View {
     /// outside the `TabView`, where the hidden tab bar has not been added yet.
     @State private var windowBottomInset: CGFloat = 0
 
-    /// What a tab is actually handed, reported by `TabInsetProbe`.
-    @State private var tabSystemBottom: CGFloat?
+    /// What the tabs are actually handed, filled in by the probe each tab
+    /// carries. See `TabBarClearance`.
+    @State private var insetReading = TabInsetReading()
     /// A link handed over from outside the app — the share extension, a
     /// shortcut, anything that opens the cozycrumb:// scheme.
     @State private var sharedLink: SharedLink?
@@ -96,43 +97,10 @@ struct RootTabView: View {
         )
     }
 
-    /// How much each tab pads its own bottom.
-    ///
-    /// The bar is an overlay aligned to the window's safe area, so its top edge
-    /// sits `tabBarTotalHeight` above the home indicator and content has to
-    /// stop in the same place — a total bottom inset of
-    /// `windowBottom + tabBarTotalHeight`. The tab already has some of that,
-    /// so this is only the remainder.
-    ///
-    /// Whatever the tab is short by, and never less. `max` and nothing else:
-    /// an earlier draft also clamped this *down* to the bar's height, which is
-    /// the one way this arithmetic can produce an overlap — if the tab were
-    /// ever handed less than the window, capping the top-up would leave
-    /// content under the bar. Uncapped, a low reading simply pads more.
-    ///
-    /// Every remaining way to be wrong leaves *more* room than needed, which
-    /// is the gap that is already there today — never less. Until the probe
-    /// reports, `system` falls back to `windowBottom`, which makes this the
-    /// bar's full height: exactly the behaviour being replaced.
-    private var tabBarPadding: CGFloat {
-        let system = tabSystemBottom ?? windowBottomInset
-        let target = windowBottomInset + CozyMetrics.tabBarTotalHeight
-        return max(0, target - system)
-    }
-
     var body: some View {
         TabView(selection: $selection) {
             Tab(CozyTab.library.title, systemImage: CozyTab.library.symbol, value: .library) {
-                // The probe is a sibling of the padded screen, not inside it.
-                // That is the point: nothing pads it, so what it reads is what
-                // the tab was handed. See `TabInsetProbe`.
-                //
-                // One tab carries it because the inset belongs to the
-                // `TabView`, not to any screen in it.
-                ZStack {
-                    TabInsetProbe(systemBottom: $tabSystemBottom)
-                    LibraryView().cozyTabBarClearance()
-                }
+                LibraryView().cozyTabBarClearance()
             }
             Tab(CozyTab.groceries.title, systemImage: CozyTab.groceries.symbol, value: .groceries) {
                 GroceriesView().cozyTabBarClearance()
@@ -188,7 +156,8 @@ struct RootTabView: View {
                     }
             }
         }
-        .environment(\.cozyTabBarPadding, tabBarPadding)
+        .environment(\.cozyWindowBottomInset, windowBottomInset)
+        .environment(insetReading)
         .tint(accent.deep)
         .environment(\.accentPalette, accent)
         .environment(\.hapticsEnabled, hapticsEnabled)
