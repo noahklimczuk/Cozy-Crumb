@@ -36,23 +36,8 @@
 
 import SwiftUI
 
-/// The window's own bottom safe area — the home indicator, and nothing else.
-///
-/// Published by `RootTabView` from outside the `TabView`, because inside a tab
-/// that number is no longer available: see `TabBarClearance`.
-private struct CozyWindowBottomInsetKey: EnvironmentKey {
-    static let defaultValue: CGFloat = 0
-}
-
-extension EnvironmentValues {
-    var cozyWindowBottomInset: CGFloat {
-        get { self[CozyWindowBottomInsetKey.self] }
-        set { self[CozyWindowBottomInsetKey.self] = newValue }
-    }
-}
-
 extension View {
-    /// Keeps the bottom of a screen clear of `MascotTabBar`, and no clearer.
+    /// Keeps the bottom of a screen clear of `MascotTabBar`.
     ///
     /// `safeAreaPadding` rather than plain `padding`, because this has to be
     /// safe *area*: a scroll view should still draw through the strip while
@@ -62,76 +47,53 @@ extension View {
     /// padding would inset the frame instead and leave a dead band the page
     /// colour does not reach.
     func cozyTabBarClearance() -> some View {
-        modifier(TabBarClearance())
+        modifier(TabClearanceRuler())
     }
 }
 
-/// Makes a tab's bottom inset equal what the bar actually occupies, rather
-/// than adding the bar's height to whatever was already there.
+/// Applies the clearance, and — only under `-cozyLayoutRuler YES` — prints the
+/// numbers behind it across the top of the screen.
 ///
-/// `.toolbar(.hidden, for: .tabBar)` hides the system tab bar but does *not*
-/// stop it reserving space: measured inside a tab, the bottom safe area is 83
-/// on a phone whose home indicator is 34. The missing 49 is a tab bar that is
-/// never drawn. Adding another 108 on top reserved 191 for a bar occupying
-/// 142, so every scroll view in the app stopped 49pt short — which is exactly
-/// how it was reported: content ending early, with a gap, on every screen.
+/// "The scrolling is cut off" has been reported three times and answered wrong
+/// twice, both times by reasoning about which modifier insets what. The
+/// ordinary captures cannot settle it: they photograph every screen at rest at
+/// the top, and a screen at rest looks identical whether its bottom inset is
+/// right or twice too big.
 ///
-/// The bar is an overlay on the `TabView`, aligned to the window's safe area,
-/// so its top edge sits `tabBarTotalHeight` above the home indicator. Content
-/// has to stop in the same place, which means a bottom inset of exactly
-/// `windowBottom + tabBarTotalHeight`.
+/// The number that settles it is `system bottom` — the inset a tab's content
+/// is handed *before* this modifier adds anything. On a phone whose only
+/// bottom furniture is the home indicator that is 34. If it reads closer to
+/// 83, the system tab bar is still contributing its own inset despite
+/// `.toolbar(.hidden, for: .tabBar)`, and every screen in the app is reserving
+/// that twice — which is exactly the reported symptom.
 ///
-/// So the tab's own bottom inset is dropped outright and that number set in
-/// its place. Setting rather than adding is the whole point: an earlier
-/// version of this measured the inset and added the difference, which put the
-/// measurement downstream of its own output — `safeAreaPadding` does not
-/// resize the view, so the reading never showed the padding's effect, and what
-/// it did show was the padding itself. It reported `system 108` where the
-/// system gives 83, and 108 was simply the number that pass had just applied.
-/// A control loop reading its own output is worse than no measurement, because
-/// it looks like one.
-///
-/// `windowBottom` is measured, but outside the `TabView` where it is only ever
-/// the home indicator, and it never feeds back into anything here.
-private struct TabBarClearance: ViewModifier {
-    @Environment(\.cozyWindowBottomInset) private var windowBottom
-
-    func body(content: Content) -> some View {
-        content
-            // Drop what the tab was given — home indicator *and* the tab bar
-            // that is not drawn — so the next line is the only thing deciding
-            // where content stops.
-            .ignoresSafeArea(.container, edges: .bottom)
-            .safeAreaPadding(.bottom, windowBottom + CozyMetrics.tabBarTotalHeight)
-            .modifier(TabClearanceProbe())
-    }
-}
-
-/// Draws a line exactly where content is allowed to end, under
-/// `-cozyLayoutRuler YES`.
-///
-/// `safeAreaInset` rather than an overlay or a `GeometryReader`, after three
-/// probes that each measured the wrong thing. An overlay aligns to the view's
-/// outer bounds, so the first one rendered underneath the tab bar — an
-/// instrument for measuring the bottom of the screen, hidden by the thing at
-/// the bottom of the screen. A `GeometryReader` on the view reports the view's
-/// frame, which `safeAreaPadding` does not change, so the second and third
-/// read 811 either way.
-///
-/// `safeAreaInset` places its content against the inside edge of the safe area
-/// as it stands, which is the one thing actually being asked about. The line
-/// should land flush on the top of the pink slab; any daylight between them is
-/// the bug, still there, in pixels.
-private struct TabClearanceProbe: ViewModifier {
+/// Drawn at the top, deliberately. The first version of this drew a marker at
+/// the bottom, applied after the padding, so it aligned to the padded view's
+/// outer bounds and rendered underneath the tab bar: an instrument for
+/// measuring the bottom of the screen, hidden by the thing at the bottom of
+/// the screen. Nothing covers the top.
+private struct TabClearanceRuler: ViewModifier {
     func body(content: Content) -> some View {
         if LaunchOptions.showsLayoutRuler {
-            content.safeAreaInset(edge: .bottom, spacing: 0) {
-                Rectangle()
-                    .fill(.red)
-                    .frame(height: 6)
+            GeometryReader { outer in
+                content
+                    .safeAreaPadding(.bottom, CozyMetrics.tabBarTotalHeight)
+                    .overlay(alignment: .top) {
+                        Text(
+                            "system bottom \(Int(outer.safeAreaInsets.bottom))"
+                            + " · top \(Int(outer.safeAreaInsets.top))"
+                            + " · h \(Int(outer.size.height))"
+                            + " · reserved \(Int(CozyMetrics.tabBarTotalHeight))"
+                        )
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundStyle(.white)
+                        .padding(6)
+                        .frame(maxWidth: .infinity)
+                        .background(.red)
+                    }
             }
         } else {
-            content
+            content.safeAreaPadding(.bottom, CozyMetrics.tabBarTotalHeight)
         }
     }
 }
