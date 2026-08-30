@@ -36,8 +36,23 @@
 
 import SwiftUI
 
+/// How much a tab's root should pad its own bottom, decided by `RootTabView`.
+///
+/// Defaults to the bar's full height, which is what this did before any of
+/// this and is the one value guaranteed never to cause an overlap.
+private struct CozyTabBarPaddingKey: EnvironmentKey {
+    static let defaultValue: CGFloat = CozyMetrics.tabBarTotalHeight
+}
+
+extension EnvironmentValues {
+    var cozyTabBarPadding: CGFloat {
+        get { self[CozyTabBarPaddingKey.self] }
+        set { self[CozyTabBarPaddingKey.self] = newValue }
+    }
+}
+
 extension View {
-    /// Keeps the bottom of a screen clear of `MascotTabBar`.
+    /// Keeps the bottom of a screen clear of `MascotTabBar`, and no clearer.
     ///
     /// `safeAreaPadding` rather than plain `padding`, because this has to be
     /// safe *area*: a scroll view should still draw through the strip while
@@ -46,54 +61,85 @@ extension View {
     /// should land on top of the strip rather than under the slab. Plain
     /// padding would inset the frame instead and leave a dead band the page
     /// colour does not reach.
+    ///
+    /// The number comes from `RootTabView` rather than from
+    /// `CozyMetrics.tabBarTotalHeight` directly. See `TabInsetProbe` for why
+    /// it cannot be worked out here.
     func cozyTabBarClearance() -> some View {
-        modifier(TabClearanceRuler())
+        modifier(TabBarClearance())
     }
 }
 
-/// Applies the clearance, and — only under `-cozyLayoutRuler YES` — prints the
-/// numbers behind it across the top of the screen.
+private struct TabBarClearance: ViewModifier {
+    @Environment(\.cozyTabBarPadding) private var padding
+
+    func body(content: Content) -> some View {
+        content
+            .safeAreaPadding(.bottom, padding)
+            .modifier(TabClearanceRuler())
+    }
+}
+
+/// Reports the bottom safe area a tab is given, from a view that no clearance
+/// is ever applied to.
 ///
-/// "The scrolling is cut off" has been reported three times and answered wrong
-/// twice, both times by reasoning about which modifier insets what. The
-/// ordinary captures cannot settle it: they photograph every screen at rest at
-/// the top, and a screen at rest looks identical whether its bottom inset is
-/// right or twice too big.
+/// This is the whole trick, and it took four failed probes to see it.
+/// `.toolbar(.hidden, for: .tabBar)` hides the system tab bar without stopping
+/// it reserving space, so a tab's own bottom inset is the home indicator plus
+/// about 49pt of bar that is never drawn — 83 against a 34pt indicator. The
+/// clearance then added the bar's full height on top, reserving 191 for a bar
+/// that occupies 142, and every scroll view in the app stopped 49pt short.
 ///
-/// The number that settles it is `system bottom` — the inset a tab's content
-/// is handed *before* this modifier adds anything. On a phone whose only
-/// bottom furniture is the home indicator that is 34. If it reads closer to
-/// 83, the system tab bar is still contributing its own inset despite
-/// `.toolbar(.hidden, for: .tabBar)`, and every screen in the app is reserving
-/// that twice — which is exactly the reported symptom.
+/// Reading that inset from inside the clearance cannot work, and that is not a
+/// placement detail but a property of the thing: `safeAreaPadding` changes the
+/// safe area for everything it wraps, so any probe under it measures the
+/// padding this modifier just applied rather than what the system gave. One
+/// attempt reported `system 108` — which was simply the number that pass had
+/// set. A control loop reading its own output is worse than no measurement,
+/// because it looks like one.
 ///
-/// Drawn at the top, deliberately. The first version of this drew a marker at
-/// the bottom, applied after the padding, so it aligned to the padded view's
-/// outer bounds and rendered underneath the tab bar: an instrument for
-/// measuring the bottom of the screen, hidden by the thing at the bottom of
-/// the screen. Nothing covers the top.
+/// So the probe is a *sibling*. It sits in a `ZStack` beside the padded
+/// screen, inside the same tab, and nothing pads it. It sees what the tab was
+/// handed, and it keeps seeing that no matter what the clearance does next.
+///
+/// One tab carries it. The inset is a property of the `TabView`, not of any
+/// screen in it, so five probes would report the same number five times.
+struct TabInsetProbe: View {
+    @Binding var systemBottom: CGFloat?
+
+    var body: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .onAppear { systemBottom = proxy.safeAreaInsets.bottom }
+                .onChange(of: proxy.safeAreaInsets.bottom) { _, new in
+                    systemBottom = new
+                }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Prints the numbers across the top under `-cozyLayoutRuler YES`.
+///
+/// At the top because nothing covers the top. The first version drew a marker
+/// at the bottom, after the padding, so it aligned to the padded view's outer
+/// bounds and rendered underneath the tab bar — an instrument for measuring
+/// the bottom of the screen, hidden by the thing at the bottom of the screen.
 private struct TabClearanceRuler: ViewModifier {
+    @Environment(\.cozyTabBarPadding) private var padding
+
     func body(content: Content) -> some View {
         if LaunchOptions.showsLayoutRuler {
-            GeometryReader { outer in
-                content
-                    .safeAreaPadding(.bottom, CozyMetrics.tabBarTotalHeight)
-                    .overlay(alignment: .top) {
-                        Text(
-                            "system bottom \(Int(outer.safeAreaInsets.bottom))"
-                            + " · top \(Int(outer.safeAreaInsets.top))"
-                            + " · h \(Int(outer.size.height))"
-                            + " · reserved \(Int(CozyMetrics.tabBarTotalHeight))"
-                        )
-                        .font(.system(size: 13, weight: .black))
-                        .foregroundStyle(.white)
-                        .padding(6)
-                        .frame(maxWidth: .infinity)
-                        .background(.red)
-                    }
+            content.overlay(alignment: .top) {
+                Text("padding applied \(Int(padding)) · bar \(Int(CozyMetrics.tabBarTotalHeight))")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(.white)
+                    .padding(6)
+                    .frame(maxWidth: .infinity)
+                    .background(.red)
             }
         } else {
-            content.safeAreaPadding(.bottom, CozyMetrics.tabBarTotalHeight)
+            content
         }
     }
 }
