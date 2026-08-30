@@ -48,6 +48,48 @@ extension View {
     /// colour does not reach.
     func cozyTabBarClearance() -> some View {
         safeAreaPadding(.bottom, CozyMetrics.tabBarTotalHeight)
+            .modifier(TabClearanceRuler())
+    }
+}
+
+/// Draws where a tab's content actually ends, and the numbers behind it.
+///
+/// Off unless `-cozyLayoutRuler YES`, and it exists because "the scrolling is
+/// cut off" has now been reported three times and diagnosed wrong twice. Both
+/// wrong answers came from reasoning about which modifier insets what; the
+/// captures could not settle it, because they photograph every screen at rest
+/// at the top, which is exactly the state in which a wrong bottom inset is
+/// invisible.
+///
+/// So this stops being an argument. The bar is
+/// `CozyMetrics.tabBarTotalHeight` tall above the home indicator, so on a
+/// phone with a 34pt indicator the red edge should land 142pt from the bottom
+/// of the screen — exactly on the bar's top edge, with no gap. Any gap between
+/// the red line and the pink slab in a screenshot is the bug, in pixels, and
+/// `residual bottom` says whether something other than this modifier is still
+/// insetting: it should read 0, because the padding above is supposed to have
+/// consumed the whole safe area.
+private struct TabClearanceRuler: ViewModifier {
+    func body(content: Content) -> some View {
+        if LaunchOptions.showsLayoutRuler {
+            content.overlay(alignment: .bottom) {
+                GeometryReader { proxy in
+                    Text(
+                        "content h \(Int(proxy.size.height))"
+                        + " · residual bottom \(Int(proxy.safeAreaInsets.bottom))"
+                        + " · reserved \(Int(CozyMetrics.tabBarTotalHeight))"
+                    )
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.red)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                }
+            }
+        } else {
+            content
+        }
     }
 }
 

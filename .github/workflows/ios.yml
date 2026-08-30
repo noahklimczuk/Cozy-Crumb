@@ -356,6 +356,30 @@ jobs:
             done
           done
 
+          # A measurement, not a picture of a screen.
+          #
+          # "The scrolling is cut off" has been reported three times and
+          # answered wrong twice, both times by reasoning about which modifier
+          # insets what. The ordinary captures cannot settle it: they
+          # photograph every screen at rest at the top, and a screen at rest
+          # looks the same whether its bottom inset is right or twice too big.
+          #
+          # `-cozyLayoutRuler` draws a red edge exactly where a tab's content
+          # is allowed to end. The gap between that edge and the top of the
+          # pink bar is the bug, in pixels, and the numbers printed on the edge
+          # say whether anything besides `cozyTabBarClearance` is still
+          # insetting the content.
+          xcrun simctl ui "$DEVICE" appearance light || true
+          xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
+          xcrun simctl launch "$DEVICE" "$BUNDLE_ID" \
+            -cozyStartTab settings \
+            -cozySampleData YES \
+            -cozySkipSplash YES \
+            -cozyLayoutRuler YES >/dev/null 2>&1 || true
+          sleep 4
+          xcrun simctl io "$DEVICE" screenshot "$RUNNER_TEMP/screens/ruler-settings.png" \
+            >/dev/null 2>&1 && echo "captured ruler/settings" || echo "could not capture ruler/settings"
+
           # A third pass at the largest accessibility text size.
           #
           # Every layout in this app has been judged at the default size, so

@@ -47,4 +47,15 @@ nonisolated enum LaunchOptions {
     static var skipsSplash: Bool {
         UserDefaults.standard.bool(forKey: "cozySkipSplash")
     }
+
+    /// Draws a red edge where a tab's content ends, with the insets behind it.
+    ///
+    /// See `TabClearanceRuler`. "The scrolling is cut off" has been reported
+    /// three times and answered wrong twice, both times from reasoning about
+    /// modifiers rather than from a measurement — and the ordinary captures
+    /// cannot settle it, because a screen photographed at rest at the top
+    /// looks identical whether its bottom inset is right or twice too big.
+    static var showsLayoutRuler: Bool {
+        UserDefaults.standard.bool(forKey: "cozyLayoutRuler")
+    }
 }
