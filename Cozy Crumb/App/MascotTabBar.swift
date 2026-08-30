@@ -94,6 +94,15 @@ private struct TabBarClearance: ViewModifier {
     /// What the system hands this tab, measured rather than assumed.
     @State private var systemBottom: CGFloat?
 
+    /// The height of the region the content actually lays out in, which is the
+    /// only number that says whether this worked.
+    ///
+    /// Everything else here is an input. On a 956pt screen with a 62pt top
+    /// inset, a correct bottom inset of 142 leaves 752. 811 would mean the
+    /// bottom is only 83 and content now runs under the bar; 703 would mean it
+    /// is back to the original 191 and the gap never went away.
+    @State private var contentHeight: CGFloat?
+
     private var target: CGFloat { windowBottom + CozyMetrics.tabBarTotalHeight }
 
     private var extra: CGFloat {
@@ -116,6 +125,19 @@ private struct TabBarClearance: ViewModifier {
                 }
             }
             .safeAreaPadding(.bottom, extra)
+            // Measured after the padding, and deliberately a separate reading
+            // from the one above: the input to this modifier and its output
+            // are different numbers, and conflating them is how a measurement
+            // ends up describing itself.
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { contentHeight = proxy.size.height }
+                        .onChange(of: proxy.size.height) { _, new in
+                            contentHeight = new
+                        }
+                }
+            }
             .overlay(alignment: .top) {
                 if LaunchOptions.showsLayoutRuler {
                     rulerReadout
@@ -134,6 +156,7 @@ private struct TabBarClearance: ViewModifier {
             + " · window \(Int(windowBottom))"
             + " · target \(Int(target))"
             + " · added \(Int(extra))"
+            + " · content h \(Int(contentHeight ?? -1))"
         )
         .font(.system(size: 13, weight: .black))
         .foregroundStyle(.white)
