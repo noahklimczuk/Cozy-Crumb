@@ -380,6 +380,24 @@ jobs:
             capture_beyond_the_tabs "$MODE"
           done
 
+          # A measurement, not a picture of a screen.
+          #
+          # "The scrolling is cut off" has been reported three times and
+          # answered wrong twice, both times by reasoning about which modifier
+          # insets what. The ordinary captures cannot settle it: they
+          # photograph every screen at rest at the top, and a screen at rest
+          # looks the same whether its bottom inset is right or twice too big.
+          #
+          # `-cozyLayoutRuler` prints, across the top of the screen, what the
+          # system handed the tab, what the window's own inset is, what the
+          # clearance added and what the two come to. Those four numbers are
+          # what the ordinary captures cannot show.
+          #
+          # Hand-rolled `simctl` calls when this was written, because
+          # `capture_screen` did not exist yet on this branch. It does now.
+          xcrun simctl ui "$DEVICE" appearance light || true
+          capture_screen light ruler settings -cozyLayoutRuler YES
+
           # A third pass at the largest accessibility text size.
           #
           # Every layout in this app has been judged at the default size, so

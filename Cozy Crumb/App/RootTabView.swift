@@ -63,6 +63,14 @@ struct RootTabView: View {
     /// `LaunchOptions.startTab` is nil unless a launch argument named one, so
     /// this is `.library` for everybody who is not a screenshot.
     @State private var selection: CozyTab = LaunchOptions.startTab ?? .library
+
+    /// The window's own bottom inset — the home indicator, nothing else. Read
+    /// outside the `TabView`, where the hidden tab bar has not been added yet.
+    @State private var windowBottomInset: CGFloat = 0
+
+    /// What the tabs are actually handed, filled in by the probe each tab
+    /// carries. See `TabBarClearance`.
+    @State private var insetReading = TabInsetReading()
     /// A link handed over from outside the app — the share extension, a
     /// shortcut, anything that opens the cozycrumb:// scheme.
     @State private var sharedLink: SharedLink?
@@ -136,6 +144,20 @@ struct RootTabView: View {
         .overlay(alignment: .bottom) {
             MascotTabBar(selection: $selection)
         }
+        // Measured out here, where the bottom inset is only the home indicator.
+        // A background rather than a wrapper: this view is the whole app, and a
+        // `GeometryReader` around it would take over the layout of every screen.
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { windowBottomInset = proxy.safeAreaInsets.bottom }
+                    .onChange(of: proxy.safeAreaInsets.bottom) { _, new in
+                        windowBottomInset = new
+                    }
+            }
+        }
+        .environment(\.cozyWindowBottomInset, windowBottomInset)
+        .environment(insetReading)
         .tint(accent.deep)
         .environment(\.accentPalette, accent)
         .environment(\.hapticsEnabled, hapticsEnabled)

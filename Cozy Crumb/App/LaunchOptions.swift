@@ -74,4 +74,19 @@ nonisolated enum LaunchOptions {
     static var opensFirstRecipe: Bool {
         UserDefaults.standard.bool(forKey: "cozyOpenRecipe")
     }
+
+    /// Prints the tab bar clearance's numbers across the top of the screen.
+    ///
+    /// See `TabClearanceRuler`. "The scrolling is cut off" was reported three
+    /// times and answered wrong twice, both times from reasoning about which
+    /// modifier insets what rather than from a measurement — and the ordinary
+    /// captures cannot settle it, because a screen photographed at rest at the
+    /// top looks identical whether its bottom inset is right or 49pt too big.
+    ///
+    /// An earlier version drew a marker at the bottom instead, which rendered
+    /// underneath the tab bar: an instrument for measuring the bottom of the
+    /// screen, hidden by the thing at the bottom of the screen.
+    static var showsLayoutRuler: Bool {
+        UserDefaults.standard.bool(forKey: "cozyLayoutRuler")
+    }
 }
