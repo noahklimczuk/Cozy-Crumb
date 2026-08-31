@@ -48,13 +48,44 @@ nonisolated enum LaunchOptions {
         UserDefaults.standard.bool(forKey: "cozySkipSplash")
     }
 
-    /// Draws a red edge where a tab's content ends, with the insets behind it.
+    /// Which half of the Groceries tab to open on.
     ///
-    /// See `TabClearanceRuler`. "The scrolling is cut off" has been reported
-    /// three times and answered wrong twice, both times from reasoning about
-    /// modifiers rather than from a measurement — and the ordinary captures
-    /// cannot settle it, because a screen photographed at rest at the top
-    /// looks identical whether its bottom inset is right or twice too big.
+    /// The tab opens on the shopping list, so the meal plan is a screen the
+    /// captures have never once seen — which is how `PlannedMealCard` came to
+    /// be fixed by reading rather than by photograph. One `@State` in
+    /// `GroceriesView` decides it, so this costs a launch and nothing else.
+    static var groceryMode: GroceryTabMode? {
+        guard let raw = UserDefaults.standard.string(forKey: "cozyGroceryMode") else { return nil }
+        return GroceryTabMode(rawValue: raw)
+    }
+
+    /// Draws the first recipe's detail screen as the Cookbook's root.
+    ///
+    /// The detail screen is the one people spend the most time on and the one
+    /// the camera has never pointed at: every capture so far is a tab root,
+    /// and this screen is a push behind one.
+    ///
+    /// Drawn as the root rather than pushed onto a path. `RecipeDetailView`
+    /// already hides the navigation bar and draws its own back chevron, so the
+    /// picture is the same either way — and a `NavigationPath` binding would
+    /// mean mixing path-driven and `item:`-driven destinations in one stack,
+    /// which is the sort of thing that quietly breaks opening a collection.
+    /// A debugging affordance is not allowed to put weight on real navigation.
+    static var opensFirstRecipe: Bool {
+        UserDefaults.standard.bool(forKey: "cozyOpenRecipe")
+    }
+
+    /// Prints the tab bar clearance's numbers across the top of the screen.
+    ///
+    /// See `TabClearanceRuler`. "The scrolling is cut off" was reported three
+    /// times and answered wrong twice, both times from reasoning about which
+    /// modifier insets what rather than from a measurement — and the ordinary
+    /// captures cannot settle it, because a screen photographed at rest at the
+    /// top looks identical whether its bottom inset is right or 49pt too big.
+    ///
+    /// An earlier version drew a marker at the bottom instead, which rendered
+    /// underneath the tab bar: an instrument for measuring the bottom of the
+    /// screen, hidden by the thing at the bottom of the screen.
     static var showsLayoutRuler: Bool {
         UserDefaults.standard.bool(forKey: "cozyLayoutRuler")
     }
